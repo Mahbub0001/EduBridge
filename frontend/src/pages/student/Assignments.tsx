@@ -76,24 +76,24 @@ export default function Assignments() {
       <Card padding="none" className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 border-b border-slate-200">
+            <thead className="bg-slate-50 border-b border-slate-200 dark:bg-slate-800/80 dark:border-slate-800">
               <tr>
-                <th className="text-left px-6 py-4 text-xs font-extrabold text-slate-500 uppercase">Assignment</th>
-                <th className="text-left px-6 py-4 text-xs font-extrabold text-slate-500 uppercase">Course</th>
-                <th className="text-left px-6 py-4 text-xs font-extrabold text-slate-500 uppercase">Due Date</th>
-                <th className="text-left px-6 py-4 text-xs font-extrabold text-slate-500 uppercase">Status</th>
-                <th className="text-right px-6 py-4 text-xs font-extrabold text-slate-500 uppercase">Action</th>
+                <th className="text-left px-6 py-4 text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase">Assignment</th>
+                <th className="text-left px-6 py-4 text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase">Course</th>
+                <th className="text-left px-6 py-4 text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase">Due Date</th>
+                <th className="text-left px-6 py-4 text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase">Status</th>
+                <th className="text-right px-6 py-4 text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase">Action</th>
               </tr>
             </thead>
             <tbody>
               {pageItems.map((item) => (
-                <tr key={item.id} className="border-b border-slate-100 hover:bg-slate-50/50">
+                <tr key={item.id} className="border-b border-slate-100 dark:border-slate-800/60 hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
                   <td className="px-6 py-4">
-                    <p className="font-bold text-navy-900">{item.title}</p>
-                    {item.subtitle && <p className="text-xs text-slate-500">{item.subtitle}</p>}
+                    <p className="font-bold text-navy-900 dark:text-white">{item.title}</p>
+                    {item.subtitle && <p className="text-xs text-slate-500 dark:text-slate-400">{item.subtitle}</p>}
                   </td>
-                  <td className="px-6 py-4 text-slate-600 font-medium">{item.course_name}</td>
-                  <td className="px-6 py-4 text-slate-600">{item.due_date ? new Date(item.due_date).toLocaleDateString() : 'N/A'}</td>
+                  <td className="px-6 py-4 text-slate-600 dark:text-slate-300 font-medium">{item.course_name}</td>
+                  <td className="px-6 py-4 text-slate-600 dark:text-slate-400">{item.due_date ? new Date(item.due_date).toLocaleDateString() : 'N/A'}</td>
                   <td className="px-6 py-4">
                     <Badge variant={item.status === 'pending' ? 'warning' : item.status === 'submitted' ? 'info' : 'success'}>
                       {item.status === 'pending' ? 'Pending' : item.status === 'submitted' ? 'Submitted' : `Graded ${item.grade || ''}`}
@@ -101,7 +101,7 @@ export default function Assignments() {
                   </td>
                   <td className="px-6 py-4 text-right">
                     {item.status === 'pending' ? (
-                      <Button variant="primary" size="sm" className="!bg-navy-900" onClick={() => openSubmit(item)}>Submit</Button>
+                      <Button variant="primary" size="sm" className="!bg-navy-900 dark:!bg-teal-600 dark:!text-white" onClick={() => openSubmit(item)}>Submit</Button>
                     ) : item.status === 'graded' ? (
                       <Button variant="outline" size="sm">View Grade</Button>
                     ) : (
@@ -114,17 +114,17 @@ export default function Assignments() {
           </table>
         </div>
 
-        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100">
-          <span className="text-xs text-slate-500">
+        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 dark:border-slate-800">
+          <span className="text-xs text-slate-500 dark:text-slate-400">
             Page {page + 1} of {totalPages} ({assignments.length} total)
           </span>
           <div className="flex gap-2">
             <button type="button" disabled={page === 0} onClick={() => setPage((p) => p - 1)}
-              className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center disabled:opacity-40 hover:bg-slate-50">
+              className="w-8 h-8 rounded-lg border border-slate-200 dark:border-slate-800 flex items-center justify-center disabled:opacity-40 hover:bg-slate-50 dark:hover:bg-slate-800 dark:text-slate-300 dark:disabled:opacity-20">
               <ChevronLeft size={16} />
             </button>
             <button type="button" disabled={page >= totalPages - 1} onClick={() => setPage((p) => p + 1)}
-              className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center disabled:opacity-40 hover:bg-slate-50">
+              className="w-8 h-8 rounded-lg border border-slate-200 dark:border-slate-800 flex items-center justify-center disabled:opacity-40 hover:bg-slate-50 dark:hover:bg-slate-800 dark:text-slate-300 dark:disabled:opacity-20">
               <ChevronRight size={16} />
             </button>
           </div>
@@ -134,25 +134,25 @@ export default function Assignments() {
       {showSubmitModal && selectedAssignment && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <Card className="w-full max-w-lg space-y-4">
-            <h3 className="text-lg font-extrabold text-navy-900">Submit: {selectedAssignment.title}</h3>
+            <h3 className="text-lg font-extrabold text-navy-900 dark:text-white">Submit: {selectedAssignment.title}</h3>
             {submitMsg && (
-              <div className={`rounded-xl px-4 py-3 text-sm ${submitMsg.includes('success') ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
+              <div className={`rounded-xl px-4 py-3 text-sm ${submitMsg.includes('success') ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400' : 'bg-red-50 text-red-700 dark:bg-rose-950/30 dark:text-rose-450'}`}>
                 {submitMsg}
               </div>
             )}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-500">Your Submission</label>
+              <label className="text-xs font-bold text-slate-500 dark:text-slate-400">Your Submission</label>
               <textarea
                 value={submissionText}
                 onChange={(e) => setSubmissionText(e.target.value)}
                 rows={6}
-                className="w-full border border-slate-200 rounded-2xl px-4 py-3 text-sm outline-none focus:border-navy-900 resize-none"
+                className="w-full border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-3 text-sm outline-none focus:border-navy-900 dark:focus:border-teal-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white resize-none"
                 placeholder="Write your submission here or paste a link to your work..."
               />
             </div>
             <div className="flex gap-3 justify-end">
               <Button variant="ghost" onClick={() => setShowSubmitModal(false)} disabled={submitting}>Cancel</Button>
-              <Button variant="primary" className="!bg-navy-900" onClick={handleSubmit} disabled={submitting || !submissionText.trim()}>
+              <Button variant="primary" className="!bg-navy-900 dark:!bg-teal-600 dark:!text-white" onClick={handleSubmit} disabled={submitting || !submissionText.trim()}>
                 {submitting ? 'Submitting...' : 'Submit Assignment'}
               </Button>
             </div>

@@ -98,19 +98,19 @@ export default function CourseDetail() {
           </Card>
 
           <Card className="space-y-4">
-            <h2 className="text-lg font-extrabold text-navy-900">About this course</h2>
-            <p className="text-sm text-slate-600 leading-relaxed">{course.description || 'No description available.'}</p>
-            <div className="flex flex-wrap gap-6 pt-2 text-sm font-semibold text-slate-600">
+            <h2 className="text-lg font-extrabold text-navy-900 dark:text-white">About this course</h2>
+            <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">{course.description || 'No description available.'}</p>
+            <div className="flex flex-wrap gap-6 pt-2 text-sm font-semibold text-slate-600 dark:text-slate-400">
               <span className="flex items-center gap-2"><Clock size={16} /> {course.estimated_hours || 20}+ hours</span>
               <span className="flex items-center gap-2"><BarChart3 size={16} /> {course.level || 'All levels'}</span>
               <span className="flex items-center gap-2"><Users size={16} /> {course.enrollment_count || 0} students</span>
             </div>
             {course.learning_outcomes && course.learning_outcomes.length > 0 && (
               <div className="pt-2">
-                <h3 className="text-sm font-extrabold text-navy-900 mb-2">What you'll learn</h3>
+                <h3 className="text-sm font-extrabold text-navy-900 dark:text-white mb-2">What you'll learn</h3>
                 <ul className="space-y-1.5">
                   {course.learning_outcomes.map((o, i) => (
-                    <li key={i} className="text-sm text-slate-600 flex items-start gap-2">
+                    <li key={i} className="text-sm text-slate-600 dark:text-slate-300 flex items-start gap-2">
                       <span className="text-teal-500 mt-0.5">✓</span> {o}
                     </li>
                   ))}
@@ -119,10 +119,10 @@ export default function CourseDetail() {
             )}
             {course.prerequisites && course.prerequisites.length > 0 && (
               <div className="pt-2">
-                <h3 className="text-sm font-extrabold text-navy-900 mb-2">Prerequisites</h3>
+                <h3 className="text-sm font-extrabold text-navy-900 dark:text-white mb-2">Prerequisites</h3>
                 <ul className="space-y-1.5">
                   {course.prerequisites.map((p, i) => (
-                    <li key={i} className="text-sm text-slate-600 flex items-start gap-2">
+                    <li key={i} className="text-sm text-slate-600 dark:text-slate-300 flex items-start gap-2">
                       <span className="text-slate-400 mt-0.5">▸</span> {p}
                     </li>
                   ))}
@@ -132,23 +132,23 @@ export default function CourseDetail() {
           </Card>
 
           <Card className="space-y-4">
-            <h2 className="text-lg font-extrabold text-navy-900">Course Syllabus ({modules.length} modules, {totalLessons} lessons)</h2>
+            <h2 className="text-lg font-extrabold text-navy-900 dark:text-white">Course Syllabus ({modules.length} modules, {totalLessons} lessons)</h2>
             <div className="space-y-3">
               {modules.length > 0 ? modules.map((m, idx) => (
-                <div key={m.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                <div key={m.id} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-100 dark:border-slate-800">
                   <div className="flex items-center gap-3">
-                    <span className="w-10 h-10 rounded-xl bg-navy-900 text-white flex items-center justify-center text-xs font-bold">
+                    <span className="w-10 h-10 rounded-xl bg-navy-900 dark:bg-teal-600 text-white flex items-center justify-center text-xs font-bold">
                       {idx + 1}
                     </span>
                     <div>
-                      <p className="text-[10px] font-bold text-slate-500 uppercase">Module {idx + 1}</p>
-                      <p className="text-sm font-bold text-navy-900">{m.title}</p>
+                      <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">Module {idx + 1}</p>
+                      <p className="text-sm font-bold text-navy-900 dark:text-white">{m.title}</p>
                     </div>
                   </div>
-                  <span className="text-xs text-slate-500 font-semibold">{m.lessons?.length || 0} lessons</span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold">{m.lessons?.length || 0} lessons</span>
                 </div>
               )) : (
-                <p className="text-sm text-slate-500">Syllabus not yet available.</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Syllabus not yet available.</p>
               )}
             </div>
           </Card>
@@ -156,11 +156,11 @@ export default function CourseDetail() {
           {/* Announcements Card */}
           {isEnrolled && announcements.length > 0 && (
             <Card className="space-y-4">
-              <h2 className="text-lg font-extrabold text-navy-900 flex items-center gap-2">
-                <Megaphone className="text-slate-500" size={20} />
+              <h2 className="text-lg font-extrabold text-navy-900 dark:text-white flex items-center gap-2">
+                <Megaphone className="text-slate-500 dark:text-slate-400" size={20} />
                 Course Announcements
               </h2>
-              <div className="space-y-4 divide-y divide-slate-100">
+              <div className="space-y-4 divide-y divide-slate-100 dark:divide-slate-800">
                 {announcements.map((ann) => {
                   const isUrgent = ann.priority === 'urgent';
                   const isImportant = ann.priority === 'important';
@@ -170,12 +170,12 @@ export default function CourseDetail() {
                         <Badge variant={isUrgent ? 'danger' : isImportant ? 'warning' : 'default'} className="text-[8px] uppercase">
                           {ann.priority} Priority
                         </Badge>
-                        <span className="text-[10px] text-slate-400 font-mono">
+                        <span className="text-[10px] text-slate-400 dark:text-slate-550 font-mono">
                           {new Date(ann.published_at || ann.created_at).toLocaleDateString()}
                         </span>
                       </div>
-                      <h3 className="text-sm font-extrabold text-navy-900">{ann.title}</h3>
-                      <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap">{ann.content}</p>
+                      <h3 className="text-sm font-extrabold text-navy-900 dark:text-white">{ann.title}</h3>
+                      <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{ann.content}</p>
                     </div>
                   );
                 })}
@@ -189,8 +189,8 @@ export default function CourseDetail() {
             {isEnrolled && !isCompleted && (
               <div className="space-y-2">
                 <div className="flex justify-between text-sm font-bold">
-                  <span className="text-slate-500">Your progress</span>
-                  <span className="text-navy-900">{Math.round(progress)}%</span>
+                  <span className="text-slate-500 dark:text-slate-400">Your progress</span>
+                  <span className="text-navy-900 dark:text-white">{Math.round(progress)}%</span>
                 </div>
                 <ProgressBar value={Math.round(progress)} />
               </div>
@@ -198,35 +198,35 @@ export default function CourseDetail() {
 
             {isEnrolled ? (
               <Link to={`/student/courses/${course.id}/learn`}>
-                <Button variant="primary" size="lg" className="w-full !bg-navy-900">
+                <Button variant="primary" size="lg" className="w-full !bg-navy-900 dark:!bg-teal-600 dark:hover:!bg-teal-500">
                   <Play size={18} className="fill-white" />
                   {isCompleted ? 'Review Course' : 'Continue Learning'}
                 </Button>
               </Link>
             ) : (
-              <Button variant="primary" size="lg" className="w-full !bg-navy-900" onClick={handleEnroll} disabled={enrolling}>
+              <Button variant="primary" size="lg" className="w-full !bg-navy-900 dark:!bg-teal-600 dark:hover:!bg-teal-500" onClick={handleEnroll} disabled={enrolling}>
                 <GraduationCap size={18} />
                 {enrolling ? 'Enrolling...' : 'Enroll Now'}
               </Button>
             )}
 
-            <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100">
+            <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
               {[
                 { icon: BookOpen, label: `${modules.length} Modules` },
                 { icon: FileText, label: `${totalLessons} Lessons` },
                 { icon: MessageSquare, label: 'Forum' },
               ].map(({ icon: Icon, label }) => (
-                <div key={label} className="text-center p-3 bg-slate-50 rounded-xl">
-                  <Icon size={18} className="mx-auto text-navy-800 mb-1" />
-                  <span className="text-[10px] font-bold text-slate-600">{label}</span>
+                <div key={label} className="text-center p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl">
+                  <Icon size={18} className="mx-auto text-navy-800 dark:text-teal-400 mb-1" />
+                  <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400">{label}</span>
                 </div>
               ))}
             </div>
 
             {isCompleted && enrollment?.final_grade && (
-              <div className="p-4 bg-emerald-50 rounded-2xl text-center">
-                <p className="text-xs font-bold text-emerald-700 uppercase">Final Grade</p>
-                <p className="text-3xl font-black text-emerald-600">{enrollment.final_grade}%</p>
+              <div className="p-4 bg-emerald-50 dark:bg-emerald-950/20 rounded-2xl text-center">
+                <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase">Final Grade</p>
+                <p className="text-3xl font-black text-emerald-600 dark:text-emerald-400">{enrollment.final_grade}%</p>
               </div>
             )}
           </Card>

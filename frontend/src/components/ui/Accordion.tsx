@@ -32,21 +32,21 @@ export default function Accordion({ items, allowMultiple = false, defaultOpen = 
       {items.map((item) => {
         const isOpen = openIds.includes(item.id);
         return (
-          <D key={item.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+          <D key={item.id} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
             <button
               type="button"
               onClick={() => toggle(item.id)}
-              className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-slate-50 transition-colors"
+              className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
               aria-expanded={isOpen}
             >
-              <span className="font-extrabold text-sm text-slate-900">{item.title}</span>
+              <span className="font-extrabold text-sm text-slate-900 dark:text-white">{item.title}</span>
               <ChevronDown
                 size={18}
-                className={cn('text-slate-500 transition-transform shrink-0', isOpen && 'rotate-180')}
+                className={cn('text-slate-500 dark:text-slate-400 transition-transform shrink-0', isOpen && 'rotate-180')}
               />
             </button>
             {isOpen && (
-              <D className="px-6 pb-4 text-sm text-slate-600 border-t border-slate-100 pt-4">{item.content}</D>
+              <D className="px-6 pb-4 text-sm text-slate-600 dark:text-slate-300 border-t border-slate-100 dark:border-slate-800 pt-4">{item.content}</D>
             )}
           </D>
         );

@@ -55,12 +55,12 @@ export default function Calendar() {
         description="Manage your course schedules, milestones, and deadlines."
         action={
           <div className="flex items-center gap-2">
-            <button type="button" onClick={prevMonth} className="w-9 h-9 rounded-xl border border-slate-200 bg-white flex items-center justify-center hover:bg-slate-50">
-              <ChevronLeft size={18} className="text-slate-500" />
+            <button type="button" onClick={prevMonth} className="w-9 h-9 rounded-xl border border-slate-200 bg-white flex items-center justify-center hover:bg-slate-50 dark:bg-slate-900 dark:border-slate-800 dark:hover:bg-slate-800">
+              <ChevronLeft size={18} className="text-slate-500 dark:text-slate-400" />
             </button>
-            <span className="text-sm font-extrabold text-navy-900 px-2 min-w-[120px] text-center">{monthLabel}</span>
-            <button type="button" onClick={nextMonth} className="w-9 h-9 rounded-xl border border-slate-200 bg-white flex items-center justify-center hover:bg-slate-50">
-              <ChevronRight size={18} className="text-slate-500" />
+            <span className="text-sm font-extrabold text-navy-900 dark:text-white px-2 min-w-[120px] text-center">{monthLabel}</span>
+            <button type="button" onClick={nextMonth} className="w-9 h-9 rounded-xl border border-slate-200 bg-white flex items-center justify-center hover:bg-slate-50 dark:bg-slate-900 dark:border-slate-800 dark:hover:bg-slate-800">
+              <ChevronRight size={18} className="text-slate-500 dark:text-slate-400" />
             </button>
           </div>
         }
@@ -88,14 +88,14 @@ export default function Calendar() {
           </div>
           <div className="grid grid-cols-7 gap-2">
             {gridDays.map((day, i) => {
-              if (day === null) return <div key={`e-${i}`} className="aspect-square bg-slate-50/40 rounded-2xl" />;
+              if (day === null) return <div key={`e-${i}`} className="aspect-square bg-slate-50/40 dark:bg-slate-900/40 rounded-2xl" />;
               const dayEv = eventsForDay(day);
               const isToday = day === today;
               return (
                 <div
                   key={day}
                   className={`aspect-square p-2 border rounded-2xl flex flex-col justify-between cursor-pointer transition-colors ${
-                    isToday ? 'bg-navy-900 text-white border-navy-900 shadow-sm' : 'bg-white border-slate-100 hover:bg-slate-50'
+                    isToday ? 'bg-navy-900 text-white border-navy-900 shadow-sm dark:bg-teal-600 dark:border-teal-600' : 'bg-white border-slate-100 hover:bg-slate-50 dark:bg-slate-900 dark:border-slate-800/80 dark:hover:bg-slate-800/50 dark:text-white'
                   }`}
                 >
                   <span className="text-xs font-bold">{day}</span>
@@ -114,12 +114,12 @@ export default function Calendar() {
 
         <div className="space-y-6">
           <Card className="space-y-4">
-            <h3 className="font-extrabold text-sm text-navy-900 uppercase tracking-wider flex items-center gap-2">
-              <AlertCircle size={16} className="text-slate-500" /> Upcoming Deadlines
+            <h3 className="font-extrabold text-sm text-navy-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+              <AlertCircle size={16} className="text-slate-500 dark:text-slate-400" /> Upcoming Deadlines
             </h3>
             <div className="space-y-3">
               {upcoming.length > 0 ? upcoming.slice(0, 5).map((event: any) => (
-                <div key={event.id} className={`p-4 border-l-4 rounded-2xl ${event.type === 'assignment' ? 'bg-rose-50 border-rose-500 text-rose-700' : 'bg-teal-50 border-teal-500 text-teal-700'}`}>
+                <div key={event.id} className={`p-4 border-l-4 rounded-2xl ${event.type === 'assignment' ? 'bg-rose-50 border-rose-500 text-rose-700 dark:bg-rose-950/20 dark:border-rose-500 dark:text-rose-400' : 'bg-teal-50 border-teal-500 text-teal-700 dark:bg-teal-950/20 dark:border-teal-500 dark:text-teal-400'}`}>
                   <h4 className="text-xs font-black">{event.title}</h4>
                   {event.date && (
                     <div className="flex gap-3 text-[10px] font-bold mt-2">
@@ -128,23 +128,23 @@ export default function Calendar() {
                   )}
                 </div>
               )) : (
-                <p className="text-xs text-slate-500">No upcoming deadlines.</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">No upcoming deadlines.</p>
               )}
             </div>
           </Card>
 
           <Card className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-extrabold text-sm text-navy-900 flex items-center gap-2">
+              <h3 className="font-extrabold text-sm text-navy-900 dark:text-white flex items-center gap-2">
                 <Target size={16} /> Study Goals
               </h3>
             </div>
-            <p className="text-xs text-slate-500">Keep up with your coursework and meet your deadlines.</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Keep up with your coursework and meet your deadlines.</p>
             {!focusMode && (
               <button
                 type="button"
                 onClick={() => setFocusMode(true)}
-                className="w-full py-2.5 bg-navy-900 text-white text-xs font-bold rounded-xl hover:bg-navy-800 transition-colors"
+                className="w-full py-2.5 bg-navy-900 dark:bg-teal-600 text-white text-xs font-bold rounded-xl hover:bg-navy-800 dark:hover:bg-teal-500 transition-colors"
               >
                 Enable Focus Mode
               </button>

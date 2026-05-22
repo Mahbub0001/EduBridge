@@ -169,18 +169,18 @@ export default function CourseLearning() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
           <div>
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+            <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
               {activeLesson?.moduleTitle || 'Module'}
             </p>
-            <h1 className="text-xl font-extrabold text-navy-900">{activeLesson?.title || 'Select a lesson'}</h1>
-            <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
+            <h1 className="text-xl font-extrabold text-navy-900 dark:text-white">{activeLesson?.title || 'Select a lesson'}</h1>
+            <div className="flex items-center gap-3 mt-1 text-xs text-slate-500 dark:text-slate-400">
               <span className="flex items-center gap-1"><Award size={14} /> {Math.round(progressPct)}% complete</span>
               <span className="flex items-center gap-1"><Clock size={14} /> {totalLessons} lessons</span>
             </div>
           </div>
 
           {lessonType !== 'text' && (
-            <Card padding="none" className="aspect-video bg-navy-950 overflow-hidden relative group rounded-2xl border border-slate-100 shadow-md">
+            <Card padding="none" className="aspect-video bg-navy-950 overflow-hidden relative group rounded-2xl border border-slate-100 dark:border-slate-800 shadow-md">
               {lessonType === 'video' && (
                 (() => {
                   const ytUrl = getYouTubeEmbedUrl(activeLesson?.video_url);
@@ -324,19 +324,19 @@ export default function CourseLearning() {
           )}
 
           <Card className="space-y-4">
-            <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-line">
+            <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-line">
               {activeLesson?.content || 'Select a lesson from the curriculum to begin learning.'}
             </p>
-            <div className="flex flex-wrap gap-4 text-xs font-bold text-navy-900">
-              <span className="flex items-center gap-1.5"><Clock size={14} /> {lessonDuration} min</span>
+            <div className="flex flex-wrap gap-4 text-xs font-bold text-navy-900 dark:text-teal-400">
+              <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400"><Clock size={14} /> {lessonDuration} min</span>
               {lessonResources.length > 0 && (
                 <span className="flex items-center gap-1.5"><Award size={14} /> {lessonResources.length} {lessonResources.length === 1 ? 'Resource' : 'Resources'} included</span>
               )}
             </div>
 
             {lessonResources.length > 0 && (
-              <div className="border-t border-slate-100 pt-4 space-y-3">
-                <h3 className="text-sm font-extrabold text-navy-900">Lesson Resources</h3>
+              <div className="border-t border-slate-100 dark:border-slate-800 pt-4 space-y-3">
+                <h3 className="text-sm font-extrabold text-navy-900 dark:text-white">Lesson Resources</h3>
                 <div className="space-y-2">
                   {lessonResources.map((res: any) => {
                     const isLink = res.type === 'link';
@@ -346,7 +346,7 @@ export default function CourseLearning() {
                     const isVideo = res.type === 'video' || fileExt === 'mp4' || fileExt === 'mov' || fileExt === 'avi';
                     
                     return (
-                      <div key={res.id} className="flex justify-between items-center p-3 bg-slate-50 rounded-2xl border border-slate-100 hover:bg-slate-100/50 transition-colors">
+                      <div key={res.id} className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-100 dark:border-slate-800 hover:bg-slate-100/50 dark:hover:bg-slate-800/60 transition-colors">
                         <div className="flex items-center gap-3 min-w-0 pr-2">
                           <FileText
                             size={18}
@@ -360,7 +360,7 @@ export default function CourseLearning() {
                                     : "text-blue-500"
                             }
                           />
-                          <span className="text-xs font-bold text-navy-900 truncate" title={res.title}>
+                          <span className="text-xs font-bold text-navy-900 dark:text-white truncate" title={res.title}>
                             {res.title}
                           </span>
                         </div>
@@ -369,7 +369,7 @@ export default function CourseLearning() {
                             href={resolveUrl(res.url)}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 flex-shrink-0"
+                            className="text-xs font-bold text-blue-600 hover:text-blue-800 dark:text-teal-400 dark:hover:text-teal-300 flex items-center gap-1 flex-shrink-0"
                           >
                             <ExternalLink size={14} /> Open Link
                           </a>
@@ -379,14 +379,14 @@ export default function CourseLearning() {
                               href={resolveUrl(res.url)}
                               target="_blank"
                               rel="noreferrer"
-                              className="text-xs font-bold text-navy-800 hover:text-navy-900 flex items-center gap-1"
+                              className="text-xs font-bold text-navy-800 hover:text-navy-900 dark:text-slate-350 dark:hover:text-white flex items-center gap-1"
                             >
                               View
                             </a>
                             <a
                               href={resolveUrl(res.url)}
                               download
-                              className="text-xs font-bold text-teal-600 hover:text-teal-800 flex items-center gap-1"
+                              className="text-xs font-bold text-teal-600 hover:text-teal-800 dark:text-teal-400 dark:hover:text-teal-300 flex items-center gap-1"
                             >
                               <Download size={14} /> Download
                             </a>
@@ -399,12 +399,12 @@ export default function CourseLearning() {
               </div>
             )}
 
-            <div className="flex justify-between items-center pt-4 border-t border-slate-100">
+            <div className="flex justify-between items-center pt-4 border-t border-slate-100 dark:border-slate-800">
               {prevLesson ? (
                 <button
                   type="button"
                   onClick={() => setActiveLessonId(prevLesson.id)}
-                  className="flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-navy-900"
+                  className="flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-navy-900 dark:text-slate-400 dark:hover:text-white"
                 >
                   <ChevronLeft size={18} /> Previous
                 </button>
@@ -425,7 +425,7 @@ export default function CourseLearning() {
                   <button
                     type="button"
                     onClick={() => setActiveLessonId(nextLesson.id)}
-                    className="flex items-center gap-2 text-sm font-bold text-navy-900 hover:text-navy-800"
+                    className="flex items-center gap-2 text-sm font-bold text-navy-900 hover:text-navy-800 dark:text-teal-400 dark:hover:text-teal-300"
                   >
                     Next <ChevronRight size={18} />
                   </button>
@@ -436,17 +436,17 @@ export default function CourseLearning() {
         </div>
 
         <Card className="h-fit space-y-4">
-          <h3 className="font-extrabold text-sm text-navy-900 uppercase tracking-wider">Curriculum</h3>
+          <h3 className="font-extrabold text-sm text-navy-900 dark:text-white uppercase tracking-wider">Curriculum</h3>
           <div className="space-y-3">
             {modules.map((mod) => (
-              <div key={mod.id} className="border border-slate-100 rounded-2xl overflow-hidden">
+              <div key={mod.id} className="border border-slate-100 dark:border-slate-800 rounded-2xl overflow-hidden">
                 <button
                   type="button"
                   onClick={() => toggleModule(mod.id)}
-                  className="w-full flex items-center justify-between p-3 bg-slate-50 text-left"
+                  className="w-full flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/60 dark:hover:bg-slate-850 text-left"
                 >
-                  <span className="text-[11px] font-black text-navy-900 uppercase truncate pr-2">{mod.title}</span>
-                  {expandedModules[mod.id] ? <ChevronUp size={16} className="shrink-0" /> : <ChevronDown size={16} className="shrink-0" />}
+                  <span className="text-[11px] font-black text-navy-900 dark:text-slate-200 uppercase truncate pr-2">{mod.title}</span>
+                  {expandedModules[mod.id] ? <ChevronUp size={16} className="shrink-0 dark:text-slate-400" /> : <ChevronDown size={16} className="shrink-0 dark:text-slate-400" />}
                 </button>
                 {expandedModules[mod.id] && (
                   <div className="p-2 space-y-1">
@@ -468,15 +468,15 @@ export default function CourseLearning() {
                           type="button"
                           onClick={() => setActiveLessonId(lesson.id)}
                           className={`w-full p-3 rounded-xl flex items-center justify-between text-left transition-all ${
-                            isActive ? 'bg-navy-900 text-white' : 'hover:bg-slate-50'
+                            isActive ? 'bg-navy-900 text-white dark:bg-teal-600' : 'hover:bg-slate-50 dark:hover:bg-slate-800'
                           }`}
                         >
                           <div className="flex items-center gap-2 min-w-0 pr-2">
-                            <IconComponent size={14} className={isActive ? 'text-teal-400' : 'text-slate-550'} />
+                            <IconComponent size={14} className={isActive ? 'text-teal-400' : 'text-slate-500 dark:text-slate-400'} />
                             <span className="text-xs font-bold truncate">{lesson.title}</span>
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
-                            <span className={`text-[10px] ${isActive ? 'text-slate-400' : 'text-slate-400'}`}>
+                            <span className={`text-[10px] ${isActive ? 'text-slate-400' : 'text-slate-400 dark:text-slate-500'}`}>
                               {itemDuration} min
                             </span>
                             {isCompleted && <CheckCircle2 size={14} className="text-emerald-500" />}
@@ -490,7 +490,7 @@ export default function CourseLearning() {
             ))}
           </div>
 
-          <div className="border-t border-slate-100 pt-4 space-y-2">
+          <div className="border-t border-slate-100 dark:border-slate-800 pt-4 space-y-2">
             {courseId && (
               <>
                 <Link to={`/student/courses/${courseId}/quizzes`}>
@@ -508,7 +508,7 @@ export default function CourseLearning() {
           </div>
 
           {courseId && (
-            <Link to={`/student/courses/${courseId}`} className="block text-center text-xs font-bold text-navy-800 hover:underline">
+            <Link to={`/student/courses/${courseId}`} className="block text-center text-xs font-bold text-navy-800 hover:underline dark:text-slate-400 dark:hover:text-white">
               Back to course overview
             </Link>
           )}

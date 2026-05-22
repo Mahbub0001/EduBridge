@@ -28,24 +28,24 @@ export default function CalendarCard({ event, className, onClick }: CalendarCard
     <Card
       padding="none"
       className={cn(
-        'p-4 border-l-4 bg-slate-50/50 flex items-center gap-4 cursor-pointer hover:bg-white transition-colors',
+        'p-4 border-l-4 bg-slate-50/50 dark:bg-slate-800/40 flex items-center gap-4 cursor-pointer hover:bg-white dark:hover:bg-slate-800 transition-colors',
         style.border,
         className
       )}
       onClick={onClick}
     >
-      <D className="bg-white rounded-xl py-1.5 px-3 border border-slate-200 text-center shadow-sm shrink-0">
+      <D className="bg-white dark:bg-slate-900 rounded-xl py-1.5 px-3 border border-slate-200 dark:border-slate-800 text-center shadow-sm shrink-0">
         <D className="text-[9px] font-black text-rose-600 tracking-wider leading-none">{month}</D>
-        <D className="text-lg font-black text-slate-900 leading-none mt-1">{day}</D>
+        <D className="text-lg font-black text-slate-900 dark:text-white leading-none mt-1">{day}</D>
       </D>
       <D className="flex-1 min-w-0 space-y-1">
         <D className="flex items-center gap-2 flex-wrap">
           <Badge variant={style.badge} className="capitalize">
             {event.type}
           </Badge>
-          {event.course && <span className="text-[10px] text-slate-500 font-semibold">{event.course}</span>}
+          {event.course && <span className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">{event.course}</span>}
         </D>
-        <h4 className="text-xs font-extrabold text-slate-900 line-clamp-1">{event.title}</h4>
+        <h4 className="text-xs font-extrabold text-slate-900 dark:text-white line-clamp-1">{event.title}</h4>
         <D className="flex items-center gap-3 text-[10px] text-slate-500">
           <span className="flex items-center gap-1">
             <Calendar size={12} />

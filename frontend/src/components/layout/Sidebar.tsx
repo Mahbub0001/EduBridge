@@ -30,9 +30,9 @@ export default function Sidebar({
   const location = useLocation();
 
   return (
-    <D className={cn('w-64 bg-white border-r border-slate-200 flex flex-col shrink-0', className)}>
-      <D className="h-20 flex items-center px-8 border-b border-slate-200">
-        <Link to="/" className="text-2xl font-extrabold text-slate-900 tracking-tight" onClick={onNavigate}>
+    <D className={cn('w-64 bg-white border-r border-slate-200 flex flex-col shrink-0 dark:bg-slate-900 dark:border-slate-800', className)}>
+      <D className="h-20 flex items-center px-8 border-b border-slate-200 dark:border-slate-800">
+        <Link to="/" className="text-2xl font-extrabold text-slate-900 tracking-tight dark:text-white" onClick={onNavigate}>
           EduBridge
         </Link>
       </D>
@@ -49,34 +49,34 @@ export default function Sidebar({
               className={cn(
                 'flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-sm font-medium',
                 isActive
-                  ? 'bg-navy-900 text-white shadow-sm'
-                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+                  ? 'bg-navy-900 text-white shadow-sm dark:bg-teal-600 dark:text-white'
+                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white'
               )}
             >
-              <Icon size={18} className={isActive ? 'text-white' : 'text-slate-500'} />
+              <Icon size={18} className={isActive ? 'text-white' : 'text-slate-500 dark:text-slate-400'} />
               {item.name}
             </Link>
           );
         })}
 
-        <D className="border-t border-slate-200 my-4 pt-4">
+        <D className="border-t border-slate-200 my-4 pt-4 dark:border-slate-800">
           <Link
             to={helpPath}
             onClick={onNavigate}
-            className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+            className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
           >
-            <HelpCircle size={18} />
+            <HelpCircle size={18} className="text-slate-500 dark:text-slate-400" />
             Help Center
           </Link>
         </D>
       </D>
 
       {onLogout && (
-        <D className="p-4 border-t border-slate-200">
+        <D className="p-4 border-t border-slate-200 dark:border-slate-800">
           <button
             type="button"
             onClick={onLogout}
-            className="flex items-center gap-3 px-4 py-3 w-full rounded-xl text-sm font-medium text-slate-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+            className="flex items-center gap-3 px-4 py-3 w-full rounded-xl text-sm font-medium text-slate-500 hover:bg-red-50 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-950/20 dark:hover:text-red-400 transition-colors"
           >
             <LogOut size={18} />
             Logout
