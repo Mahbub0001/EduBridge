@@ -1,0 +1,352 @@
+version: "2"
+type: frontend
+tech_stack:
+  - TypeScript
+  - React (v19)
+  - Vite
+  - TailwindCSS
+  - Zustand
+  - Axios
+  - Firebase Authentication
+routes:
+  - path: /
+    file: src/pages/Landing.tsx
+    auth_required: false
+    description: Landing Page
+  - path: /login
+    file: src/pages/auth/Login.tsx
+    auth_required: false
+    description: User Login Page
+  - path: /register
+    file: src/pages/auth/Register.tsx
+    auth_required: false
+    description: User Registration Page
+  - path: /forgot-password
+    file: src/pages/auth/ForgotPassword.tsx
+    auth_required: false
+    description: Forgot Password Page
+  - path: /verify-certificate/:certificateId
+    file: src/pages/VerifyCertificate.tsx
+    auth_required: false
+    description: Public Certificate Verification Page
+  - path: /learning/:courseId
+    file: src/pages/student/CourseLearning.tsx
+    auth_required: true
+    description: Course Syllabus and Lessons Player Page
+  - path: /student/dashboard
+    file: src/pages/student/Dashboard.tsx
+    auth_required: true
+    description: Student Home Dashboard
+  - path: /student/my-courses
+    file: src/pages/student/MyCourses.tsx
+    auth_required: true
+    description: Student My Courses list (all, in-progress, completed, wishlist, explore)
+  - path: /student/courses/:courseId
+    file: src/pages/student/CourseDetail.tsx
+    auth_required: true
+    description: Student Course Detail overview with course syllabus and enroll button
+  - path: /student/courses/:courseId/learn
+    file: src/pages/student/CourseLearning.tsx
+    auth_required: true
+    description: Student learning player for course lessons and materials
+  - path: /student/learning/:courseId
+    file: src/pages/student/CourseLearning.tsx
+    auth_required: true
+    description: Student course syllabus learning portal
+  - path: /student/calendar
+    file: src/pages/student/Calendar.tsx
+    auth_required: true
+    description: Student calendar scheduling events
+  - path: /student/resources
+    file: src/pages/student/Resources.tsx
+    auth_required: true
+    description: Student learning resource repository
+  - path: /student/assignments
+    file: src/pages/student/Assignments.tsx
+    auth_required: true
+    description: Student course assignments and submissions overview
+  - path: /student/discussions
+    file: src/pages/student/Discussions.tsx
+    auth_required: true
+    description: Student course discussion boards
+  - path: /student/certificates
+    file: src/pages/student/Certificates.tsx
+    auth_required: true
+    description: Student certificates earned upon course completion
+  - path: /student/settings
+    file: src/pages/student/Settings.tsx
+    auth_required: true
+    description: Student settings and profile updates page
+  - path: /instructor/dashboard
+    file: src/pages/instructor/Dashboard.tsx
+    auth_required: true
+    description: Instructor dashboard home metrics
+  - path: /instructor/courses
+    file: src/pages/instructor/Courses.tsx
+    auth_required: true
+    description: Instructor courses catalog overview
+  - path: /instructor/create-course
+    file: src/pages/instructor/CreateCourse.tsx
+    auth_required: true
+    description: Form to initiate creation of a new course
+  - path: /instructor/course-builder
+    file: src/pages/instructor/CourseBuilder.tsx
+    auth_required: true
+    description: Curriculum details editor for courses
+  - path: /instructor/quizzes
+    file: src/pages/instructor/Quizzes.tsx
+    auth_required: true
+    description: Instructor quiz management, question builder and parameters
+  - path: /instructor/assignments
+    file: src/pages/instructor/Assignments.tsx
+    auth_required: true
+    description: Instructor assignment setup and edit page
+  - path: /instructor/submissions
+    file: src/pages/instructor/Submissions.tsx
+    auth_required: true
+    description: Dashboard for reviewing student submissions
+  - path: /instructor/analytics
+    file: src/pages/instructor/Analytics.tsx
+    auth_required: true
+    description: Analytics dashboard for instructors
+  - path: /instructor/announcements
+    file: src/pages/instructor/Announcements.tsx
+    auth_required: true
+    description: Instructor class announcements portal
+  - path: /instructor/discussions
+    file: src/pages/instructor/Discussions.tsx
+    auth_required: true
+    description: Instructor forum moderator board
+  - path: /instructor/students
+    file: src/pages/instructor/Students.tsx
+    auth_required: true
+    description: Registered students profiles and records view
+  - path: /instructor/settings
+    file: src/pages/instructor/Settings.tsx
+    auth_required: true
+    description: Settings panel for instructors
+  - path: /instructor/help
+    file: src/pages/instructor/HelpCenter.tsx
+    auth_required: true
+    description: FAQ and Help center for instructors
+  - path: /admin/dashboard
+    file: src/pages/admin/Dashboard.tsx
+    auth_required: true
+    description: System Administrator dashboard
+  - path: /admin/users
+    file: src/pages/admin/Users.tsx
+    auth_required: true
+    description: Users profiles and authorization management
+  - path: /admin/courses
+    file: src/pages/admin/Courses.tsx
+    auth_required: true
+    description: Platform courses directory audit
+  - path: /admin/categories
+    file: src/pages/admin/Categories.tsx
+    auth_required: true
+    description: Course content categories configuration
+  - path: /admin/analytics
+    file: src/pages/admin/Analytics.tsx
+    auth_required: true
+    description: Global platform analytics panel
+  - path: /admin/settings
+    file: src/pages/admin/Settings.tsx
+    auth_required: true
+    description: Admin panel settings configuration
+features:
+  - name: User Authentication
+    description: Complete Auth flow including Register, Login, Logout and Forgot Password using Firebase
+    files:
+      - src/pages/auth/Login.tsx
+      - src/pages/auth/Register.tsx
+      - src/pages/auth/ForgotPassword.tsx
+      - src/hooks/useLogout.ts
+      - src/services/authService.ts
+    entry_route: /login
+    user_interactions:
+      - Fill email input field on login or register
+      - Fill password input field on login or register
+      - Fill full name on registration
+      - Click submit/login/register buttons
+      - Toggle view password option
+      - Click logout button to sign out
+      - Input email for password recovery
+    api_calls:
+      - method: POST
+        endpoint: /auth/session
+      - method: GET
+        endpoint: /auth/me
+    auth_required: false
+  - name: Student Dashboard & Calendar
+    description: Provides students with progress overview, announcement streams, upcoming deadlines and events
+    files:
+      - src/pages/student/Dashboard.tsx
+      - src/pages/student/Calendar.tsx
+      - src/services/courseService.ts
+    entry_route: /student/dashboard
+    user_interactions:
+      - View list of enrolled courses and their progress indicators
+      - Read recent announcement headers
+      - Navigate tabs to view monthly/weekly calendar schedules
+    api_calls:
+      - method: GET
+        endpoint: /me/courses
+      - method: GET
+        endpoint: /me/calendar
+      - method: GET
+        endpoint: /announcements/
+    auth_required: true
+  - name: Course Browse and Enrollment
+    description: Enables students to find courses, wishlist courses, and enroll in courses.
+    files:
+      - src/pages/student/MyCourses.tsx
+      - src/pages/student/CourseDetail.tsx
+      - src/services/courseService.ts
+    entry_route: /student/my-courses/explore
+    user_interactions:
+      - Select categories filter dropdown
+      - Click Wishlist heart icon to bookmark course
+      - Click Enroll Now button on Course Detail
+    api_calls:
+      - method: GET
+        endpoint: /courses/
+      - method: GET
+        endpoint: /me/wishlist
+      - method: POST
+        endpoint: /courses/:courseId/wishlist
+      - method: DELETE
+        endpoint: /courses/:courseId/wishlist
+      - method: POST
+        endpoint: /courses/:courseId/enroll
+    auth_required: true
+  - name: Course Learning & Progress Tracking
+    description: Interactive interface for learning, playing videos, reading materials, and viewing progress.
+    files:
+      - src/pages/student/CourseLearning.tsx
+      - src/services/progressService.ts
+    entry_route: /student/courses/:courseId/learn
+    user_interactions:
+      - Select lesson from the sidebar outline
+      - Play or pause lesson video
+      - Mark lesson as completed
+    api_calls:
+      - method: GET
+        endpoint: /courses/:courseId
+      - method: GET
+        endpoint: /courses/:courseId/modules
+      - method: GET
+        endpoint: /courses/:courseId/enrollment
+    auth_required: true
+  - name: Student Assignments
+    description: Student workflow to view assignment requirements and submit files or text answers.
+    files:
+      - src/pages/student/Assignments.tsx
+      - src/services/assignmentService.ts
+    entry_route: /student/assignments
+    user_interactions:
+      - Click on assignment in list
+      - Input submission description text
+      - Select files for upload
+      - Click Submit Assignment button
+    api_calls:
+      - method: GET
+        endpoint: /assignments/:assignmentId
+      - method: GET
+        endpoint: /assignments/:assignmentId/submission
+      - method: POST
+        endpoint: /assignments/:assignmentId/submit
+    auth_required: true
+  - name: Student Quizzes
+    description: Interface to view, start, answer questions, and submit quiz evaluations.
+    files:
+      - src/pages/student/CourseLearning.tsx
+      - src/services/quizService.ts
+    entry_route: /student/courses/:courseId/learn
+    user_interactions:
+      - Click Start Quiz button
+      - Click radio options for MCQ or True/False questions
+      - Fill input text for short answers
+      - Click Submit Quiz button
+    api_calls:
+      - method: GET
+        endpoint: /courses/:courseId/quizzes/:quizId
+      - method: GET
+        endpoint: /quizzes/:quizId/questions
+      - method: POST
+        endpoint: /quizzes/:quizId/submit
+    auth_required: true
+  - name: Course Builder (Instructor)
+    description: Instructor curriculum editor for modules, lessons, and course outline editing.
+    files:
+      - src/pages/instructor/CourseBuilder.tsx
+      - src/services/courseService.ts
+    entry_route: /instructor/course-builder
+    user_interactions:
+      - Click Add Module button
+      - Type Module Title and click Save
+      - Click Add Lesson under a module
+      - Type Lesson details and upload files
+      - Click Publish Course
+    api_calls:
+      - method: GET
+        endpoint: /instructor/courses/:courseId/builder
+      - method: POST
+        endpoint: /instructor/courses/:courseId/modules
+      - method: PATCH
+        endpoint: /instructor/modules/:moduleId
+      - method: DELETE
+        endpoint: /instructor/modules/:moduleId
+      - method: POST
+        endpoint: /instructor/modules/:moduleId/lessons
+      - method: POST
+        endpoint: /instructor/upload
+      - method: PATCH
+        endpoint: /instructor/courses/:courseId/publish
+    auth_required: true
+  - name: Instructor Submissions Review
+    description: Workflow for instructors to view list of student assignments, download submissions, grade them, and add reviews.
+    files:
+      - src/pages/instructor/Submissions.tsx
+      - src/services/assignmentService.ts
+    entry_route: /instructor/submissions
+    user_interactions:
+      - Select a submission from the queue list
+      - Review text or download file attachments
+      - Input grade score
+      - Type feedback textarea comment
+      - Click Grade Submission or Return Submission buttons
+    api_calls:
+      - method: GET
+        endpoint: /instructor/submissions
+      - method: GET
+        endpoint: /instructor/submissions/:submissionId
+      - method: PATCH
+        endpoint: /instructor/submissions/:submissionId/grade
+      - method: PATCH
+        endpoint: /instructor/submissions/:submissionId/return
+    auth_required: true
+  - name: Admin Users & Course Moderation
+    description: Administrator portal to view users list, alter roles/status, audit courses and categories.
+    files:
+      - src/pages/admin/Users.tsx
+      - src/pages/admin/Courses.tsx
+      - src/pages/admin/Categories.tsx
+      - src/services/adminService.ts
+    entry_route: /admin/dashboard
+    user_interactions:
+      - Search users by username/email
+      - Select role dropdown to change user roles
+      - Click block/activate buttons
+      - Toggle course publish status
+      - Click Add Category button
+    api_calls:
+      - method: GET
+        endpoint: /users/
+      - method: PATCH
+        endpoint: /users/:userId/role
+      - method: PATCH
+        endpoint: /users/:userId/status
+      - method: PATCH
+        endpoint: /courses/:courseId/status
+    auth_required: true
+known_limitations: []

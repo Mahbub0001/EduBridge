@@ -1,0 +1,6 @@
+fastapi[standard]>=0.111.0
+firebase-admin>=6.5.0
+pydantic>=2.7.4
+pydantic-settings>=2.3.4
+python-dotenv>=1.0.1
+python-multipart>=0.0.9
