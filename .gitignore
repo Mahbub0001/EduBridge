@@ -1,0 +1,16 @@
+.env
+*.json
+!package.json
+!tsconfig.json
+!tsconfig.node.json
+!tsconfig.app.json
+node_modules/
+dist/
+__pycache__/
+*.pyc
+.venv/
+venv/
+uploads/
+.DS_Store
+designs/
+stitch_edubridge_mooc_platform.zip

@@ -1,0 +1,152 @@
+General Exception verifying token: The default Firebase app does not exist. Make sure to initialize the SDK by calling initialize_app().
+Traceback (most recent call last):
+  File "E:\ACADEMIC\3.2\blended\project-3\backend\app\core\security.py", line 16, in verify_firebase_token
+    decoded_token = auth.verify_id_token(token)
+  File "D:\anaconda\Lib\site-packages\firebase_admin\auth.py", line 226, in verify_id_token
+    client = _get_client(app)
+  File "D:\anaconda\Lib\site-packages\firebase_admin\auth.py", line 177, in _get_client
+    return _utils.get_app_service(app, _AUTH_ATTRIBUTE, Client)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\anaconda\Lib\site-packages\firebase_admin\_utils.py", line 103, in get_app_service
+    app = _get_initialized_app(app)
+  File "D:\anaconda\Lib\site-packages\firebase_admin\_utils.py", line 87, in _get_initialized_app
+    return firebase_admin.get_app()
+           ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "D:\anaconda\Lib\site-packages\firebase_admin\__init__.py", line 137, in get_app
+    raise ValueError(
+        'The default Firebase app does not exist. Make sure to initialize '
+        'the SDK by calling initialize_app().')
+ValueError: The default Firebase app does not exist. Make sure to initialize the SDK by calling initialize_app().
+General Exception verifying token: The default Firebase app does not exist. Make sure to initialize the SDK by calling initialize_app().
+Traceback (most recent call last):
+  File "E:\ACADEMIC\3.2\blended\project-3\backend\app\core\security.py", line 16, in verify_firebase_token
+    decoded_token = auth.verify_id_token(token)
+  File "D:\anaconda\Lib\site-packages\firebase_admin\auth.py", line 226, in verify_id_token
+    client = _get_client(app)
+  File "D:\anaconda\Lib\site-packages\firebase_admin\auth.py", line 177, in _get_client
+    return _utils.get_app_service(app, _AUTH_ATTRIBUTE, Client)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\anaconda\Lib\site-packages\firebase_admin\_utils.py", line 103, in get_app_service
+    app = _get_initialized_app(app)
+  File "D:\anaconda\Lib\site-packages\firebase_admin\_utils.py", line 87, in _get_initialized_app
+    return firebase_admin.get_app()
+           ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "D:\anaconda\Lib\site-packages\firebase_admin\__init__.py", line 137, in get_app
+    raise ValueError(
+        'The default Firebase app does not exist. Make sure to initialize '
+        'the SDK by calling initialize_app().')
+ValueError: The default Firebase app does not exist. Make sure to initialize the SDK by calling initialize_app().
+General Exception verifying token: The default Firebase app does not exist. Make sure to initialize the SDK by calling initialize_app().
+Traceback (most recent call last):
+  File "E:\ACADEMIC\3.2\blended\project-3\backend\app\core\security.py", line 16, in verify_firebase_token
+    decoded_token = auth.verify_id_token(token)
+  File "D:\anaconda\Lib\site-packages\firebase_admin\auth.py", line 226, in verify_id_token
+    client = _get_client(app)
+  File "D:\anaconda\Lib\site-packages\firebase_admin\auth.py", line 177, in _get_client
+    return _utils.get_app_service(app, _AUTH_ATTRIBUTE, Client)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\anaconda\Lib\site-packages\firebase_admin\_utils.py", line 103, in get_app_service
+    app = _get_initialized_app(app)
+  File "D:\anaconda\Lib\site-packages\firebase_admin\_utils.py", line 87, in _get_initialized_app
+    return firebase_admin.get_app()
+           ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "D:\anaconda\Lib\site-packages\firebase_admin\__init__.py", line 137, in get_app
+    raise ValueError(
+        'The default Firebase app does not exist. Make sure to initialize '
+        'the SDK by calling initialize_app().')
+ValueError: The default Firebase app does not exist. Make sure to initialize the SDK by calling initialize_app().
+General Exception verifying token: The default Firebase app does not exist. Make sure to initialize the SDK by calling initialize_app().
+Traceback (most recent call last):
+  File "E:\ACADEMIC\3.2\blended\project-3\backend\app\core\security.py", line 16, in verify_firebase_token
+    decoded_token = auth.verify_id_token(token)
+  File "D:\anaconda\Lib\site-packages\firebase_admin\auth.py", line 226, in verify_id_token
+    client = _get_client(app)
+  File "D:\anaconda\Lib\site-packages\firebase_admin\auth.py", line 177, in _get_client
+    return _utils.get_app_service(app, _AUTH_ATTRIBUTE, Client)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\anaconda\Lib\site-packages\firebase_admin\_utils.py", line 103, in get_app_service
+    app = _get_initialized_app(app)
+  File "D:\anaconda\Lib\site-packages\firebase_admin\_utils.py", line 87, in _get_initialized_app
+    return firebase_admin.get_app()
+           ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "D:\anaconda\Lib\site-packages\firebase_admin\__init__.py", line 137, in get_app
+    raise ValueError(
+        'The default Firebase app does not exist. Make sure to initialize '
+        'the SDK by calling initialize_app().')
+ValueError: The default Firebase app does not exist. Make sure to initialize the SDK by calling initialize_app().
+General Exception verifying token: The default Firebase app does not exist. Make sure to initialize the SDK by calling initialize_app().
+Traceback (most recent call last):
+  File "E:\ACADEMIC\3.2\blended\project-3\backend\app\core\security.py", line 16, in verify_firebase_token
+    decoded_token = auth.verify_id_token(token)
+  File "D:\anaconda\Lib\site-packages\firebase_admin\auth.py", line 226, in verify_id_token
+    client = _get_client(app)
+  File "D:\anaconda\Lib\site-packages\firebase_admin\auth.py", line 177, in _get_client
+    return _utils.get_app_service(app, _AUTH_ATTRIBUTE, Client)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\anaconda\Lib\site-packages\firebase_admin\_utils.py", line 103, in get_app_service
+    app = _get_initialized_app(app)
+  File "D:\anaconda\Lib\site-packages\firebase_admin\_utils.py", line 87, in _get_initialized_app
+    return firebase_admin.get_app()
+           ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "D:\anaconda\Lib\site-packages\firebase_admin\__init__.py", line 137, in get_app
+    raise ValueError(
+        'The default Firebase app does not exist. Make sure to initialize '
+        'the SDK by calling initialize_app().')
+ValueError: The default Firebase app does not exist. Make sure to initialize the SDK by calling initialize_app().
+General Exception verifying token: The default Firebase app does not exist. Make sure to initialize the SDK by calling initialize_app().
+Traceback (most recent call last):
+  File "E:\ACADEMIC\3.2\blended\project-3\backend\app\core\security.py", line 16, in verify_firebase_token
+    decoded_token = auth.verify_id_token(token)
+  File "D:\anaconda\Lib\site-packages\firebase_admin\auth.py", line 226, in verify_id_token
+    client = _get_client(app)
+  File "D:\anaconda\Lib\site-packages\firebase_admin\auth.py", line 177, in _get_client
+    return _utils.get_app_service(app, _AUTH_ATTRIBUTE, Client)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\anaconda\Lib\site-packages\firebase_admin\_utils.py", line 103, in get_app_service
+    app = _get_initialized_app(app)
+  File "D:\anaconda\Lib\site-packages\firebase_admin\_utils.py", line 87, in _get_initialized_app
+    return firebase_admin.get_app()
+           ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "D:\anaconda\Lib\site-packages\firebase_admin\__init__.py", line 137, in get_app
+    raise ValueError(
+        'The default Firebase app does not exist. Make sure to initialize '
+        'the SDK by calling initialize_app().')
+ValueError: The default Firebase app does not exist. Make sure to initialize the SDK by calling initialize_app().
+General Exception verifying token: The default Firebase app does not exist. Make sure to initialize the SDK by calling initialize_app().
+Traceback (most recent call last):
+  File "E:\ACADEMIC\3.2\blended\project-3\backend\app\core\security.py", line 16, in verify_firebase_token
+    decoded_token = auth.verify_id_token(token)
+  File "D:\anaconda\Lib\site-packages\firebase_admin\auth.py", line 226, in verify_id_token
+    client = _get_client(app)
+  File "D:\anaconda\Lib\site-packages\firebase_admin\auth.py", line 177, in _get_client
+    return _utils.get_app_service(app, _AUTH_ATTRIBUTE, Client)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\anaconda\Lib\site-packages\firebase_admin\_utils.py", line 103, in get_app_service
+    app = _get_initialized_app(app)
+  File "D:\anaconda\Lib\site-packages\firebase_admin\_utils.py", line 87, in _get_initialized_app
+    return firebase_admin.get_app()
+           ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "D:\anaconda\Lib\site-packages\firebase_admin\__init__.py", line 137, in get_app
+    raise ValueError(
+        'The default Firebase app does not exist. Make sure to initialize '
+        'the SDK by calling initialize_app().')
+ValueError: The default Firebase app does not exist. Make sure to initialize the SDK by calling initialize_app().
+General Exception verifying token: The default Firebase app does not exist. Make sure to initialize the SDK by calling initialize_app().
+Traceback (most recent call last):
+  File "E:\ACADEMIC\3.2\blended\project-3\backend\app\core\security.py", line 16, in verify_firebase_token
+    decoded_token = auth.verify_id_token(token)
+  File "D:\anaconda\Lib\site-packages\firebase_admin\auth.py", line 226, in verify_id_token
+    client = _get_client(app)
+  File "D:\anaconda\Lib\site-packages\firebase_admin\auth.py", line 177, in _get_client
+    return _utils.get_app_service(app, _AUTH_ATTRIBUTE, Client)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\anaconda\Lib\site-packages\firebase_admin\_utils.py", line 103, in get_app_service
+    app = _get_initialized_app(app)
+  File "D:\anaconda\Lib\site-packages\firebase_admin\_utils.py", line 87, in _get_initialized_app
+    return firebase_admin.get_app()
+           ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "D:\anaconda\Lib\site-packages\firebase_admin\__init__.py", line 137, in get_app
+    raise ValueError(
+        'The default Firebase app does not exist. Make sure to initialize '
+        'the SDK by calling initialize_app().')
+ValueError: The default Firebase app does not exist. Make sure to initialize the SDK by calling initialize_app().
