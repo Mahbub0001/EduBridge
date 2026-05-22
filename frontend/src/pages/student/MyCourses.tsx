@@ -19,7 +19,12 @@ const TABS = [
 
 type TabKey = (typeof TABS)[number]['key'];
 
-const CATEGORY_COLORS = ['bg-emerald-50 text-emerald-700', 'bg-blue-50 text-blue-700', 'bg-purple-50 text-purple-700', 'bg-rose-50 text-rose-700'];
+const CATEGORY_COLORS = [
+  'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400',
+  'bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400',
+  'bg-purple-50 text-purple-700 dark:bg-purple-950/30 dark:text-purple-400',
+  'bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400'
+];
 
 function tabFromPath(pathname: string): TabKey {
   if (pathname.includes('/explore')) return 'explore';
@@ -134,14 +139,14 @@ export default function MyCourses() {
         title="My Courses"
         description="Track your progress and continue learning your enrolled programs."
         action={
-          <div className="flex items-center bg-slate-100 rounded-2xl px-4 py-2.5 border border-transparent focus-within:border-slate-300 focus-within:bg-white w-full sm:w-72">
-            <Search size={16} className="text-slate-500" />
+          <div className="flex items-center bg-slate-100 rounded-2xl px-4 py-2.5 border border-transparent focus-within:border-slate-300 focus-within:bg-white w-full sm:w-72 dark:bg-slate-900 dark:border-slate-800 dark:focus-within:bg-slate-800 dark:focus-within:border-slate-700">
+            <Search size={16} className="text-slate-500 dark:text-slate-400" />
             <input
               type="text"
               placeholder="Search my courses..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-transparent border-none outline-none w-full ml-2 text-xs"
+              className="bg-transparent border-none outline-none w-full ml-2 text-xs dark:text-white dark:placeholder-slate-500"
             />
           </div>
         }
@@ -167,13 +172,13 @@ export default function MyCourses() {
         </Card>
       )}
 
-      <div className="border-b border-slate-200 flex gap-6 overflow-x-auto">
+      <div className="border-b border-slate-200 dark:border-slate-800 flex gap-6 overflow-x-auto">
         {TABS.map((tab) => (
           <Link
             key={tab.key}
             to={tab.path}
             className={`pb-4 text-sm font-bold border-b-2 whitespace-nowrap transition-all ${
-              activeTab === tab.key ? 'border-navy-900 text-navy-900' : 'border-transparent text-slate-500 hover:text-navy-900'
+              activeTab === tab.key ? 'border-navy-900 text-navy-900 dark:border-teal-500 dark:text-teal-400' : 'border-transparent text-slate-500 hover:text-navy-900 dark:text-slate-400 dark:hover:text-white'
             }`}
           >
             {tab.label}
@@ -184,12 +189,12 @@ export default function MyCourses() {
       {filtered.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filtered.map((course, idx) => (
-            <Card key={course.id} padding="none" className="overflow-hidden hover:border-slate-300 group">
+            <Card key={course.id} padding="none" className="overflow-hidden hover:border-slate-300 dark:hover:border-slate-700 group">
               <Link to={`/student/courses/${course.id}`} className="block">
                 <div className="h-44 overflow-hidden relative">
                   <img src={course.thumbnail_url || course.image || course.thumbnail || 'https://placehold.co/600x400/1e293b/ffffff?text=Course'} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                   {courses.some((c) => c.id === course.id && c.status === 'wishlist') && (
-                    <span className="absolute top-4 right-4 p-2 bg-white/90 rounded-full text-rose-500 shadow-sm">
+                    <span className="absolute top-4 right-4 p-2 bg-white/90 dark:bg-slate-900/90 rounded-full text-rose-500 shadow-sm">
                       <Star size={16} className="fill-rose-500" />
                     </span>
                   )}
@@ -211,24 +216,24 @@ export default function MyCourses() {
                       <span className="text-emerald-600 flex items-center gap-1 font-bold"><Award size={14} />{course.final_grade}%</span>
                     )}
                   </div>
-                  <h3 className="font-extrabold text-navy-900 line-clamp-1">{course.title}</h3>
-                  <p className="text-xs text-slate-500">By {course.instructor_name}</p>
+                  <h3 className="font-extrabold text-navy-900 dark:text-white line-clamp-1">{course.title}</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">By {course.instructor_name}</p>
                   {course.status === 'completed' && course.completed_on && (
-                    <p className="text-[10px] text-slate-400">Completed {course.completed_on}</p>
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500">Completed {course.completed_on}</p>
                   )}
                   {course.status !== 'in-progress' && course.status !== 'completed' && (course.rating_avg ?? course.rating) && (
-                    <p className="text-xs text-teal-600 font-bold">★ {course.rating_avg ?? course.rating} {course.price && `• $${course.price}`}</p>
+                    <p className="text-xs text-teal-600 dark:text-teal-400 font-bold">★ {course.rating_avg ?? course.rating} {course.price && `• $${course.price}`}</p>
                   )}
                 </div>
 
                 {course.status === 'in-progress' && (
                   <>
                     {course.next_lesson && (
-                      <p className="text-[10px] text-slate-500">Next: <span className="font-bold text-navy-900">{course.next_lesson}</span></p>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400">Next: <span className="font-bold text-navy-900 dark:text-white">{course.next_lesson}</span></p>
                     )}
                     <ProgressBar value={course.progress ?? 0} showLabel />
                     <Link to={`/student/courses/${course.id}/learn`}>
-                      <Button variant="primary" size="sm" className="w-full !bg-navy-900">Continue Learning</Button>
+                      <Button variant="primary" size="sm" className="w-full !bg-navy-900 dark:!bg-teal-600 dark:hover:!bg-teal-500">Continue Learning</Button>
                     </Link>
                   </>
                 )}
@@ -248,12 +253,12 @@ export default function MyCourses() {
                   <div className="flex justify-between items-center">
                     <button
                       type="button"
-                      className="text-xs font-bold text-rose-600 flex items-center gap-1"
+                      className="text-xs font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1"
                       onClick={() => handleRemoveFromWishlist(course.id)}
                     >
                       <Trash2 size={14} /> Remove
                     </button>
-                    <Button variant="primary" size="sm" className="!bg-navy-900" onClick={() => handleEnroll(course.id)}>
+                    <Button variant="primary" size="sm" className="!bg-navy-900 dark:!bg-teal-600 dark:hover:!bg-teal-500" onClick={() => handleEnroll(course.id)}>
                       Enroll <ArrowRight size={12} />
                     </Button>
                   </div>
@@ -264,7 +269,7 @@ export default function MyCourses() {
                     {courses.some((c) => c.id === course.id && c.status === 'wishlist') ? (
                       <button
                         type="button"
-                        className="text-xs font-bold text-rose-600 flex items-center gap-1 hover:text-rose-700 transition-colors"
+                        className="text-xs font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1 hover:text-rose-700 dark:hover:text-rose-300 transition-colors"
                         onClick={() => handleRemoveFromWishlist(course.id)}
                       >
                         <Trash2 size={14} /> Remove Wishlist
@@ -272,13 +277,13 @@ export default function MyCourses() {
                     ) : (
                       <button
                         type="button"
-                        className="text-xs font-bold text-slate-500 flex items-center gap-1 hover:text-navy-900 transition-colors"
+                        className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1 hover:text-navy-900 dark:hover:text-white transition-colors"
                         onClick={() => handleAddToWishlist(course.id)}
                       >
                         <Star size={14} /> Wishlist
                       </button>
                     )}
-                    <Button variant="primary" size="sm" className="!bg-navy-900 hover:!bg-navy-800" onClick={() => handleEnroll(course.id)}>
+                    <Button variant="primary" size="sm" className="!bg-navy-900 dark:!bg-teal-600 dark:hover:!bg-teal-500" onClick={() => handleEnroll(course.id)}>
                       Enroll <ArrowRight size={12} />
                     </Button>
                   </div>
@@ -289,9 +294,9 @@ export default function MyCourses() {
         </div>
       ) : (
         <Card className="text-center py-16">
-          <BookOpen className="mx-auto text-slate-300" size={48} />
-          <h3 className="text-lg font-bold text-navy-900 mt-4">No courses found</h3>
-          <p className="text-sm text-slate-500 mt-2">No courses match your filters.</p>
+          <BookOpen className="mx-auto text-slate-300 dark:text-slate-700" size={48} />
+          <h3 className="text-lg font-bold text-navy-900 dark:text-white mt-4">No courses found</h3>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">No courses match your filters.</p>
         </Card>
       )}
     </div>

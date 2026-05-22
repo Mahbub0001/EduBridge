@@ -13,7 +13,7 @@ export default function Card({ className, padding = 'md', children, ...props }: 
     lg: 'p-8',
   };
   return (
-    <div className={cn('bg-white rounded-2xl border border-slate-200 shadow-sm', paddings[padding], className)} {...props}>
+    <div className={cn('bg-white rounded-2xl border border-slate-200 shadow-sm dark:bg-slate-900 dark:border-slate-800', paddings[padding], className)} {...props}>
       {children}
     </div>
   );

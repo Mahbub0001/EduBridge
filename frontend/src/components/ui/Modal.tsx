@@ -45,22 +45,22 @@ export default function Modal({ open, onClose, title, children, size = 'md', cla
         aria-modal="true"
         aria-labelledby={title ? 'modal-title' : undefined}
         className={cn(
-          'relative w-full bg-white rounded-2xl border border-slate-200 shadow-xl',
+          'relative w-full bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl',
           sizes[size],
           className
         )}
       >
         {title && (
-          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800">
             {title && (
-              <h2 id="modal-title" className="text-lg font-extrabold text-slate-900">
+              <h2 id="modal-title" className="text-lg font-extrabold text-slate-900 dark:text-white">
                 {title}
               </h2>
             )}
             <button
               type="button"
               onClick={onClose}
-              className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors ml-auto"
+              className="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-colors ml-auto"
               aria-label="Close"
             >
               <X size={18} />

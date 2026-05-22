@@ -36,7 +36,7 @@ export default function CourseCard({ course, onResume, onClick, className }: Cou
         }
       }}
       className={cn(
-        'bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col shadow-sm hover:border-slate-300 transition-colors group',
+        'bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col shadow-sm hover:border-slate-300 dark:hover:border-slate-700 transition-colors group',
         onClick && 'cursor-pointer',
         className
       )}
@@ -72,10 +72,10 @@ export default function CourseCard({ course, onResume, onClick, className }: Cou
               </span>
             </div>
           )}
-          <h3 className="font-extrabold text-slate-900 text-base leading-snug line-clamp-2 group-hover:text-navy-900 transition-colors">
+          <h3 className="font-extrabold text-slate-900 dark:text-white text-base leading-snug line-clamp-2 group-hover:text-navy-900 dark:group-hover:text-teal-400 transition-colors">
             {course.title}
           </h3>
-          <p className="text-xs text-slate-500">By {instructor}</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">By {instructor}</p>
         </div>
 
         {!isCompleted && progress > 0 && <ProgressBar value={progress} showLabel />}

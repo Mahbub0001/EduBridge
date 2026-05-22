@@ -7,9 +7,9 @@ import type { Assignment } from '../../types';
 const D = 'div';
 
 const statusStyles = {
-  pending: { border: 'border-l-rose-500', label: 'Pending Submission', icon: AlertCircle, color: 'text-rose-500' },
-  submitted: { border: 'border-l-amber-500', label: 'Submitted', icon: CheckCircle2, color: 'text-amber-600' },
-  graded: { border: 'border-l-emerald-500', label: 'Graded', icon: CheckCircle2, color: 'text-emerald-600' },
+  pending: { border: 'border-l-rose-500', label: 'Pending Submission', icon: AlertCircle, color: 'text-rose-500 dark:text-rose-400' },
+  submitted: { border: 'border-l-amber-500', label: 'Submitted', icon: CheckCircle2, color: 'text-amber-600 dark:text-amber-400' },
+  graded: { border: 'border-l-emerald-500', label: 'Graded', icon: CheckCircle2, color: 'text-emerald-600 dark:text-emerald-400' },
 };
 
 export interface AssignmentCardProps {
@@ -30,23 +30,23 @@ export default function AssignmentCard({ assignment, onSubmit, onViewFeedback, c
     >
       <D className="space-y-3">
         <D className="flex justify-between items-center text-xs font-semibold">
-          <span className="text-slate-500 font-bold">{assignment.course_name}</span>
+          <span className="text-slate-500 font-bold dark:text-slate-400">{assignment.course_name}</span>
           <span className={cn('inline-flex items-center gap-1 font-extrabold', style.color)}>
             <StatusIcon size={14} />
             {style.label}
           </span>
         </D>
-        <h3 className="font-extrabold text-slate-900 text-base leading-snug">{assignment.title}</h3>
-        {assignment.subtitle && <p className="text-xs text-slate-500">{assignment.subtitle}</p>}
-        <D className="flex items-center gap-4 text-xs text-slate-500 pt-2">
+        <h3 className="font-extrabold text-slate-900 text-base leading-snug dark:text-white">{assignment.title}</h3>
+        {assignment.subtitle && <p className="text-xs text-slate-500 dark:text-slate-400">{assignment.subtitle}</p>}
+        <D className="flex items-center gap-4 text-xs text-slate-500 pt-2 dark:text-slate-400">
           <span className="flex items-center gap-1">
             <Calendar size={14} />
             Due: {formatDate(assignment.due_date)}
           </span>
-          {assignment.grade && <span className="font-bold text-slate-700">{assignment.grade}</span>}
+          {assignment.grade && <span className="font-bold text-slate-700 dark:text-slate-300">{assignment.grade}</span>}
         </D>
       </D>
-      <D className="border-t border-slate-200 pt-4 mt-6 flex justify-end">
+      <D className="border-t border-slate-200 pt-4 mt-6 flex justify-end dark:border-slate-800">
         {assignment.status === 'graded' ? (
           <Button variant="outline" size="sm" onClick={() => onViewFeedback?.(assignment.id)}>
             View Feedback
