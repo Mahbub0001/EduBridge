@@ -198,7 +198,8 @@ def create_module_comment(
     module_doc = db.collection("modules").document(module_id).get()
     if not module_doc.exists:
         raise HTTPException(status_code=404, detail="Module not found")
-    course_id = module_doc.to_dict().get("course_id")
+    module_data = module_doc.to_dict()
+    course_id = module_data.get("course_id")
 
     user_id = current_user["id"]
     user_role = current_user.get("role", "student")
@@ -214,7 +215,7 @@ def create_module_comment(
         _, ref = db.collection("discussions").add({
             "course_id": course_id,
             "module_id": module_id,
-            "title": f"Module: {module_doc.to_dict().get('title', 'Untitled')} \u2014 Feedback & Questions",
+            "title": f"Module: {module_data.get('title', 'Untitled')} \u2014 Feedback & Questions",
             "content": "Ask questions or share feedback about this module.",
             "author_id": "system",
             "is_module_feedback": True,
@@ -249,7 +250,7 @@ def create_module_comment(
                     "thread_id": thread_id,
                     "module_id": module_id,
                     "course_id": course_id,
-                    "message": f"New question in {module_doc.to_dict().get('title', 'a module')} by {current_user.get('name', 'A student')}",
+                    "message": f"New question in {module_data.get('title', 'a module')} by {current_user.get('name', 'A student')}",
                     "is_read": False,
                     "created_at": now
                 })
