@@ -4,7 +4,7 @@ import {
   MessageSquare, Pin, EyeOff, Trash2, Eye, CheckCircle2, ShieldAlert,
   Search, Filter, Send, X, AlertTriangle, User, BookOpen, Clock
 } from 'lucide-react';
-import { getMyInstructorCourses } from '../../services/courseService';
+import { getMyInstructorCourses, getCourseModules } from '../../services/courseService';
 import {
   getInstructorDiscussions,
   getInstructorDiscussionDetail,
@@ -34,6 +34,8 @@ export default function InstructorDiscussions() {
   const [, setDetailLoading] = useState(false);
   const [replyText, setReplyText] = useState('');
   const [replyLoading, setReplyLoading] = useState(false);
+  const [modules, setModules] = useState<any[]>([]);
+  const [selectedModuleId, setSelectedModuleId] = useState('');
 
   // Delete control
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -67,6 +69,17 @@ export default function InstructorDiscussions() {
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (selectedCourseId) {
+      getCourseModules(selectedCourseId)
+        .then(setModules)
+        .catch(() => setModules([]));
+    } else {
+      setModules([]);
+      setSelectedModuleId('');
+    }
+  }, [selectedCourseId]);
 
   const handleOpenThread = async (id: string) => {
     setDetailLoading(true);
@@ -156,7 +169,8 @@ export default function InstructorDiscussions() {
   // Filter discussion cards
   const filteredDiscussions = discussions.filter((d) => {
     if (selectedCourseId && d.course_id !== selectedCourseId) return false;
-    
+    if (selectedModuleId && d.module_id !== selectedModuleId) return false;
+
     if (selectedStatus === 'pinned' && !d.is_pinned) return false;
     if (selectedStatus === 'hidden' && !d.is_hidden) return false;
     if (selectedStatus === 'unanswered' && d.is_answered) return false;
@@ -198,7 +212,7 @@ export default function InstructorDiscussions() {
           <h3 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider">Search & Filters</h3>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
           <div className="space-y-1">
             <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wide">Filter by Course</label>
             <select
@@ -225,6 +239,21 @@ export default function InstructorDiscussions() {
               <option value="reported">Reported / Flagged</option>
               <option value="hidden">Hidden Threads</option>
               <option value="unanswered">Unanswered</option>
+            </select>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wide">Filter by Module</label>
+            <select
+              value={selectedModuleId}
+              onChange={(e) => setSelectedModuleId(e.target.value)}
+              disabled={!selectedCourseId || modules.length === 0}
+              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-slate-900 bg-slate-50/50 disabled:opacity-40"
+            >
+              <option value="">All modules & course discussions</option>
+              {modules.map((m: any) => (
+                <option key={m.id} value={m.id}>{m.title}</option>
+              ))}
             </select>
           </div>
 
@@ -294,6 +323,15 @@ export default function InstructorDiscussions() {
                             <BookOpen size={10} />
                             {d.course_title}
                           </span>
+                          {d.module_id && d.module_title && (
+                            <>
+                              <span className="text-[10px] font-extrabold text-slate-400">/</span>
+                              <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider flex items-center gap-1">
+                                <MessageSquare size={10} />
+                                {d.module_title}
+                              </span>
+                            </>
+                          )}
                         </div>
 
                         <h3 className="text-sm font-black text-slate-900 leading-snug">{d.title}</h3>
@@ -355,6 +393,15 @@ export default function InstructorDiscussions() {
                     <BookOpen size={10} />
                     {selectedThread.course_title}
                   </span>
+                  {selectedThread.module_id && selectedThread.module_title && (
+                    <>
+                      <span className="text-slate-400 font-black mx-1">/</span>
+                      <span className="text-[10px] text-slate-500 font-black uppercase flex items-center gap-1">
+                        <MessageSquare size={10} />
+                        {selectedThread.module_title}
+                      </span>
+                    </>
+                  )}
                 </div>
 
                 <h2 className="text-sm font-extrabold text-slate-900 leading-snug">{selectedThread.title}</h2>
