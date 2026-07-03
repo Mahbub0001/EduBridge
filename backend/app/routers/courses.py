@@ -173,6 +173,16 @@ def delete_course(
     course_ref = db.collection("courses").document(course_id)
     if not course_ref.get().exists:
         raise HTTPException(status_code=404, detail="Course not found")
+
+    modules = db.collection("modules").where("course_id", "==", course_id).stream()
+    for m in modules:
+        discussions = db.collection("discussions").where("module_id", "==", m.id).stream()
+        for d in discussions:
+            replies = db.collection("discussion_replies").where("thread_id", "==", d.id).stream()
+            for r in replies:
+                db.collection("discussion_replies").document(r.id).delete()
+            db.collection("discussions").document(d.id).delete()
+
     course_ref.delete()
     return success_response(message="Course deleted successfully")
 
@@ -292,6 +302,14 @@ def delete_module(
     lessons = db.collection("lessons").where("module_id", "==", module_id).stream()
     for l in lessons:
         db.collection("lessons").document(l.id).delete()
+
+    discussions = db.collection("discussions").where("module_id", "==", module_id).stream()
+    for d in discussions:
+        replies = db.collection("discussion_replies").where("thread_id", "==", d.id).stream()
+        for r in replies:
+            db.collection("discussion_replies").document(r.id).delete()
+        db.collection("discussions").document(d.id).delete()
+
     ref.delete()
     return success_response(message="Module deleted")
 
