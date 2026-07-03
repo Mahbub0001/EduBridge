@@ -11,6 +11,7 @@ import { getCourseProgress, markLessonComplete } from '../../services/progressSe
 import Breadcrumbs from '../../components/layout/Breadcrumbs';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
+import ModuleFeedback from '../../components/module/ModuleFeedback';
 
 function getYouTubeEmbedUrl(url: string): string | null {
   if (!url) return null;
@@ -433,6 +434,15 @@ export default function CourseLearning() {
               </div>
             </div>
           </Card>
+
+          {/* Module Feedback Section */}
+          {activeModule && (
+            <ModuleFeedback
+              courseId={courseId || ''}
+              moduleId={activeModule.id}
+              moduleTitle={activeModule.title}
+            />
+          )}
         </div>
 
         <Card className="h-fit space-y-4">
