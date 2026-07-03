@@ -31,3 +31,13 @@ export async function deleteDiscussionThread(discussionId: string): Promise<void
 export async function toggleDiscussionAnswered(discussionId: string): Promise<void> {
   await api.patch(`/instructor/discussions/${discussionId}/answered`);
 }
+
+export async function getModuleDiscussion(moduleId: string): Promise<any> {
+  const res = await api.get(`/discussions/modules/${moduleId}`);
+  return unwrap<any>(res);
+}
+
+export async function postModuleComment(moduleId: string, content: string): Promise<any> {
+  const res = await api.post(`/discussions/modules/${moduleId}/comments`, { content });
+  return unwrap<any>(res);
+}
