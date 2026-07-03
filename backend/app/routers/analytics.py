@@ -47,8 +47,9 @@ def get_instructor_dashboard_summary(
     db: Client = Depends(get_db)
 ):
     """Comprehensive dashboard summary for instructors."""
+    uid = current_user["id"]
     course_docs = list(
-        db.collection("courses").stream()
+        db.collection("courses").where("instructor_id", "==", uid).stream()
     )
     course_ids = [c.id for c in course_docs]
 
@@ -58,6 +59,43 @@ def get_instructor_dashboard_summary(
     total_enrollments = 0
 
     courses_list = []
+    all_modules = []
+    all_quizzes = []
+    all_assignments = []
+    all_enrollments = []
+
+    if course_ids:
+        for chunk in [course_ids[i:i + 30] for i in range(0, len(course_ids), 30)]:
+            all_modules.extend(db.collection("modules").where("course_id", "in", chunk).stream())
+            all_quizzes.extend(db.collection("quizzes").where("course_id", "in", chunk).stream())
+            all_assignments.extend(db.collection("assignments").where("course_id", "in", chunk).stream())
+            all_enrollments.extend(db.collection("enrollments").where("course_id", "in", chunk).stream())
+
+    modules_by_course = {}
+    quizzes_by_course = {}
+    assignments_by_course = {}
+    enrollments_by_course = {}
+
+    for m in all_modules:
+        md = m.to_dict()
+        cid = md.get("course_id")
+        modules_by_course.setdefault(cid, []).append(m.id)
+
+    for q in all_quizzes:
+        qd = q.to_dict()
+        cid = qd.get("course_id")
+        quizzes_by_course.setdefault(cid, []).append(q.id)
+
+    for a in all_assignments:
+        ad = a.to_dict()
+        cid = ad.get("course_id")
+        assignments_by_course.setdefault(cid, []).append(a.id)
+
+    for e in all_enrollments:
+        ed = e.to_dict()
+        cid = ed.get("course_id")
+        enrollments_by_course.setdefault(cid, []).append(e)
+
     for c in course_docs:
         cd = c.to_dict()
         status = cd.get("status", "draft")
@@ -67,90 +105,100 @@ def get_instructor_dashboard_summary(
             draft_courses += 1
         total_enrollments += cd.get("enrollment_count", 0)
 
-        module_count = len(
-            list(db.collection("modules").where("course_id", "==", c.id).stream())
-        )
-
+        cid = c.id
         courses_list.append({
-            "id": c.id,
+            "id": cid,
             "title": cd.get("title", ""),
             "status": status,
             "enrollment_count": cd.get("enrollment_count", 0),
-            "module_count": module_count,
-            "quiz_count": 0,
-            "assignment_count": 0,
+            "module_count": len(modules_by_course.get(cid, [])),
+            "quiz_count": len(quizzes_by_course.get(cid, [])),
+            "assignment_count": len(assignments_by_course.get(cid, [])),
             "completion_rate": 0,
             "updated_at": cd.get("updated_at", cd.get("created_at", "")),
         })
 
-    total_quizzes = 0
-    total_assignments = 0
-    for i, cid in enumerate(course_ids):
-        q_count = len(list(db.collection("quizzes").where("course_id", "==", cid).stream()))
-        a_count = len(list(db.collection("assignments").where("course_id", "==", cid).stream()))
-        total_quizzes += q_count
-        total_assignments += a_count
-        if i < len(courses_list):
-            courses_list[i]["quiz_count"] = q_count
-            courses_list[i]["assignment_count"] = a_count
+    total_quizzes = len(all_quizzes)
+    total_assignments = len(all_assignments)
 
     course_performance = []
-    all_enrollments = []
-    for i, cid in enumerate(course_ids):
-        enrollments = list(
-            db.collection("enrollments").where("course_id", "==", cid).stream()
-        )
-        all_enrollments.extend(enrollments)
-        count = len(enrollments)
-        completed = sum(1 for e in enrollments if e.to_dict().get("status") == "completed")
+    for cl in courses_list:
+        cid = cl["id"]
+        enrolls = enrollments_by_course.get(cid, [])
+        count = len(enrolls)
+        completed = sum(1 for e in enrolls if e.to_dict().get("status") == "completed")
         rate = round((completed / max(count, 1)) * 100, 1)
-        course_title = courses_list[i]["title"] if i < len(courses_list) else cid
+        cl["completion_rate"] = rate
         course_performance.append({
             "course_id": cid,
-            "course_title": course_title,
+            "course_title": cl["title"],
             "enrollments": count,
             "completed": completed,
             "completion_rate": rate,
         })
-        if i < len(courses_list):
-            courses_list[i]["completion_rate"] = rate
 
     avg_completion = round(
         sum(cp["completion_rate"] for cp in course_performance) / max(len(course_performance), 1), 1
     )
 
-    pending_submissions = []
+    needed_user_ids = set()
+    pending_submissions_raw = []
     pending_count = 0
-    for cid in course_ids:
-        assignment_docs = list(
-            db.collection("assignments").where("course_id", "==", cid).stream()
-        )
-        for adoc in assignment_docs:
-            sub_docs = list(
-                db.collection("assignment_submissions")
-                .where("assignment_id", "==", adoc.id)
-                .where("status", "==", "pending")
-                .stream()
-            )
-            for s in sub_docs:
-                sd = s.to_dict()
-                sd["id"] = s.id
-                user_doc = db.collection("users").document(sd.get("user_id", "")).get()
-                sd["student_name"] = (
-                    user_doc.to_dict().get("name", "Unknown") if user_doc.exists else "Unknown"
-                )
-                sd["course_title"] = next(
-                    (cl["title"] for cl in courses_list if cl["id"] == cid), ""
-                )
-                sd["assignment_title"] = adoc.to_dict().get("title", "")
-                pending_submissions.append(sd)
-                pending_count += 1
+
+    if all_assignments:
+        assignment_ids = [a.id for a in all_assignments]
+        all_subs = []
+        for chunk in [assignment_ids[i:i + 30] for i in range(0, len(assignment_ids), 30)]:
+            subs = db.collection("assignment_submissions") \
+                    .where("assignment_id", "in", chunk) \
+                    .where("status", "==", "pending") \
+                    .stream()
+            all_subs.extend(subs)
+
+        for s in all_subs:
+            sd = s.to_dict()
+            sd["id"] = s.id
+            uid_sub = sd.get("user_id")
+            if uid_sub:
+                needed_user_ids.add(uid_sub)
+            pending_submissions_raw.append(sd)
+            pending_count += 1
+
+    for e in all_enrollments:
+        ed = e.to_dict()
+        uid_enroll = ed.get("user_id")
+        if uid_enroll:
+            needed_user_ids.add(uid_enroll)
+
+    user_cache = {}
+    if needed_user_ids:
+        user_refs = [db.collection("users").document(uid_key) for uid_key in needed_user_ids]
+        user_docs = db.get_all(user_refs)
+        for udoc in user_docs:
+            if udoc.exists:
+                user_cache[udoc.id] = udoc.to_dict()
+
+    pending_submissions = []
+    for sd in pending_submissions_raw:
+        s_uid = sd.get("user_id", "")
+        sd["student_name"] = user_cache.get(s_uid, {}).get("name", "Unknown")
+        assignment_doc = next((a for a in all_assignments if a.id == sd.get("assignment_id")), None)
+        course_title = ""
+        assignment_title = ""
+        if assignment_doc:
+            ad = assignment_doc.to_dict()
+            cid = ad.get("course_id")
+            course_title = next((cl["title"] for cl in courses_list if cl["id"] == cid), "")
+            assignment_title = ad.get("title", "")
+        sd["course_title"] = course_title
+        sd["assignment_title"] = assignment_title
+        pending_submissions.append(sd)
 
     recent_activity = []
     for e in all_enrollments:
         ed = e.to_dict()
-        user_doc = db.collection("users").document(ed.get("user_id", "")).get()
-        student_name = user_doc.to_dict().get("name", "Unknown") if user_doc.exists else "Unknown"
+        u_id = ed.get("user_id", "")
+        student_name = user_cache.get(u_id, {}).get("name", "Unknown")
         course_title = next(
             (cl["title"] for cl in courses_list if cl["id"] == ed.get("course_id")), ""
         )
@@ -169,8 +217,8 @@ def get_instructor_dashboard_summary(
         ed = e.to_dict()
         progress = ed.get("progress_percent", 0)
         if progress < 20 and ed.get("status") != "completed":
-            user_doc = db.collection("users").document(ed.get("user_id", "")).get()
-            student_name = user_doc.to_dict().get("name", "Unknown") if user_doc.exists else "Unknown"
+            u_id = ed.get("user_id", "")
+            student_name = user_cache.get(u_id, {}).get("name", "Unknown")
             course_title = next(
                 (cl["title"] for cl in courses_list if cl["id"] == ed.get("course_id")), ""
             )

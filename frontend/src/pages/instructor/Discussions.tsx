@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
-  MessageSquare, Pin, EyeOff, Trash2, Eye, CheckCircle2, ShieldAlert,
-  Search, Filter, Send, X, AlertTriangle, User, BookOpen, Clock
+  MessageSquare, Pin, EyeOff, Trash2, Eye, CheckCircle2,
+  Search, Send, X, User, BookOpen, ChevronDown, ChevronRight, RefreshCw,
 } from 'lucide-react';
 import { getMyInstructorCourses, getCourseModules } from '../../services/courseService';
 import {
@@ -12,142 +12,135 @@ import {
   pinDiscussionThread,
   hideDiscussionThread,
   deleteDiscussionThread,
-  toggleDiscussionAnswered
+  toggleDiscussionAnswered,
+  getModuleDiscussion,
 } from '../../services/discussionService';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 
+function timeAgo(dateVal: any): string {
+  if (!dateVal) return '';
+  const date = dateVal?.seconds ? new Date(dateVal.seconds * 1000) : new Date(dateVal);
+  const diff = (Date.now() - date.getTime()) / 1000;
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+}
+
 export default function InstructorDiscussions() {
   const [courses, setCourses] = useState<any[]>([]);
-  const [discussions, setDiscussions] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  // Filters
   const [selectedCourseId, setSelectedCourseId] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState('all');
-  const [searchQuery, setSearchQuery] = useState('');
-
-  // Selected discussion detail (drawer control)
-  const [selectedThread, setSelectedThread] = useState<any | null>(null);
-  const [, setDetailLoading] = useState(false);
-  const [replyText, setReplyText] = useState('');
-  const [replyLoading, setReplyLoading] = useState(false);
   const [modules, setModules] = useState<any[]>([]);
   const [selectedModuleId, setSelectedModuleId] = useState('');
-
-  // Delete control
+  const [moduleThread, setModuleThread] = useState<{ thread: any; replies: any[] } | null>(null);
+  const [allDiscussions, setAllDiscussions] = useState<any[]>([]);
+  const [selectedThread, setSelectedThread] = useState<any | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [threadLoading, setThreadLoading] = useState(false);
+  const [replyText, setReplyText] = useState('');
+  const [replyLoading, setReplyLoading] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [toast, setToast] = useState('');
+  const [toastErr, setToastErr] = useState(false);
+  const repliesEndRef = useRef<HTMLDivElement>(null);
 
-  // Toast
-  const [toastMsg, setToastMsg] = useState('');
-  const [toastType, setToastType] = useState<'success' | 'error'>('success');
-
-  const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
-    setToastMsg(msg);
-    setToastType(type);
-    setTimeout(() => setToastMsg(''), 3000);
+  const showToast = (msg: string, err = false) => {
+    setToast(msg); setToastErr(err);
+    setTimeout(() => setToast(''), 3000);
   };
 
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      const [cList, dList] = await Promise.all([
-        getMyInstructorCourses(),
-        getInstructorDiscussions()
-      ]);
-      setCourses(cList);
-      setDiscussions(dList);
-    } catch {
-      showToast('Failed to load discussion parameters.', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Load courses + all discussions on mount
   useEffect(() => {
-    loadData();
+    (async () => {
+      setLoading(true);
+      try {
+        const [cList, dList] = await Promise.all([
+          getMyInstructorCourses(),
+          getInstructorDiscussions(),
+        ]);
+        setCourses(cList);
+        setAllDiscussions(dList);
+        if (cList.length > 0) setSelectedCourseId(cList[0].id);
+      } catch {
+        showToast('Failed to load discussions.', true);
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
+  // Load modules when course changes
   useEffect(() => {
-    if (selectedCourseId) {
-      getCourseModules(selectedCourseId)
-        .then(setModules)
-        .catch(() => setModules([]));
-    } else {
-      setModules([]);
-      setSelectedModuleId('');
-    }
+    setSelectedModuleId('');
+    setModuleThread(null);
+    setSelectedThread(null);
+    if (!selectedCourseId) { setModules([]); return; }
+    getCourseModules(selectedCourseId)
+      .then((mods) => {
+        setModules(mods);
+        if (mods.length > 0) setSelectedModuleId(mods[0].id);
+      })
+      .catch(() => setModules([]));
   }, [selectedCourseId]);
 
-  const handleOpenThread = async (id: string) => {
-    setDetailLoading(true);
-    setSelectedThread(null);
-    try {
-      const detail = await getInstructorDiscussionDetail(id);
-      setSelectedThread(detail);
-    } catch {
-      showToast('Failed to retrieve discussion thread details.', 'error');
-    } finally {
-      setDetailLoading(false);
-    }
-  };
+  // Load module discussion thread when module changes
+  useEffect(() => {
+    if (!selectedModuleId) { setModuleThread(null); return; }
+    setThreadLoading(true);
+    getModuleDiscussion(selectedModuleId)
+      .then(setModuleThread)
+      .catch(() => setModuleThread(null))
+      .finally(() => setThreadLoading(false));
+  }, [selectedModuleId]);
 
-  const handlePostReply = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!replyText.trim() || !selectedThread) return;
+  // Scroll to latest reply when thread updates
+  useEffect(() => {
+    repliesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [moduleThread?.replies?.length]);
+
+  const handleReply = async () => {
+    if (!replyText.trim() || !moduleThread?.thread?.id) return;
     setReplyLoading(true);
     try {
-      await replyToDiscussionAsInstructor(selectedThread.id, replyText);
-      showToast('Moderator reply posted successfully!');
+      await replyToDiscussionAsInstructor(moduleThread.thread.id, replyText.trim());
       setReplyText('');
-      // Reload detail
-      handleOpenThread(selectedThread.id);
-      loadData();
+      showToast('Reply posted!');
+      // Refresh thread
+      const updated = await getModuleDiscussion(selectedModuleId);
+      setModuleThread(updated);
     } catch {
-      showToast('Failed to submit reply.', 'error');
+      showToast('Failed to post reply.', true);
     } finally {
       setReplyLoading(false);
     }
   };
 
-  const handleTogglePin = async (id: string) => {
+  const handleOpenLegacyThread = async (id: string) => {
     try {
-      await pinDiscussionThread(id);
-      showToast('Discussion pin status updated.');
-      loadData();
-      if (selectedThread?.id === id) {
-        handleOpenThread(id);
-      }
+      const detail = await getInstructorDiscussionDetail(id);
+      setSelectedThread(detail);
     } catch {
-      showToast('Failed to update pin status.', 'error');
+      showToast('Failed to load thread.', true);
     }
   };
 
-  const handleToggleHide = async (id: string) => {
+  const handlePostLegacyReply = async () => {
+    if (!replyText.trim() || !selectedThread) return;
+    setReplyLoading(true);
     try {
-      await hideDiscussionThread(id);
-      showToast('Discussion visibility status updated.');
-      loadData();
-      if (selectedThread?.id === id) {
-        handleOpenThread(id);
-      }
+      await replyToDiscussionAsInstructor(selectedThread.id, replyText.trim());
+      setReplyText('');
+      showToast('Reply posted!');
+      const detail = await getInstructorDiscussionDetail(selectedThread.id);
+      setSelectedThread(detail);
     } catch {
-      showToast('Failed to toggle visibility.', 'error');
-    }
-  };
-
-  const handleToggleAnswered = async (id: string) => {
-    try {
-      await toggleDiscussionAnswered(id);
-      showToast('Discussion answered state toggled.');
-      loadData();
-      if (selectedThread?.id === id) {
-        handleOpenThread(id);
-      }
-    } catch {
-      showToast('Failed to update answered state.', 'error');
+      showToast('Failed to post reply.', true);
+    } finally {
+      setReplyLoading(false);
     }
   };
 
@@ -155,367 +148,348 @@ export default function InstructorDiscussions() {
     if (!deleteConfirmId) return;
     try {
       await deleteDiscussionThread(deleteConfirmId);
-      showToast('Discussion thread permanently deleted.');
-      if (selectedThread?.id === deleteConfirmId) {
-        setSelectedThread(null);
-      }
+      showToast('Thread deleted.');
       setDeleteConfirmId(null);
-      loadData();
+      setSelectedThread(null);
+      const dList = await getInstructorDiscussions();
+      setAllDiscussions(dList);
+      if (selectedModuleId) {
+        const updated = await getModuleDiscussion(selectedModuleId);
+        setModuleThread(updated);
+      }
     } catch {
-      showToast('Failed to delete discussion thread.', 'error');
+      showToast('Delete failed.', true);
     }
   };
 
-  // Filter discussion cards
-  const filteredDiscussions = discussions.filter((d) => {
+  // Filter non-module discussions
+  const legacyDiscussions = allDiscussions.filter((d) => {
+    if (d.is_module_feedback) return false;
     if (selectedCourseId && d.course_id !== selectedCourseId) return false;
-    if (selectedModuleId && d.module_id !== selectedModuleId) return false;
-
-    if (selectedStatus === 'pinned' && !d.is_pinned) return false;
-    if (selectedStatus === 'hidden' && !d.is_hidden) return false;
-    if (selectedStatus === 'unanswered' && d.is_answered) return false;
-    if (selectedStatus === 'reported' && (!d.report_count || d.report_count === 0)) return false;
-
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      const t = (d.title || '').toLowerCase();
-      const c = (d.content || '').toLowerCase();
-      if (!t.includes(q) && !c.includes(q)) return false;
+      return (d.title || '').toLowerCase().includes(q) || (d.content || '').toLowerCase().includes(q);
     }
     return true;
   });
 
+  // Count unread per module (replies from students without instructor reply)
+  const getModuleUnreadCount = (modId: string) => {
+    const disc = allDiscussions.find(
+      (d) => d.is_module_feedback && d.module_id === modId
+    );
+    if (!disc) return 0;
+    return (disc.replies || []).filter((r: any) => !r.is_instructor).length;
+  };
+
   return (
     <div className="space-y-6">
-      {/* Toast popup */}
-      {toastMsg && (
-        <div className={`fixed top-6 right-6 z-50 px-5 py-3 rounded-xl shadow-lg text-sm font-semibold animate-in fade-in slide-in-from-top-2 flex items-center gap-2 ${
-          toastType === 'success' ? 'bg-slate-900 text-white' : 'bg-red-600 text-white'
-        }`}>
-          {toastType === 'success' ? <CheckCircle2 size={16} /> : <ShieldAlert size={16} />}
-          <span>{toastMsg}</span>
+      {/* Toast */}
+      {toast && (
+        <div className={`fixed top-6 right-6 z-50 px-5 py-3 rounded-xl shadow-lg text-sm font-semibold flex items-center gap-2 ${toastErr ? 'bg-red-600 text-white' : 'bg-slate-900 text-white'}`}>
+          {toastErr ? <X size={16} /> : <CheckCircle2 size={16} />}
+          {toast}
         </div>
       )}
 
       {/* Header */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-4 flex justify-between items-center">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-black text-slate-900">Course Discussions</h1>
-          <p className="text-xs text-slate-500 font-medium mt-0.5">Moderate questions, pinned threads, and post official replies to student forums.</p>
+          <h1 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
+            <MessageSquare className="text-teal-500" size={22} />
+            Module Discussions
+          </h1>
+          <p className="text-xs text-slate-500 mt-0.5">
+            View student questions per module and reply to them directly.
+          </p>
         </div>
+        <Button variant="outline" size="sm" onClick={async () => {
+          const dList = await getInstructorDiscussions();
+          setAllDiscussions(dList);
+          if (selectedModuleId) {
+            const updated = await getModuleDiscussion(selectedModuleId);
+            setModuleThread(updated);
+          }
+        }}>
+          <RefreshCw size={14} /> Refresh
+        </Button>
       </div>
 
-      {/* Filter toolbar */}
-      <Card className="border border-slate-200 p-4 space-y-4">
-        <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
-          <Filter size={14} className="text-slate-500" />
-          <h3 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider">Search & Filters</h3>
+      {loading ? (
+        <div className="grid grid-cols-3 gap-6">
+          {[1, 2, 3].map(i => <div key={i} className="h-40 bg-slate-100 dark:bg-slate-800 rounded-2xl animate-pulse" />)}
         </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
 
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-          <div className="space-y-1">
-            <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wide">Filter by Course</label>
-            <select
-              value={selectedCourseId}
-              onChange={(e) => setSelectedCourseId(e.target.value)}
-              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-slate-900 bg-slate-50/50"
-            >
-              <option value="">All courses taught</option>
-              {courses.map((c) => (
-                <option key={c.id} value={c.id}>{c.title}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wide">Moderation Status</label>
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-slate-900 bg-slate-50/50"
-            >
-              <option value="all">All threads</option>
-              <option value="pinned">Pinned Threads</option>
-              <option value="reported">Reported / Flagged</option>
-              <option value="hidden">Hidden Threads</option>
-              <option value="unanswered">Unanswered</option>
-            </select>
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wide">Filter by Module</label>
-            <select
-              value={selectedModuleId}
-              onChange={(e) => setSelectedModuleId(e.target.value)}
-              disabled={!selectedCourseId || modules.length === 0}
-              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-slate-900 bg-slate-50/50 disabled:opacity-40"
-            >
-              <option value="">All modules & course discussions</option>
-              {modules.map((m: any) => (
-                <option key={m.id} value={m.id}>{m.title}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wide">Search post</label>
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 text-slate-400" size={13} />
-              <input
-                type="text"
-                placeholder="Search keywords..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full border border-slate-200 rounded-xl pl-8 pr-3 py-2 text-xs font-semibold outline-none focus:border-slate-900 bg-slate-50/50"
-              />
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      {/* Main Grid: left list, right detail drawer */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        
-        {/* Discussion threads list */}
-        <div className={`space-y-4 ${selectedThread ? 'lg:col-span-6' : 'lg:col-span-12'}`}>
-          {loading ? (
-            <div className="space-y-4">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="h-32 bg-slate-50 border border-slate-100 rounded-2xl animate-pulse" />
-              ))}
-            </div>
-          ) : filteredDiscussions.length === 0 ? (
-            <Card className="text-center py-20 border border-slate-200 bg-white">
-              <MessageSquare className="mx-auto text-slate-300 animate-bounce" size={40} />
-              <p className="text-slate-500 font-extrabold mt-4">No discussions found.</p>
+          {/* Left sidebar: Course + Module selector */}
+          <div className="lg:col-span-1 space-y-4">
+            {/* Course picker */}
+            <Card className="p-4 space-y-3">
+              <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wide flex items-center gap-1">
+                <BookOpen size={11} /> Select Course
+              </label>
+              <select
+                value={selectedCourseId}
+                onChange={(e) => setSelectedCourseId(e.target.value)}
+                className="w-full border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-teal-400 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200"
+              >
+                <option value="">All courses</option>
+                {courses.map((c) => (
+                  <option key={c.id} value={c.id}>{c.title}</option>
+                ))}
+              </select>
             </Card>
-          ) : (
-            <div className="space-y-4">
-              {filteredDiscussions.map((d) => {
-                const isReported = d.report_count > 0;
-                return (
-                  <Card
-                    key={d.id}
-                    className={`border p-5 space-y-4 cursor-pointer hover:border-slate-300 transition-all relative overflow-hidden ${
-                      selectedThread?.id === d.id ? 'border-slate-900 bg-slate-50/20' : 'border-slate-200 bg-white'
-                    }`}
-                    onClick={() => handleOpenThread(d.id)}
-                  >
-                    {isReported && (
-                      <div className="absolute top-0 left-0 bottom-0 w-1 bg-red-500" />
-                    )}
 
-                    <div className="flex justify-between items-start gap-4">
-                      <div className="space-y-1.5">
-                        <div className="flex flex-wrap items-center gap-2">
-                          {d.is_pinned && <Badge variant="info" className="text-[8px] uppercase flex items-center gap-0.5"><Pin size={8} /> Pinned</Badge>}
-                          {d.is_hidden && <Badge variant="warning" className="text-[8px] uppercase flex items-center gap-0.5"><EyeOff size={8} /> Hidden</Badge>}
-                          {d.is_answered ? (
-                            <Badge variant="success" className="text-[8px] uppercase flex items-center gap-0.5"><CheckCircle2 size={8} /> Answered</Badge>
-                          ) : (
-                            <Badge variant="default" className="text-[8px] uppercase">Unanswered</Badge>
-                          )}
-                          {isReported && (
-                            <Badge variant="danger" className="text-[8px] uppercase flex items-center gap-0.5"><AlertTriangle size={8} /> Reported ({d.report_count})</Badge>
-                          )}
-                          <span className="text-[10px] font-extrabold text-slate-400">/</span>
-                          <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider flex items-center gap-1">
-                            <BookOpen size={10} />
-                            {d.course_title}
-                          </span>
-                          {d.module_id && d.module_title && (
-                            <>
-                              <span className="text-[10px] font-extrabold text-slate-400">/</span>
-                              <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider flex items-center gap-1">
-                                <MessageSquare size={10} />
-                                {d.module_title}
-                              </span>
-                            </>
-                          )}
-                        </div>
-
-                        <h3 className="text-sm font-black text-slate-900 leading-snug">{d.title}</h3>
-                      </div>
-
-                      <div className="flex gap-1.5" onClick={(e) => e.stopPropagation()}>
-                        <Button variant="ghost" size="sm" className="!p-2 hover:bg-slate-100 text-slate-700" onClick={() => handleTogglePin(d.id)}>
-                          <Pin size={12} className={d.is_pinned ? 'fill-slate-900 text-slate-900' : ''} />
-                        </Button>
-                        <Button variant="ghost" size="sm" className="!p-2 hover:bg-slate-100 text-slate-700" onClick={() => handleToggleHide(d.id)}>
-                          {d.is_hidden ? <Eye size={12} /> : <EyeOff size={12} />}
-                        </Button>
-                        <Button variant="ghost" size="sm" className="!p-2 hover:bg-red-50 text-red-600" onClick={() => setDeleteConfirmId(d.id)}>
-                          <Trash2 size={12} />
-                        </Button>
-                      </div>
-                    </div>
-
-                    <p className="text-xs text-slate-500 line-clamp-2">{d.content}</p>
-
-                    <div className="flex justify-between items-center pt-3 border-t border-slate-100 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                      <div className="flex items-center gap-2">
-                        {d.author_photo ? (
-                          <img src={d.author_photo} alt={d.author_name} className="w-5 h-5 rounded-full object-cover" />
-                        ) : (
-                          <div className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-slate-400"><User size={10} /></div>
-                        )}
-                        <span className="text-slate-800 font-black">{d.author_name}</span>
-                      </div>
-                      
-                      <div className="flex items-center gap-4">
-                        <span className="flex items-center gap-1"><MessageSquare size={10} /> {d.reply_count} Replies</span>
-                        <span className="flex items-center gap-1"><Clock size={10} /> {new Date(d.created_at).toLocaleDateString()}</span>
-                      </div>
-                    </div>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Selected discussion detail panel */}
-        {selectedThread && (
-          <div className="lg:col-span-6 space-y-4 animate-in slide-in-from-right-4 duration-200">
-            <Card className="border border-slate-200 p-5 space-y-4 bg-white relative">
-              
-              {/* Close Button */}
-              <button onClick={() => setSelectedThread(null)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-900 transition-colors">
-                <X size={18} />
-              </button>
-
-              {/* Thread Info */}
-              <div className="space-y-3 pb-4 border-b border-slate-100">
-                <div className="flex items-center gap-2">
-                  {selectedThread.is_pinned && <Badge variant="info" className="text-[8px] uppercase"><Pin size={8} className="inline mr-0.5" /> Pinned</Badge>}
-                  {selectedThread.is_answered && <Badge variant="success" className="text-[8px] uppercase">Answered</Badge>}
-                  <span className="text-[10px] text-slate-505 font-black uppercase flex items-center gap-1">
-                    <BookOpen size={10} />
-                    {selectedThread.course_title}
-                  </span>
-                  {selectedThread.module_id && selectedThread.module_title && (
-                    <>
-                      <span className="text-slate-400 font-black mx-1">/</span>
-                      <span className="text-[10px] text-slate-500 font-black uppercase flex items-center gap-1">
-                        <MessageSquare size={10} />
-                        {selectedThread.module_title}
+            {/* Module list */}
+            {modules.length > 0 && (
+              <Card className="p-3 space-y-1">
+                <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wide px-1 pb-1">Modules</p>
+                {modules.map((mod: any) => {
+                  const unread = getModuleUnreadCount(mod.id);
+                  const isActive = selectedModuleId === mod.id;
+                  return (
+                    <button
+                      key={mod.id}
+                      onClick={() => setSelectedModuleId(mod.id)}
+                      className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-xs font-bold text-left transition-all ${
+                        isActive
+                          ? 'bg-teal-600 text-white'
+                          : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2 min-w-0">
+                        <ChevronRight size={12} className={isActive ? 'text-white' : 'text-slate-400'} />
+                        <span className="truncate">{mod.title}</span>
                       </span>
-                    </>
-                  )}
-                </div>
+                      {unread > 0 && (
+                        <span className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black ${isActive ? 'bg-white text-teal-600' : 'bg-teal-500 text-white'}`}>
+                          {unread}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </Card>
+            )}
+          </div>
 
-                <h2 className="text-sm font-extrabold text-slate-900 leading-snug">{selectedThread.title}</h2>
-                
-                {/* Author row */}
-                <div className="flex items-center gap-3">
-                  {selectedThread.author_photo ? (
-                    <img src={selectedThread.author_photo} alt={selectedThread.author_name} className="w-8 h-8 rounded-full object-cover" />
-                  ) : (
-                    <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400"><User size={14} /></div>
-                  )}
+          {/* Main content: Module thread */}
+          <div className="lg:col-span-3 space-y-4">
+            {selectedModuleId ? (
+              <Card className="space-y-4">
+                {/* Thread header */}
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
                   <div>
-                    <p className="text-xs font-black text-slate-800">{selectedThread.author_name}</p>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase">{new Date(selectedThread.created_at).toLocaleDateString()}</p>
+                    <h2 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                      <MessageSquare size={14} className="text-teal-500" />
+                      {modules.find(m => m.id === selectedModuleId)?.title || 'Module'} — Q&amp;A
+                    </h2>
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                      {moduleThread?.replies?.length || 0} message{(moduleThread?.replies?.length || 0) !== 1 ? 's' : ''}
+                    </p>
                   </div>
+                  {moduleThread?.thread?.id && (
+                    <div className="flex gap-1">
+                      <button
+                        title="Pin thread"
+                        onClick={() => pinDiscussionThread(moduleThread.thread.id).then(() => showToast('Pin updated.'))}
+                        className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700"
+                      >
+                        <Pin size={13} />
+                      </button>
+                      <button
+                        title="Mark answered"
+                        onClick={() => toggleDiscussionAnswered(moduleThread.thread.id).then(() => showToast('Answered status toggled.'))}
+                        className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-emerald-600"
+                      >
+                        <CheckCircle2 size={13} />
+                      </button>
+                    </div>
+                  )}
                 </div>
 
-                <p className="text-xs text-slate-650 leading-relaxed bg-slate-50 p-3.5 rounded-xl border border-slate-100 whitespace-pre-wrap">{selectedThread.content}</p>
-              </div>
-
-              {/* Moderation settings tools */}
-              <div className="flex flex-wrap gap-2 py-1">
-                <Button variant="outline" size="sm" onClick={() => handleTogglePin(selectedThread.id)}>
-                  <Pin size={10} className="mr-1" />
-                  <span>{selectedThread.is_pinned ? 'Unpin thread' : 'Pin thread'}</span>
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => handleToggleHide(selectedThread.id)}>
-                  {selectedThread.is_hidden ? <Eye size={10} className="mr-1" /> : <EyeOff size={10} className="mr-1" />}
-                  <span>{selectedThread.is_hidden ? 'Unhide thread' : 'Hide thread'}</span>
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => handleToggleAnswered(selectedThread.id)}>
-                  <CheckCircle2 size={10} className="mr-1 text-emerald-600" />
-                  <span>{selectedThread.is_answered ? 'Mark unanswered' : 'Mark as answered'}</span>
-                </Button>
-              </div>
-
-              {/* Replies Thread */}
-              <div className="space-y-4 pt-2">
-                <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-2">
-                  <MessageSquare size={13} />
-                  <span>Thread Replies ({selectedThread.reply_count})</span>
-                </h4>
-
-                <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
-                  {selectedThread.replies.length === 0 ? (
-                    <p className="text-xs text-slate-400 italic">No responses to this topic yet.</p>
-                  ) : (
-                    selectedThread.replies.map((reply: any) => {
+                {/* Replies */}
+                {threadLoading ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3].map(i => <div key={i} className="h-16 bg-slate-50 dark:bg-slate-800 rounded-xl animate-pulse" />)}
+                  </div>
+                ) : (moduleThread?.replies || []).length === 0 ? (
+                  <div className="text-center py-12 text-slate-400">
+                    <MessageSquare size={36} className="mx-auto mb-3 opacity-30" />
+                    <p className="text-sm font-bold">No student questions yet.</p>
+                    <p className="text-xs mt-1">Questions students ask will appear here.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+                    {(moduleThread?.replies || []).map((reply: any) => {
                       const isInstructor = reply.is_instructor || reply.author_role === 'instructor' || reply.author_role === 'admin';
                       return (
-                        <div key={reply.id} className={`p-3.5 rounded-2xl border text-xs space-y-2 ${
-                          isInstructor ? 'bg-slate-900/5 border-slate-900/10' : 'bg-white border-slate-150'
-                        }`}>
-                          <div className="flex justify-between items-center text-[10px]">
-                            <div className="flex items-center gap-1.5">
-                              {reply.author_photo ? (
-                                <img src={reply.author_photo} alt={reply.author_name} className="w-5 h-5 rounded-full object-cover" />
-                              ) : (
-                                <div className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-slate-400"><User size={10} /></div>
-                              )}
-                              <span className="font-extrabold text-slate-800">{reply.author_name}</span>
-                              {isInstructor && (
-                                <Badge variant="default" className="!bg-slate-900 text-white text-[8px] scale-90">Instructor Badge</Badge>
-                              )}
-                            </div>
-                            <span className="text-slate-400 font-semibold">{new Date(reply.created_at).toLocaleDateString()}</span>
+                        <div
+                          key={reply.id}
+                          className={`flex gap-3 p-4 rounded-xl border ${
+                            isInstructor
+                              ? 'bg-teal-50 dark:bg-teal-900/20 border-teal-200 dark:border-teal-800'
+                              : 'bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-700'
+                          }`}
+                        >
+                          <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                            {reply.author_photo
+                              ? <img src={reply.author_photo} alt="" className="w-full h-full object-cover" />
+                              : <User size={14} className="text-slate-400" />}
                           </div>
-
-                          <p className="text-slate-650 leading-relaxed pl-1 whitespace-pre-wrap">{reply.content}</p>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-xs font-extrabold text-slate-900 dark:text-white">{reply.author_name || 'Student'}</span>
+                              {isInstructor && (
+                                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-teal-600 text-white uppercase tracking-wide">You</span>
+                              )}
+                              <span className="text-[10px] text-slate-400 ml-auto">{timeAgo(reply.created_at)}</span>
+                            </div>
+                            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{reply.content}</p>
+                          </div>
                         </div>
                       );
-                    })
-                  )}
-                </div>
-              </div>
+                    })}
+                    <div ref={repliesEndRef} />
+                  </div>
+                )}
 
-              {/* Instructor Reply Box */}
-              <form onSubmit={handlePostReply} className="pt-4 border-t border-slate-100 space-y-2">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Post response as Moderator</label>
-                  <div className="relative">
+                {/* Reply input */}
+                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex gap-3">
+                  <div className="w-8 h-8 rounded-full bg-teal-100 dark:bg-teal-900/40 flex items-center justify-center flex-shrink-0">
+                    <User size={14} className="text-teal-600" />
+                  </div>
+                  <div className="flex-1 flex gap-2">
                     <textarea
-                      rows={3}
-                      required
-                      placeholder="Write your professional response details..."
+                      rows={2}
                       value={replyText}
                       onChange={(e) => setReplyText(e.target.value)}
-                      className="w-full border border-slate-200 rounded-xl pl-3 pr-10 py-2.5 text-xs outline-none focus:border-slate-900 resize-none font-semibold text-slate-700"
+                      onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleReply(); } }}
+                      placeholder="Reply to students in this module... (Enter to send)"
+                      className="flex-1 resize-none border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs outline-none focus:border-teal-400 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 placeholder-slate-400"
                     />
                     <button
-                      type="submit"
-                      disabled={replyLoading || !replyText.trim()}
-                      className="absolute bottom-3 right-3 text-slate-500 hover:text-slate-900 disabled:opacity-30 transition-colors"
+                      type="button"
+                      disabled={!replyText.trim() || replyLoading}
+                      onClick={handleReply}
+                      className="self-end px-3 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 disabled:opacity-40 text-white transition-all flex-shrink-0"
                     >
-                      <Send size={15} />
+                      {replyLoading ? <RefreshCw size={14} className="animate-spin" /> : <Send size={14} />}
                     </button>
                   </div>
                 </div>
-              </form>
+              </Card>
+            ) : (
+              <Card className="text-center py-16 text-slate-400">
+                <MessageSquare size={36} className="mx-auto mb-3 opacity-30" />
+                <p className="text-sm font-bold">Select a course and module to view its discussion.</p>
+              </Card>
+            )}
 
-            </Card>
+            {/* General (non-module) discussions section */}
+            {legacyDiscussions.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                    <ChevronDown size={13} /> General Course Discussions
+                  </h3>
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-2.5 text-slate-400" size={12} />
+                    <input
+                      type="text"
+                      placeholder="Search..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="border border-slate-200 dark:border-slate-700 rounded-xl pl-7 pr-3 py-1.5 text-xs outline-none focus:border-teal-400 bg-white dark:bg-slate-900 w-44"
+                    />
+                  </div>
+                </div>
+                {legacyDiscussions.map((d) => (
+                  <Card
+                    key={d.id}
+                    className={`p-4 cursor-pointer hover:border-slate-300 dark:hover:border-slate-600 transition-all border ${
+                      selectedThread?.id === d.id ? 'border-teal-400 bg-teal-50/30 dark:bg-teal-900/10' : 'border-slate-200 dark:border-slate-800'
+                    }`}
+                    onClick={() => handleOpenLegacyThread(d.id)}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          {d.is_pinned && <Badge variant="info" className="text-[8px]"><Pin size={8} className="inline mr-0.5" />Pinned</Badge>}
+                          {d.is_answered && <Badge variant="success" className="text-[8px]"><CheckCircle2 size={8} className="inline mr-0.5" />Answered</Badge>}
+                          {!d.is_answered && <Badge variant="default" className="text-[8px]">Unanswered</Badge>}
+                        </div>
+                        <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{d.title}</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">{d.author_name} · {timeAgo(d.created_at)} · {d.reply_count} replies</p>
+                      </div>
+                      <div className="flex gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => pinDiscussionThread(d.id).then(() => showToast('Updated.'))} className="p-1 hover:bg-slate-100 rounded-lg text-slate-400">
+                          <Pin size={12} />
+                        </button>
+                        <button onClick={() => hideDiscussionThread(d.id).then(() => showToast('Updated.'))} className="p-1 hover:bg-slate-100 rounded-lg text-slate-400">
+                          {d.is_hidden ? <Eye size={12} /> : <EyeOff size={12} />}
+                        </button>
+                        <button onClick={() => setDeleteConfirmId(d.id)} className="p-1 hover:bg-red-50 rounded-lg text-red-400">
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Inline reply panel when selected */}
+                    {selectedThread?.id === d.id && (
+                      <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3" onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => setSelectedThread(null)} className="text-[10px] text-slate-400 hover:text-slate-700 flex items-center gap-1">
+                          <X size={10} /> Close
+                        </button>
+                        <div className="space-y-2 max-h-48 overflow-y-auto">
+                          {(selectedThread.replies || []).map((r: any) => {
+                            const isInst = r.is_instructor || r.author_role === 'instructor';
+                            return (
+                              <div key={r.id} className={`p-2.5 rounded-lg text-xs ${isInst ? 'bg-teal-50 dark:bg-teal-900/20' : 'bg-slate-50 dark:bg-slate-800'}`}>
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="font-bold text-slate-800 dark:text-slate-200">{r.author_name}</span>
+                                  {isInst && <span className="text-[8px] bg-teal-600 text-white rounded-full px-1 font-black">Instructor</span>}
+                                  <span className="text-slate-400 ml-auto text-[10px]">{timeAgo(r.created_at)}</span>
+                                </div>
+                                <p className="text-slate-600 dark:text-slate-300">{r.content}</p>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div className="flex gap-2">
+                          <textarea
+                            rows={2}
+                            value={replyText}
+                            onChange={(e) => setReplyText(e.target.value)}
+                            placeholder="Write your reply..."
+                            className="flex-1 resize-none border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs outline-none focus:border-teal-400 bg-white dark:bg-slate-900"
+                          />
+                          <button
+                            disabled={!replyText.trim() || replyLoading}
+                            onClick={handlePostLegacyReply}
+                            className="self-end px-3 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 disabled:opacity-40 text-white"
+                          >
+                            <Send size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
-        )}
+        </div>
+      )}
 
-      </div>
-
-      {/* Delete confirm dialog */}
       {deleteConfirmId && (
         <ConfirmDialog
           open={!!deleteConfirmId}
           onClose={() => setDeleteConfirmId(null)}
           onConfirm={handleDelete}
-          title="Delete Discussion Thread"
-          message="Are you sure you want to permanently delete this discussion thread and all its replies? This action cannot be undone."
+          title="Delete Thread"
+          message="Permanently delete this discussion thread and all replies?"
         />
       )}
     </div>

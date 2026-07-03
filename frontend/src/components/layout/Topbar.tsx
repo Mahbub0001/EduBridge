@@ -60,7 +60,8 @@ export default function Topbar({
   const toggleLang = () => setLanguage(language === 'en' ? 'es' : 'en');
 
   const handleLogout = async () => {
-    await signOut(auth);
+    localStorage.removeItem('mock_bearer_token');
+    await signOut(auth).catch(() => {});
     useAuthStore.getState().logout();
     setProfileOpen(false);
     navigate('/login');

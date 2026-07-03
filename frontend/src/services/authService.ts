@@ -29,3 +29,15 @@ export async function updateProfile(data: Partial<User>): Promise<User> {
   const res = await api.put('/users/me', data);
   return unwrap<User>(res);
 }
+
+export async function mockLogin(role: 'student' | 'instructor' | 'admin'): Promise<User> {
+  const uid = `${role}-demo-uid`;
+  localStorage.setItem('mock_bearer_token', `mock-token-${uid}`);
+  try {
+    const user = await establishSession();
+    return user;
+  } catch (err) {
+    localStorage.removeItem('mock_bearer_token');
+    throw err;
+  }
+}

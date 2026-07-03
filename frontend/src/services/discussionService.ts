@@ -41,3 +41,8 @@ export async function postModuleComment(moduleId: string, content: string): Prom
   const res = await api.post(`/discussions/modules/${moduleId}/comments`, { content });
   return unwrap<any>(res);
 }
+
+export async function replyToModuleThread(threadId: string, content: string): Promise<any> {
+  const res = await api.post(`/discussions/${threadId}/replies`, { content });
+  return unwrap<any>(res);
+}
