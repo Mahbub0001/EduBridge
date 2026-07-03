@@ -37,7 +37,6 @@ def get_quiz_questions(quiz_id: str, current_user: dict = Depends(get_current_us
     docs = (
         db.collection("questions")
         .where("quiz_id", "==", quiz_id)
-        .order_by("order")
         .stream()
     )
     questions = []
@@ -47,6 +46,7 @@ def get_quiz_questions(quiz_id: str, current_user: dict = Depends(get_current_us
         if current_user.get("role") not in ["instructor", "admin", "super_admin"]:
             q.pop("correct_answer", None)
         questions.append(q)
+    questions.sort(key=lambda x: x.get("order", 0))
     return success_response(data=questions)
 
 
@@ -61,7 +61,6 @@ def get_my_attempts(
         db.collection("quiz_attempts")
         .where("quiz_id", "==", quiz_id)
         .where("user_id", "==", uid)
-        .order_by("submitted_at", direction="DESCENDING")
         .stream()
     )
     attempts = []
@@ -69,6 +68,7 @@ def get_my_attempts(
         ad = d.to_dict()
         ad["id"] = d.id
         attempts.append(ad)
+    attempts.sort(key=lambda x: str(x.get("submitted_at", "")), reverse=True)
     return success_response(data=attempts)
 
 

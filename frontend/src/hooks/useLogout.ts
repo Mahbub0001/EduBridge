@@ -7,7 +7,8 @@ export function useLogout() {
   const { logout } = useAuthStore();
 
   return async () => {
-    await auth.signOut();
+    localStorage.removeItem('mock_bearer_token');
+    await auth.signOut().catch(() => {});
     logout();
     navigate('/login');
   };

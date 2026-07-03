@@ -402,3 +402,119 @@ def admin_update_course_status(
         raise HTTPException(status_code=400, detail="Invalid status")
     course_ref.update({"status": status, "updated_at": datetime.now(timezone.utc)})
     return success_response(message=f"Course status updated to {status}")
+
+
+@router.get("/{course_id}/modules/unlock-status")
+def get_module_unlock_status(
+    course_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: Client = Depends(get_db)
+):
+    uid = current_user["id"]
+    
+    # 1. Fetch all modules for this course sorted by order
+    module_docs = db.collection("modules").where("course_id", "==", course_id).stream()
+    modules = []
+    for m in module_docs:
+        md = m.to_dict()
+        md["id"] = m.id
+        modules.append(md)
+    modules.sort(key=lambda x: x.get("order", 0))
+
+    # 2. Fetch all completed lessons for this user in this course
+    progress_docs = (
+        db.collection("progress")
+        .where("user_id", "==", uid)
+        .where("course_id", "==", course_id)
+        .where("completed", "==", True)
+        .stream()
+    )
+    completed_lesson_ids = {p.to_dict().get("lesson_id") for p in progress_docs if p.to_dict().get("lesson_id")}
+
+    # 3. Fetch all lessons for the course to determine module completeness
+    lesson_docs = db.collection("lessons").where("course_id", "==", course_id).stream()
+    lessons_by_module = {}
+    for l in lesson_docs:
+        ld = l.to_dict()
+        ld["id"] = l.id
+        mid = ld.get("module_id")
+        if mid:
+            if mid not in lessons_by_module:
+                lessons_by_module[mid] = []
+            lessons_by_module[mid].append(ld)
+
+    # 4. Fetch all quizzes for this course
+    quiz_docs = db.collection("quizzes").where("course_id", "==", course_id).stream()
+    quizzes_by_module = {}
+    for q in quiz_docs:
+        qd = q.to_dict()
+        qd["id"] = q.id
+        mid = qd.get("module_id")
+        if mid:
+            quizzes_by_module[mid] = qd
+
+    # 5. Fetch all passed quiz attempts for this user
+    passed_attempts = (
+        db.collection("quiz_attempts")
+        .where("user_id", "==", uid)
+        .where("passed", "==", True)
+        .stream()
+    )
+    passed_quiz_ids = {pa.to_dict().get("quiz_id") for pa in passed_attempts if pa.to_dict().get("quiz_id")}
+
+    # 6. Evaluate modules unlock and completed status in order
+    result = []
+    previous_completed = True
+    now = datetime.now(timezone.utc)
+
+    for i, mod in enumerate(modules):
+        mid = mod["id"]
+        unlock_rule = mod.get("unlock_rule", "always")
+        unlock_date_str = mod.get("unlock_date", "")
+
+        # Compute locked status
+        locked = False
+        if unlock_rule == "specific_date" and unlock_date_str:
+            try:
+                # unlock_date is stored as YYYY-MM-DD
+                unlock_date = datetime.strptime(unlock_date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                if now < unlock_date:
+                    locked = True
+            except Exception:
+                # Fallback to string comparison
+                now_date_str = now.strftime("%Y-%m-%d")
+                if now_date_str < unlock_date_str:
+                    locked = True
+        elif unlock_rule == "previous_completed":
+            if i > 0 and not previous_completed:
+                locked = True
+
+        # Compute completed status
+        mod_lessons = lessons_by_module.get(mid, [])
+        required_lessons = [l for l in mod_lessons if l.get("required_completion", True)]
+        
+        lessons_completed = True
+        if required_lessons:
+            lessons_completed = all(l["id"] in completed_lesson_ids for l in required_lessons)
+        elif mod_lessons:
+            lessons_completed = all(l["id"] in completed_lesson_ids for l in mod_lessons)
+        
+        quiz_completed = True
+        mod_quiz = quizzes_by_module.get(mid)
+        if mod_quiz:
+            quiz_completed = mod_quiz["id"] in passed_quiz_ids
+
+        module_completed = lessons_completed and quiz_completed
+
+        if locked:
+            module_completed = False
+            
+        previous_completed = module_completed
+
+        result.append({
+            "module_id": mid,
+            "locked": locked,
+            "passed": module_completed
+        })
+
+    return success_response(data=result)

@@ -10,7 +10,7 @@ interface ModuleFeedbackProps {
 }
 
 export default function ModuleFeedback({ moduleId, moduleTitle }: ModuleFeedbackProps) {
-  const [thread, setThread] = useState<any>(null);
+  // const [thread, setThread] = useState<any>(null);
   const [replies, setReplies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [newComment, setNewComment] = useState('');
@@ -21,7 +21,7 @@ export default function ModuleFeedback({ moduleId, moduleTitle }: ModuleFeedback
     setLoading(true);
     try {
       const data = await getModuleDiscussion(moduleId);
-      setThread(data.thread);
+      // setThread(data.thread);
       setReplies(data.replies || []);
     } catch {
       // Silently fail — component is non-critical

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile, File
 from google.cloud.firestore_v1.client import Client
 from typing import Optional, List
 from datetime import datetime, timezone
@@ -1551,6 +1551,8 @@ class InstructorReplyCreate(BaseModel):
 # 1. GET /instructor/discussions
 @router.get("/discussions")
 def get_instructor_discussions(
+    course_id: Optional[str] = Query(None),
+    module_id: Optional[str] = Query(None),
     current_user: dict = Depends(require_instructor),
     db: Client = Depends(get_db)
 ):
@@ -1569,6 +1571,10 @@ def get_instructor_discussions(
 
     course_map = {c.id: c.to_dict().get("title", "Course") for c in courses}
 
+    # If specific course requested, only use that
+    if course_id and course_id in course_ids:
+        course_ids = [course_id]
+
     # Fetch discussions chunked to prevent Firestore IN limit
     discussions = []
     for i in range(0, len(course_ids), 10):
@@ -1577,7 +1583,17 @@ def get_instructor_discussions(
         for d in docs:
             dd = d.to_dict()
             dd["id"] = d.id
+
+            # Apply module filter
+            if module_id and dd.get("module_id") != module_id:
+                continue
+
             dd["course_title"] = course_map.get(dd.get("course_id"), "Course")
+
+            # Hydrate module title
+            if dd.get("is_module_feedback") and dd.get("module_id"):
+                mod_doc = db.collection("modules").document(dd["module_id"]).get()
+                dd["module_title"] = mod_doc.to_dict().get("title", "Unknown Module") if mod_doc.exists else "Unknown Module"
             
             author_doc = db.collection("users").document(dd.get("author_id", "")).get()
             dd["author_name"] = author_doc.to_dict().get("name", "Student") if author_doc.exists else "Student"
@@ -1618,10 +1634,16 @@ def get_instructor_discussion_detail(
     course_doc = db.collection("courses").document(dd.get("course_id")).get()
     dd["course_title"] = course_doc.to_dict().get("title", "Course") if course_doc.exists else "Course"
 
-    # Hydrate replies
-    replies_docs = db.collection("discussion_replies").where("thread_id", "==", discussion_id).order_by("created_at").stream()
+    # Hydrate module title if module feedback
+    if dd.get("is_module_feedback") and dd.get("module_id"):
+        mod_doc = db.collection("modules").document(dd["module_id"]).get()
+        dd["module_title"] = mod_doc.to_dict().get("title", "Unknown Module") if mod_doc.exists else "Unknown Module"
+
+    # Hydrate replies (sort in memory - no composite index needed)
+    replies_raw = list(db.collection("discussion_replies").where("thread_id", "==", discussion_id).stream())
+    replies_raw.sort(key=lambda r: r.to_dict().get("created_at") or "")
     replies = []
-    for r in replies_docs:
+    for r in replies_raw:
         rd = r.to_dict()
         rd["id"] = r.id
         

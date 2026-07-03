@@ -41,6 +41,16 @@ export interface QuizAttempt {
   submitted_at: string;
 }
 
+export interface ModuleUnlockStatus {
+  module_id: string;
+  locked: boolean;
+  passed: boolean;
+  module_title?: string;
+  order?: number;
+  has_quiz?: boolean;
+  quiz_id?: string | null;
+}
+
 /* ── STUDENT APIs ── */
 export async function getQuiz(courseId: string, quizId: string): Promise<Quiz> {
   const res = await api.get(`/courses/${courseId}/quizzes/${quizId}`);
@@ -61,8 +71,6 @@ export async function submitQuiz(quizId: string, answers: Record<string, string>
   const res = await api.post(`/quizzes/${quizId}/submit`, { answers });
   return unwrap<QuizAttempt>(res);
 }
-
-
 /* ── PREMIUM INSTRUCTOR ASSESSMENT APIs ── */
 export async function getCourseQuizzes(courseId: string): Promise<any[]> {
   const res = await api.get(`/instructor/courses/${courseId}/quizzes`);
@@ -104,4 +112,9 @@ export async function publishQuiz(quizId: string, status: string): Promise<void>
 export async function previewQuiz(quizId: string): Promise<any> {
   const res = await api.get(`/instructor/quizzes/${quizId}/preview`);
   return unwrap<any>(res);
+}
+
+export async function getModuleUnlockStatus(courseId: string): Promise<ModuleUnlockStatus[]> {
+  const res = await api.get(`/courses/${courseId}/modules/unlock-status`);
+  return unwrap<ModuleUnlockStatus[]>(res);
 }

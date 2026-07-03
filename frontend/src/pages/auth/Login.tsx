@@ -8,7 +8,7 @@ import {
 } from 'firebase/auth';
 import { GraduationCap, Mail, Lock, Eye, EyeOff, User, AlertCircle, X } from 'lucide-react';
 import { auth, googleProvider } from '../../services/firebase';
-import { establishSession } from '../../services/authService';
+import { establishSession, mockLogin } from '../../services/authService';
 import { useAuthStore } from '../../store';
 import { navigateByRole } from '../../utils/navigateByRole';
 import AuthBranding from '../../components/auth/AuthBranding';
@@ -76,6 +76,26 @@ export default function Login() {
         setError(redirectErr instanceof Error ? redirectErr.message : 'Google sign-in failed');
         setLoading(false);
       }
+    }
+  };
+
+  const handleQuickLogin = async (targetRole: 'student' | 'instructor' | 'admin') => {
+    setLoading(true);
+    setError('');
+    try {
+      const user = await mockLogin(targetRole);
+      setUser({
+        uid: user.uid || user.id || '',
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      });
+      navigateByRole(user.role, navigate);
+    } catch (err: any) {
+      console.error('Quick login failed:', err);
+      setError(err?.response?.data?.detail || 'Quick login failed');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -153,6 +173,33 @@ export default function Login() {
             )}
             {loading ? 'Signing in...' : 'Continue with Google'}
           </button>
+
+          <div className="mt-4 grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              onClick={() => handleQuickLogin('student')}
+              disabled={loading}
+              className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+            >
+              Student Demo
+            </button>
+            <button
+              type="button"
+              onClick={() => handleQuickLogin('instructor')}
+              disabled={loading}
+              className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+            >
+              Instructor Demo
+            </button>
+            <button
+              type="button"
+              onClick={() => handleQuickLogin('admin')}
+              disabled={loading}
+              className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+            >
+              Admin Demo
+            </button>
+          </div>
 
           <div className="my-8 flex items-center gap-4">
             <span className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />

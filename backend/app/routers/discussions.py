@@ -32,17 +32,20 @@ def get_course_discussions(
     course_id: str,
     db: Client = Depends(get_db)
 ):
-    docs = db.collection("discussions").where("course_id", "==", course_id).where("is_module_feedback", "!=", True).order_by("created_at", direction="DESCENDING").stream()
+    docs = db.collection("discussions").where("course_id", "==", course_id).stream()
     results = []
     for d in docs:
         dd = d.to_dict()
+        if dd.get("is_module_feedback") is True:
+            continue
         dd["id"] = d.id
         author_doc = db.collection("users").document(dd.get("author_id", "")).get()
         dd["author_name"] = author_doc.to_dict().get("name", "Unknown") if author_doc.exists else "Unknown"
         dd["author_photo"] = author_doc.to_dict().get("photo_url", "") if author_doc.exists else ""
-        replies = list(db.collection("discussion_replies").where("thread_id", "==", d.id).order_by("created_at").stream())
+        replies_raw = list(db.collection("discussion_replies").where("thread_id", "==", d.id).stream())
+        replies_raw.sort(key=lambda r: r.to_dict().get("created_at") or datetime.min.replace(tzinfo=timezone.utc))
         dd["replies"] = []
-        for r in replies:
+        for r in replies_raw:
             rd = r.to_dict()
             rd["id"] = r.id
             reply_author = db.collection("users").document(rd.get("author_id", "")).get()
@@ -50,6 +53,7 @@ def get_course_discussions(
             dd["replies"].append(rd)
         dd["reply_count"] = len(dd["replies"])
         results.append(dd)
+    results.sort(key=lambda x: x.get("created_at") or "", reverse=True)
     return success_response(data=results)
 
 
@@ -174,9 +178,10 @@ def get_module_discussion(
         _, ref = db.collection("discussions").add(thread_data)
         thread_data["id"] = ref.id
 
-    replies = list(db.collection("discussion_replies").where("thread_id", "==", thread_data["id"]).order_by("created_at").stream())
+    replies_raw = list(db.collection("discussion_replies").where("thread_id", "==", thread_data["id"]).stream())
+    replies_raw.sort(key=lambda r: r.to_dict().get("created_at") or datetime.min.replace(tzinfo=timezone.utc))
     reply_list = []
-    for r in replies:
+    for r in replies_raw:
         rd = r.to_dict()
         rd["id"] = r.id
         author_doc = db.collection("users").document(rd.get("author_id", "")).get()

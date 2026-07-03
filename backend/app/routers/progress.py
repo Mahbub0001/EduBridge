@@ -44,21 +44,30 @@ def get_course_progress(
     })
 
 
-@router.post("/progress/lesson-complete")
+@router.post("/lesson-complete")
 def mark_lesson_complete(
     payload: LessonCompletePayload,
     current_user: dict = Depends(get_current_user),
     db: Client = Depends(get_db),
 ):
     uid = current_user["id"]
-    existing = (
+    existing = list(
         db.collection("progress")
         .where("user_id", "==", uid)
         .where("lesson_id", "==", payload.lesson_id)
-        .get()
+        .stream()
     )
     if existing:
-        return success_response(data={"completed": True, "progress_percent": None}, message="Already completed")
+        # Return actual current progress percent instead of None
+        total = len(list(db.collection("lessons").where("course_id", "==", payload.course_id).stream()))
+        completed_count = len(list(
+            db.collection("progress")
+            .where("user_id", "==", uid)
+            .where("course_id", "==", payload.course_id)
+            .stream()
+        ))
+        pct = round((completed_count / max(total, 1)) * 100, 1)
+        return success_response(data={"completed": True, "progress_percent": pct}, message="Already completed")
 
     now = datetime.now(timezone.utc)
     db.collection("progress").add({

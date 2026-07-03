@@ -9,9 +9,13 @@ const api = axios.create({
 
 api.interceptors.request.use(
   async (config) => {
+    const mockToken = localStorage.getItem('mock_bearer_token');
+    if (mockToken) {
+      config.headers.Authorization = `Bearer ${mockToken}`;
+      return config;
+    }
     const user = auth.currentUser;
     if (user) {
-      // Use cached token instead of force-refreshing on every single request
       const token = await user.getIdToken();
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -24,6 +28,14 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config as any;
+    const mockToken = localStorage.getItem('mock_bearer_token');
+    if (mockToken && error.response?.status === 401) {
+      localStorage.removeItem('mock_bearer_token');
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
+      return Promise.reject(error);
+    }
     if (error.response?.status === 401 && auth.currentUser) {
       if (!originalRequest._retry) {
         originalRequest._retry = true;
