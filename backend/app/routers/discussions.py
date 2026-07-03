@@ -23,12 +23,16 @@ class ReplyCreate(BaseModel):
     content: str
 
 
+class ModuleCommentCreate(BaseModel):
+    content: str
+
+
 @router.get("/courses/{course_id}")
 def get_course_discussions(
     course_id: str,
     db: Client = Depends(get_db)
 ):
-    docs = db.collection("discussions").where("course_id", "==", course_id).order_by("created_at", direction="DESCENDING").stream()
+    docs = db.collection("discussions").where("course_id", "==", course_id).where("is_module_feedback", "!=", True).order_by("created_at", direction="DESCENDING").stream()
     results = []
     for d in docs:
         dd = d.to_dict()
@@ -127,3 +131,127 @@ def delete_discussion(
         db.collection("discussion_replies").document(r.id).delete()
     ref.delete()
     return success_response(message="Discussion deleted")
+
+
+@router.get("/modules/{module_id}")
+def get_module_discussion(
+    module_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: Client = Depends(get_db)
+):
+    module_ref = db.collection("modules").document(module_id)
+    module_doc = module_ref.get()
+    if not module_doc.exists:
+        raise HTTPException(status_code=404, detail="Module not found")
+    module_data = module_doc.to_dict()
+    course_id = module_data.get("course_id")
+
+    user_id = current_user["id"]
+    user_role = current_user.get("role", "student")
+    enrollments = list(db.collection("enrollments").where("user_id", "==", user_id).where("course_id", "==", course_id).stream())
+    if user_role not in ["instructor", "admin", "super_admin"] and len(enrollments) == 0:
+        raise HTTPException(status_code=403, detail="Not enrolled in this course")
+
+    existing = list(db.collection("discussions").where("module_id", "==", module_id).limit(1).stream())
+    if existing:
+        thread_doc = existing[0]
+        thread_data = thread_doc.to_dict()
+        thread_data["id"] = thread_doc.id
+    else:
+        now = datetime.now(timezone.utc)
+        thread_data = {
+            "course_id": course_id,
+            "module_id": module_id,
+            "title": f"Module: {module_data.get('title', 'Untitled')} \u2014 Feedback & Questions",
+            "content": "Ask questions or share feedback about this module.",
+            "author_id": "system",
+            "is_module_feedback": True,
+            "is_pinned": False,
+            "is_hidden": False,
+            "created_at": now,
+            "updated_at": now
+        }
+        _, ref = db.collection("discussions").add(thread_data)
+        thread_data["id"] = ref.id
+
+    replies = list(db.collection("discussion_replies").where("thread_id", "==", thread_data["id"]).order_by("created_at").stream())
+    reply_list = []
+    for r in replies:
+        rd = r.to_dict()
+        rd["id"] = r.id
+        author_doc = db.collection("users").document(rd.get("author_id", "")).get()
+        rd["author_name"] = author_doc.to_dict().get("name", "Unknown") if author_doc.exists else "Unknown"
+        rd["author_photo"] = author_doc.to_dict().get("photo_url", "") if author_doc.exists else ""
+        rd["author_role"] = author_doc.to_dict().get("role", "") if author_doc.exists else ""
+        reply_list.append(rd)
+
+    return success_response(data={"thread": thread_data, "replies": reply_list})
+
+
+@router.post("/modules/{module_id}/comments")
+def create_module_comment(
+    module_id: str,
+    comment: ModuleCommentCreate,
+    current_user: dict = Depends(get_current_user),
+    db: Client = Depends(get_db)
+):
+    module_doc = db.collection("modules").document(module_id).get()
+    if not module_doc.exists:
+        raise HTTPException(status_code=404, detail="Module not found")
+    course_id = module_doc.to_dict().get("course_id")
+
+    user_id = current_user["id"]
+    user_role = current_user.get("role", "student")
+    enrollments = list(db.collection("enrollments").where("user_id", "==", user_id).where("course_id", "==", course_id).stream())
+    if user_role not in ["instructor", "admin", "super_admin"] and len(enrollments) == 0:
+        raise HTTPException(status_code=403, detail="Not enrolled in this course")
+
+    existing = list(db.collection("discussions").where("module_id", "==", module_id).limit(1).stream())
+    if existing:
+        thread_id = existing[0].id
+    else:
+        now = datetime.now(timezone.utc)
+        _, ref = db.collection("discussions").add({
+            "course_id": course_id,
+            "module_id": module_id,
+            "title": f"Module: {module_doc.to_dict().get('title', 'Untitled')} \u2014 Feedback & Questions",
+            "content": "Ask questions or share feedback about this module.",
+            "author_id": "system",
+            "is_module_feedback": True,
+            "is_pinned": False,
+            "is_hidden": False,
+            "created_at": now,
+            "updated_at": now
+        })
+        thread_id = ref.id
+
+    now = datetime.now(timezone.utc)
+    is_instructor = user_role in ["instructor", "admin", "super_admin"]
+    data = {
+        "thread_id": thread_id,
+        "author_id": user_id,
+        "content": comment.content,
+        "is_instructor": is_instructor,
+        "created_at": now
+    }
+    _, ref = db.collection("discussion_replies").add(data)
+    data["id"] = ref.id
+    data["author_name"] = current_user.get("name", "Unknown")
+
+    if not is_instructor:
+        course_doc = db.collection("courses").document(course_id).get()
+        if course_doc.exists:
+            instructor_id = course_doc.to_dict().get("instructor_id")
+            if instructor_id:
+                db.collection("notifications").add({
+                    "user_id": instructor_id,
+                    "type": "module_comment",
+                    "thread_id": thread_id,
+                    "module_id": module_id,
+                    "course_id": course_id,
+                    "message": f"New question in {module_doc.to_dict().get('title', 'a module')} by {current_user.get('name', 'A student')}",
+                    "is_read": False,
+                    "created_at": now
+                })
+
+    return success_response(data=data, message="Comment added")
