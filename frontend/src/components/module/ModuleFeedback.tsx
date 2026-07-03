@@ -5,12 +5,11 @@ import Card from '../ui/Card';
 import Badge from '../ui/Badge';
 
 interface ModuleFeedbackProps {
-  courseId: string;
   moduleId: string;
   moduleTitle: string;
 }
 
-export default function ModuleFeedback({ courseId, moduleId, moduleTitle }: ModuleFeedbackProps) {
+export default function ModuleFeedback({ moduleId, moduleTitle }: ModuleFeedbackProps) {
   const [thread, setThread] = useState<any>(null);
   const [replies, setReplies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,7 +66,7 @@ export default function ModuleFeedback({ courseId, moduleId, moduleTitle }: Modu
     <Card className="space-y-5">
       <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
         <MessageSquare size={16} className="text-navy-900" />
-        <h3 className="text-sm font-extrabold text-navy-900">Feedback & Questions</h3>
+        <h3 className="text-sm font-extrabold text-navy-900">Feedback & Questions &mdash; {moduleTitle}</h3>
         <span className="text-[10px] font-bold text-slate-400 ml-auto">{replies.length} comment{replies.length !== 1 ? 's' : ''}</span>
       </div>
 

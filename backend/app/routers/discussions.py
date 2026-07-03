@@ -239,6 +239,14 @@ def create_module_comment(
     data["id"] = ref.id
     data["author_name"] = current_user.get("name", "Unknown")
 
+    author_doc = db.collection("users").document(user_id).get()
+    if author_doc.exists:
+        author_data = author_doc.to_dict()
+        data["author_role"] = author_data.get("role", "")
+        data["author_photo"] = author_data.get("photo_url", "")
+
+    db.collection("discussions").document(thread_id).update({"updated_at": now})
+
     if not is_instructor:
         course_doc = db.collection("courses").document(course_id).get()
         if course_doc.exists:

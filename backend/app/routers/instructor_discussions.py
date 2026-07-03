@@ -20,7 +20,6 @@ def get_instructor_discussions(
 
     discussions = list(query.stream())
     results = []
-    seen_module_ids = set()
 
     for d in discussions:
         dd = d.to_dict()
@@ -51,9 +50,6 @@ def get_instructor_discussions(
         dd["author_photo"] = author_doc.to_dict().get("photo_url", "") if author_doc.exists else ""
 
         results.append(dd)
-
-        if dd.get("module_id"):
-            seen_module_ids.add(dd["module_id"])
 
     return success_response(data=results)
 
