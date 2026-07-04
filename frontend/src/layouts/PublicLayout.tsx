@@ -1,11 +1,14 @@
 import { Link, Outlet } from 'react-router-dom';
-import { GraduationCap } from 'lucide-react';
+import { GraduationCap, Moon, Sun } from 'lucide-react';
+import { useTheme } from '../hooks/useTheme';
 
 interface PublicLayoutProps {
   showNav?: boolean;
 }
 
 export default function PublicLayout({ showNav = true }: PublicLayoutProps) {
+  const { isDark, toggleTheme } = useTheme();
+
   return (
     <div className="flex min-h-screen flex-col bg-[#F8FAFC] dark:bg-slate-950">
       {showNav && (
@@ -15,7 +18,7 @@ export default function PublicLayout({ showNav = true }: PublicLayoutProps) {
               <GraduationCap size={28} className="text-navy-900 dark:text-teal-400" />
               EduBridge
             </Link>
-            <nav className="flex items-center gap-6 text-sm font-medium text-slate-600 dark:text-slate-300">
+            <nav className="flex items-center gap-4 text-sm font-medium text-slate-600 dark:text-slate-300">
               <Link to="/" className="hover:text-navy-900 dark:hover:text-white">
                 Home
               </Link>
@@ -28,6 +31,14 @@ export default function PublicLayout({ showNav = true }: PublicLayoutProps) {
               >
                 Get Started
               </Link>
+              <button
+                type="button"
+                onClick={toggleTheme}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+                aria-label="Toggle theme"
+              >
+                {isDark ? <Sun size={18} /> : <Moon size={18} />}
+              </button>
             </nav>
           </div>
         </header>
