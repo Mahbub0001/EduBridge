@@ -1,0 +1,32 @@
+
+step-1(1 time):
+-> winget install astral-sh.uv
+-> uv --version      ## jodi version show kore taile thik ase
+-> uv tool install graphifyy
+
+
+## Project folder er vitore terminal open kore(notun project er jonno abr nicher command gula dite hobe)-
+step-2:
+-> graphify antigravity install
+
+step-3:
+create a file in the root folder-> .graphifyignore
+
+step-4:
+-> Set-Content .graphifyignore -Value "*.md", "*.mdx", "*.html", "*.txt", "*.pdf", "*.yaml", "*.yml", "*.docx", "*.xlsx", "*.png", "*.jpg", "*.jpeg", "*.webp", "*.gif", "*.ico", "*.svg", "*.bmp", "*.PNG", "*.JPG", "*.JPEG", "*.WEBP", "*.GIF", "*.ICO", "*.SVG"
+
+step-5:
+-> graphify . --force
+
+step-6:
+-> graphify cluster-only .
+
+step-7:
+-> graphify hook install
+
+## jodi opencode + antigravity 2 ta tei graphify use korte chao taile opencode er jonno-
+-> graphify install --platform opencode
+-> graphify opencode install
+
+## Jehetu opencode e token niye problem nai taile opencode a graphify use na korle o cholbe.
+    bt Jehetu anti te token bachano lage so graphify use kora ta onk smarter hobe.

@@ -6,6 +6,7 @@ import { Search, Bell, Moon, Sun, Globe, ChevronDown, User, Settings, LogOut, Me
 import { cn } from '../../lib/utils';
 import { useAuthStore, usePreferencesStore } from '../../store';
 import { useTheme } from '../../hooks/useTheme';
+import { useTranslation } from '../../utils/translations';
 import NotificationDropdown from './NotificationDropdown';
 import type { Notification } from '../../types';
 
@@ -40,7 +41,8 @@ export default function Topbar({
 }: TopbarProps) {
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const { language, setLanguage } = usePreferencesStore();
+  const { setLanguage } = usePreferencesStore();
+  const { t, language } = useTranslation();
   const { isDark, toggleTheme } = useTheme();
   const [search, setSearch] = useState('');
   const [notifOpen, setNotifOpen] = useState(false);
@@ -57,7 +59,7 @@ export default function Topbar({
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  const toggleLang = () => setLanguage(language === 'en' ? 'es' : 'en');
+  const toggleLang = () => setLanguage(language === 'en' ? 'bn' : 'en');
 
   const handleLogout = async () => {
     localStorage.removeItem('mock_bearer_token');
@@ -94,7 +96,7 @@ export default function Topbar({
                     : 'border-transparent text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
                 )}
               >
-                {link.label}
+                {link.label === 'Dashboard' ? t('dashboard') : link.label === 'Courses' ? t('myCourses') : link.label}
               </Link>
             ))}
           </nav>
@@ -107,7 +109,7 @@ export default function Topbar({
             <Search size={16} className="text-slate-500 shrink-0 dark:text-slate-450" />
             <input
               type="text"
-              placeholder="Search anything..."
+              placeholder={t('searchPlaceholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="bg-transparent border-none outline-none w-full ml-2 text-xs text-slate-900 placeholder-slate-400 dark:text-white"
@@ -185,7 +187,7 @@ export default function Topbar({
                 onClick={() => setProfileOpen(false)}
               >
                 <User size={16} />
-                Profile
+                {t('profile')}
               </Link>
               <Link
                 to={settingsPath}
@@ -193,7 +195,7 @@ export default function Topbar({
                 onClick={() => setProfileOpen(false)}
               >
                 <Settings size={16} />
-                Settings
+                {t('settings')}
               </Link>
               <button
                 type="button"
@@ -201,7 +203,7 @@ export default function Topbar({
                 className="flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 w-full dark:hover:bg-red-950/30 dark:hover:text-red-400"
               >
                 <LogOut size={16} />
-                Logout
+                {t('logout')}
               </button>
             </D>
           )}

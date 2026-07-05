@@ -5,8 +5,10 @@ import Card from '../../components/ui/Card';
 import PageHeader from '../../components/layout/PageHeader';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
+import { useTranslation } from '../../utils/translations';
 
 export default function Certificates() {
+  const { t } = useTranslation();
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -27,8 +29,8 @@ export default function Certificates() {
   return (
     <div className="space-y-8">
       <PageHeader
-        title="My Certificates"
-        description="View and download certificates earned from completed courses."
+        title={t('certificatesTitle')}
+        description={t('certificatesDesc')}
       />
 
       {error && (
@@ -47,7 +49,7 @@ export default function Certificates() {
                   <Award size={120} className="text-white" />
                 </div>
                 <div className="absolute bottom-4 left-4 right-4 text-white">
-                  <Badge className="!bg-teal-500/90 !text-white mb-2">Verified</Badge>
+                  <Badge className="!bg-teal-500/90 !text-white mb-2">{t('verifiedBadge')}</Badge>
                   <h3 className="font-extrabold text-sm">{cert.course_title || 'Course'}</h3>
                 </div>
               </div>
@@ -58,20 +60,20 @@ export default function Certificates() {
                   </div>
                   <div>
                     <p className="text-xs text-slate-500 dark:text-slate-400">EduBridge Academy</p>
-                    <p className="text-sm font-bold text-navy-900 dark:text-white">Certificate of Completion</p>
+                    <p className="text-sm font-bold text-navy-900 dark:text-white">{t('certOfCompletion')}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                   <Calendar size={14} />
-                  Issued {new Date(cert.issued_at).toLocaleDateString()}
+                  {t('issuedLabel')} {new Date(cert.issued_at).toLocaleDateString()}
                 </div>
                 <p className="text-[10px] text-slate-400 dark:text-slate-500 font-mono truncate">ID: {cert.id}</p>
                 <div className="flex gap-2 pt-2">
                   <Button variant="primary" size="sm" className="flex-1 !bg-navy-900 dark:!bg-teal-600 dark:!text-white" onClick={() => handleDownload(cert)}>
-                    <Download size={14} /> Download
+                    <Download size={14} /> {t('downloadBtn')}
                   </Button>
                   <Button variant="outline" size="sm" className="flex-1">
-                    <ExternalLink size={14} /> Share
+                    <ExternalLink size={14} /> {t('shareBtn')}
                   </Button>
                 </div>
               </div>
@@ -81,9 +83,9 @@ export default function Certificates() {
       ) : (
         <Card className="text-center py-10">
           <Award className="mx-auto text-slate-300 dark:text-slate-700 mb-3" size={48} />
-          <p className="text-sm text-slate-500 dark:text-slate-400">Complete courses to earn certificates.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{t('noCertificatesTitle')}</p>
           <a href="/student/my-courses" className="inline-block mt-3 text-sm font-bold text-navy-800 dark:text-teal-400 hover:underline">
-            View your courses
+            {t('viewCoursesBtn')}
           </a>
         </Card>
       )}

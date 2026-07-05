@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { HelpCircle, LogOut, type LucideIcon } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { useTranslation } from '../../utils/translations';
 
 const D = 'div';
 
@@ -28,6 +29,16 @@ export default function Sidebar({
   className,
 }: SidebarProps) {
   const location = useLocation();
+  const { t } = useTranslation();
+
+  const keyMap: Record<string, string> = {
+    'Dashboard': 'dashboard',
+    'My Courses': 'myCourses',
+    'Calendar': 'calendar',
+    'Resources': 'resources',
+    'Assignments': 'assignments',
+    'Settings': 'settings',
+  };
 
   return (
     <D className={cn('w-64 bg-white border-r border-slate-200 flex flex-col shrink-0 dark:bg-slate-900 dark:border-slate-800', className)}>
@@ -41,6 +52,8 @@ export default function Sidebar({
         {navItems.map((item) => {
           const isActive = location.pathname.includes(item.path);
           const Icon = item.icon;
+          const translationKey = keyMap[item.name] || item.name;
+          const displayName = t(translationKey as any);
           return (
             <Link
               key={item.name}
@@ -54,7 +67,7 @@ export default function Sidebar({
               )}
             >
               <Icon size={18} className={isActive ? 'text-white' : 'text-slate-500 dark:text-slate-400'} />
-              {item.name}
+              {displayName}
             </Link>
           );
         })}
@@ -66,7 +79,7 @@ export default function Sidebar({
             className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
           >
             <HelpCircle size={18} className="text-slate-500 dark:text-slate-400" />
-            Help Center
+            {t('helpCenter')}
           </Link>
         </D>
       </D>
@@ -79,7 +92,7 @@ export default function Sidebar({
             className="flex items-center gap-3 px-4 py-3 w-full rounded-xl text-sm font-medium text-slate-500 hover:bg-red-50 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-950/20 dark:hover:text-red-400 transition-colors"
           >
             <LogOut size={18} />
-            Logout
+            {t('logout')}
           </button>
         </D>
       )}

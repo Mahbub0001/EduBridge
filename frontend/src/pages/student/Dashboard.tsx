@@ -15,6 +15,7 @@ import Card from '../../components/ui/Card';
 import ProgressBar from '../../components/ui/ProgressBar';
 import Button from '../../components/ui/Button';
 import PageHeader from '../../components/layout/PageHeader';
+import { useTranslation } from '../../utils/translations';
 
 const CATEGORY_COLORS = [
   'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400',
@@ -25,6 +26,7 @@ const CATEGORY_COLORS = [
 function CircularProgress({ value }: { value: number }) {
   const r = 70;
   const circ = 2 * Math.PI * r;
+  const { t } = useTranslation();
   return (
     <div className="relative w-44 h-44 flex-shrink-0 flex items-center justify-center">
       <svg className="w-full h-full -rotate-90" viewBox="0 0 176 176">
@@ -37,7 +39,7 @@ function CircularProgress({ value }: { value: number }) {
       </svg>
       <div className="absolute flex flex-col items-center text-center">
         <span className="text-3xl font-extrabold text-navy-900 dark:text-white">{value}%</span>
-        <span className="text-[9px] tracking-widest text-slate-500 dark:text-slate-400 font-extrabold uppercase">Progress</span>
+        <span className="text-[9px] tracking-widest text-slate-500 dark:text-slate-400 font-extrabold uppercase">{t('progress')}</span>
       </div>
     </div>
   );
@@ -64,8 +66,8 @@ export default function Dashboard() {
       try {
         const [c, n, a, certs, allPublished] = await Promise.all([
           getMyCourses(),
-          getNotifications(),
-          getAllAssignments(),
+          getNotifications().catch(() => []),
+          getAllAssignments().catch(() => []),
           getMyCertificates().catch(() => []),
           getCourses('published').catch(() => []),
         ]);
@@ -88,17 +90,23 @@ export default function Dashboard() {
     })();
   }, []);
 
+  const { t } = useTranslation();
   const userName = user?.name?.split(' ')[0] || 'Student';
-  const activeCourses = courses.filter((c) => c.status === 'in-progress');
+  const enrolledCourses = courses
+    .filter((c) => c.status !== 'wishlist')
+    .sort((a, b) => (b.progress ?? 0) - (a.progress ?? 0));
+  const activeCourses = courses
+    .filter((c) => c.status === 'in-progress' || c.status === 'active' || c.status === 'enrolled')
+    .sort((a, b) => (b.progress ?? 0) - (a.progress ?? 0));
   const completedCount = courses.filter((c) => c.status === 'completed').length;
-  const featured = activeCourses[0];
+  const featured = activeCourses[0] || enrolledCourses[0];
   const heroProgress = featured?.progress ?? 0;
 
   const stats = [
-    { label: 'Enrolled Courses', value: String(courses.filter((c) => c.status !== 'wishlist').length).padStart(2, '0'), icon: BookOpen, iconBg: 'bg-blue-50', iconColor: 'text-blue-600', link: '/student/my-courses/all' },
-    { label: 'Completed Courses', value: String(completedCount).padStart(2, '0'), icon: CheckCircle, iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600', link: '/student/my-courses/completed' },
-    { label: 'Pending Assignments', value: String(assignments.filter((a) => a.status === 'pending').length).padStart(2, '0'), icon: Clipboard, iconBg: 'bg-rose-50', iconColor: 'text-rose-600', link: '/student/assignments' },
-    { label: 'Certificates', value: String(certCount).padStart(2, '0'), icon: Award, iconBg: 'bg-purple-50', iconColor: 'text-purple-600', link: '/student/certificates' },
+    { label: t('enrolledCourses'), value: String(enrolledCourses.length).padStart(2, '0'), icon: BookOpen, iconBg: 'bg-blue-50', iconColor: 'text-blue-600', link: '/student/my-courses/all' },
+    { label: t('completedCourses'), value: String(completedCount).padStart(2, '0'), icon: CheckCircle, iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600', link: '/student/my-courses/completed' },
+    { label: t('pendingAssignments'), value: String(assignments.filter((a) => a.status === 'pending').length).padStart(2, '0'), icon: Clipboard, iconBg: 'bg-rose-50', iconColor: 'text-rose-600', link: '/student/assignments' },
+    { label: t('certificates'), value: String(certCount).padStart(2, '0'), icon: Award, iconBg: 'bg-purple-50', iconColor: 'text-purple-600', link: '/student/certificates' },
   ];
 
   const pendingTasks = assignments.filter((a) => a.status === 'pending').slice(0, 2);
@@ -109,21 +117,21 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8">
-      <PageHeader title="Student Dashboard" description="Overview of your learning progress, upcoming tasks, and recommendations." />
+      <PageHeader title={t('dashboard')} description="Overview of your learning progress, upcoming tasks, and recommendations." />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <Card padding="lg" className="lg:col-span-2 bg-slate-50/80 border-slate-100 dark:bg-slate-900/40 dark:border-slate-800/80 flex flex-col md:flex-row justify-between items-center gap-8">
           <div className="space-y-4 max-w-md">
             <span className="inline-flex px-3 py-1 bg-teal-50 text-teal-700 text-xs font-bold rounded-full dark:bg-teal-950/30 dark:text-teal-400">
-              Welcome back, {userName}!
+              {t('welcomeBack')}, {userName}!
             </span>
             <h1 className="text-3xl font-extrabold text-navy-900 dark:text-white leading-tight">
-              The journey to mastery continues.
+              {t('journeyContinues')}
             </h1>
             <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
               {featured
-                ? `You've completed ${heroProgress}% of ${featured.title}. Keep the momentum going!`
-                : 'Explore courses and start your learning journey today.'}
+                ? t('completedProgress').replace('{progress}', String(heroProgress)).replace('{title}', featured.title)
+                : t('exploreCoursesDesc')}
             </p>
             <div className="flex flex-wrap gap-4 pt-2">
               {featured && (
@@ -170,9 +178,9 @@ export default function Dashboard() {
 
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <h2 className="text-xl font-extrabold text-navy-900 dark:text-white">Active Courses</h2>
+          <h2 className="text-xl font-extrabold text-navy-900 dark:text-white">{t('activeCourses')}</h2>
           <Link to="/student/my-courses" className="text-sm font-bold text-navy-800 hover:text-navy-900 dark:text-teal-400 dark:hover:text-teal-300 flex items-center gap-1.5 font-bold">
-            View All <ArrowRight size={16} />
+            {t('viewAll')} <ArrowRight size={16} />
           </Link>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -203,13 +211,13 @@ export default function Dashboard() {
             <div className="col-span-full">
               <Card className="text-center py-12 flex flex-col items-center justify-center border-dashed border-2 border-slate-300 dark:border-slate-800">
                 <BookOpen className="text-slate-400 dark:text-slate-500 mb-3" size={40} />
-                <h3 className="text-base font-extrabold text-navy-900 dark:text-white">No Active Courses</h3>
+                <h3 className="text-base font-extrabold text-navy-900 dark:text-white">{t('noActiveCourses')}</h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
-                  You aren't currently taking any courses. Discover new topics and start learning today!
+                  {t('noActiveCoursesDesc')}
                 </p>
                 <Link to="/student/my-courses/explore" className="mt-4">
                   <Button variant="primary" className="!bg-teal-600 hover:!bg-teal-700 !rounded-xl text-xs font-bold py-2 px-4">
-                    Explore Courses
+                    {t('exploreCoursesBtn')}
                   </Button>
                 </Link>
               </Card>
@@ -222,7 +230,7 @@ export default function Dashboard() {
         <div className="space-y-6">
           <Card className="space-y-4">
             <h3 className="font-extrabold text-sm text-navy-900 uppercase tracking-wider flex items-center gap-2 dark:text-white">
-              <Calendar size={16} className="text-slate-500 dark:text-slate-400" /> Upcoming Tasks
+              <Calendar size={16} className="text-slate-500 dark:text-slate-400" /> {t('upcomingTasks')}
             </h3>
             <div className="space-y-3">
               {pendingTasks.length ? pendingTasks.map((task) => {
@@ -240,14 +248,14 @@ export default function Dashboard() {
                   </div>
                 );
               }) : (
-                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">No pending tasks. You're all caught up!</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{t('noPendingTasks')}</p>
               )}
             </div>
           </Card>
 
           <Card className="space-y-4 relative overflow-hidden">
             <h3 className="font-extrabold text-sm text-navy-900 uppercase tracking-wider flex items-center gap-2 dark:text-white">
-              <Bell size={16} className="text-slate-500 dark:text-slate-400" /> Notice Board
+              <Bell size={16} className="text-slate-500 dark:text-slate-400" /> {t('noticeBoard')}
             </h3>
             <div className="space-y-4">
               {notifications.slice(0, 3).map((n, i) => (
@@ -265,7 +273,7 @@ export default function Dashboard() {
 
         <div className="lg:col-span-2 space-y-6">
           <div className="flex justify-between items-center">
-            <h2 className="text-xl font-extrabold text-navy-900 dark:text-white">Recommended for You</h2>
+            <h2 className="text-xl font-extrabold text-navy-900 dark:text-white">{t('recommendedForYou')}</h2>
             <div className="flex gap-2">
               <button type="button" className="w-8 h-8 rounded-full border border-slate-200 bg-white flex items-center justify-center hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800">
                 <ChevronLeft size={16} className="text-slate-500 dark:text-slate-400" />

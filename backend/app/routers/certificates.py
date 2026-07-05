@@ -23,7 +23,6 @@ def get_my_certificates(
     docs = (
         db.collection("certificates")
         .where("user_id", "==", uid)
-        .order_by("issued_at", direction="DESCENDING")
         .stream()
     )
     results = []
@@ -34,6 +33,8 @@ def get_my_certificates(
         if course_doc.exists:
             cd["course_title"] = course_doc.to_dict().get("title", "Course")
         results.append(cd)
+
+    results.sort(key=lambda c: c.get("issued_at") or "", reverse=True)
 
     return success_response(data=results)
 

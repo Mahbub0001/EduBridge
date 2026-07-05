@@ -5,6 +5,7 @@ import type { Resource } from '../../types';
 import PageHeader from '../../components/layout/PageHeader';
 import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
+import { useTranslation } from '../../utils/translations';
 
 const TYPE_FILTERS = ['all', 'pdf', 'video', 'slides', 'link'] as const;
 const TYPE_ICONS: Record<string, typeof FileText> = {
@@ -21,6 +22,7 @@ const TYPE_COLORS: Record<string, string> = {
 };
 
 export default function Resources() {
+  const { t } = useTranslation();
   const [resources, setResources] = useState<Resource[]>([]);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<(typeof TYPE_FILTERS)[number]>('all');
@@ -47,15 +49,15 @@ export default function Resources() {
   return (
     <div className="space-y-8">
       <PageHeader
-        title="Learning Resources"
-        description="Download slides, reference booklets, and course materials."
+        title={t('resourcesTitle')}
+        description={t('resourcesDesc')}
         action={
           <div className="flex items-center gap-3 w-full sm:w-auto">
             <div className="flex items-center bg-slate-100 rounded-2xl px-4 py-2.5 focus-within:bg-white focus-within:border-slate-300 border border-transparent flex-1 sm:w-64 dark:bg-slate-900 dark:border-slate-800 dark:focus-within:bg-slate-800 dark:focus-within:border-slate-700">
               <Search size={16} className="text-slate-500 dark:text-slate-400" />
               <input
                 type="text"
-                placeholder="Search resources..."
+                placeholder={t('searchResourcesPlaceholder')}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="bg-transparent border-none outline-none w-full ml-2 text-xs dark:text-white dark:placeholder-slate-550"
@@ -74,18 +76,28 @@ export default function Resources() {
       />
 
       <div className="flex flex-wrap gap-2">
-        {TYPE_FILTERS.map((t) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => setTypeFilter(t)}
-            className={`px-4 py-2 rounded-xl text-xs font-bold capitalize transition-all ${
-              typeFilter === t ? 'bg-navy-900 text-white dark:bg-teal-600' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 dark:bg-slate-900 dark:border-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white'
-            }`}
-          >
-            {t}
-          </button>
-        ))}
+        {TYPE_FILTERS.map((tFilter) => {
+          const filterKeyMap: Record<string, string> = {
+            all: 'filterAll',
+            pdf: 'filterPdf',
+            video: 'filterVideo',
+            slides: 'filterSlides',
+            link: 'filterLink',
+          };
+          const filterLabel = t(filterKeyMap[tFilter] as any);
+          return (
+            <button
+              key={tFilter}
+              type="button"
+              onClick={() => setTypeFilter(tFilter)}
+              className={`px-4 py-2 rounded-xl text-xs font-bold capitalize transition-all ${
+                typeFilter === tFilter ? 'bg-navy-900 text-white dark:bg-teal-600' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 dark:bg-slate-900 dark:border-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white'
+              }`}
+            >
+              {filterLabel}
+            </button>
+          );
+        })}
       </div>
 
       {view === 'grid' ? (
@@ -109,7 +121,7 @@ export default function Resources() {
                 <div className="flex justify-between items-center border-t border-slate-100 dark:border-slate-850 pt-4 mt-6">
                   <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">{res.size || '—'}</span>
                   <button type="button" className="text-xs font-bold text-navy-900 dark:text-teal-400 flex items-center gap-1">
-                    {res.type === 'link' ? <><ExternalLink size={14} /> Visit</> : <><Download size={14} /> Download</>}
+                    {res.type === 'link' ? <><ExternalLink size={14} /> {t('viewBtn')}</> : <><Download size={14} /> {t('downloadBtn')}</>}
                   </button>
                 </div>
               </Card>
@@ -121,11 +133,11 @@ export default function Resources() {
           <table className="w-full text-sm">
             <thead className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
               <tr>
-                <th className="text-left px-6 py-3 text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase">Title</th>
-                <th className="text-left px-6 py-3 text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase">Course</th>
-                <th className="text-left px-6 py-3 text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase">Type</th>
+                <th className="text-left px-6 py-3 text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase">{t('resourceHeader')}</th>
+                <th className="text-left px-6 py-3 text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase">{t('courseHeader')}</th>
+                <th className="text-left px-6 py-3 text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase">{t('typeHeader')}</th>
                 <th className="text-left px-6 py-3 text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase">Size</th>
-                <th className="text-right px-6 py-3 text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase">Action</th>
+                <th className="text-right px-6 py-3 text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase">{t('actionHeader')}</th>
               </tr>
             </thead>
             <tbody>
@@ -137,7 +149,7 @@ export default function Resources() {
                   <td className="px-6 py-4 text-slate-500 dark:text-slate-400">{res.size || '—'}</td>
                   <td className="px-6 py-4 text-right">
                     <button type="button" className="text-xs font-bold text-navy-800 dark:text-teal-400 hover:underline">
-                      {res.type === 'link' ? 'Visit' : 'Download'}
+                      {res.type === 'link' ? t('viewBtn') : t('downloadBtn')}
                     </button>
                   </td>
                 </tr>
@@ -148,7 +160,10 @@ export default function Resources() {
       )}
 
       {!filtered.length && (
-        <Card className="text-center py-12 text-slate-500 dark:text-slate-400 text-sm">No resources match your search.</Card>
+        <Card className="text-center py-12 text-slate-500 dark:text-slate-400 text-sm">
+          <h3 className="text-base font-extrabold text-navy-900 dark:text-white mb-1">{t('noResourcesTitle')}</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400">{t('noResourcesDesc')}</p>
+        </Card>
       )}
     </div>
   );

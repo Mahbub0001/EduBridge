@@ -7,8 +7,10 @@ import Card from '../../components/ui/Card';
 import StatCard from '../../components/ui/StatCard';
 import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
+import { useTranslation } from '../../utils/translations';
 
 export default function Assignments() {
+  const { t } = useTranslation();
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
@@ -62,15 +64,15 @@ export default function Assignments() {
   return (
     <div className="space-y-8">
       <PageHeader
-        title="My Assignments"
-        description="Submit assignments, view grades, and check instructor feedback."
+        title={t('assignmentsTitle')}
+        description={t('assignmentsDesc')}
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Pending" value={String(stats.pending).padStart(2, '0')} icon={AlertCircle} iconBg="bg-rose-50" iconColor="text-rose-600" />
-        <StatCard label="Submitted" value={String(stats.submitted).padStart(2, '0')} icon={Clock} iconBg="bg-blue-50" iconColor="text-blue-600" />
-        <StatCard label="Graded" value={String(stats.graded).padStart(2, '0')} icon={CheckCircle2} iconBg="bg-emerald-50" iconColor="text-emerald-600" />
-        <StatCard label="Overdue" value={String(stats.overdue).padStart(2, '0')} icon={Calendar} iconBg="bg-amber-50" iconColor="text-amber-600" />
+        <StatCard label={t('pending')} value={String(stats.pending).padStart(2, '0')} icon={AlertCircle} iconBg="bg-rose-50" iconColor="text-rose-600" />
+        <StatCard label={t('submitted')} value={String(stats.submitted).padStart(2, '0')} icon={Clock} iconBg="bg-blue-50" iconColor="text-blue-600" />
+        <StatCard label={t('graded')} value={String(stats.graded).padStart(2, '0')} icon={CheckCircle2} iconBg="bg-emerald-50" iconColor="text-emerald-600" />
+        <StatCard label={t('overdue')} value={String(stats.overdue).padStart(2, '0')} icon={Calendar} iconBg="bg-amber-50" iconColor="text-amber-600" />
       </div>
 
       <Card padding="none" className="overflow-hidden">
@@ -78,11 +80,11 @@ export default function Assignments() {
           <table className="w-full text-sm">
             <thead className="bg-slate-50 border-b border-slate-200 dark:bg-slate-800/80 dark:border-slate-800">
               <tr>
-                <th className="text-left px-6 py-4 text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase">Assignment</th>
-                <th className="text-left px-6 py-4 text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase">Course</th>
-                <th className="text-left px-6 py-4 text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase">Due Date</th>
-                <th className="text-left px-6 py-4 text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase">Status</th>
-                <th className="text-right px-6 py-4 text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase">Action</th>
+                <th className="text-left px-6 py-4 text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase">{t('assignmentHeader')}</th>
+                <th className="text-left px-6 py-4 text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase">{t('courseHeader')}</th>
+                <th className="text-left px-6 py-4 text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase">{t('dueDateHeader')}</th>
+                <th className="text-left px-6 py-4 text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase">{t('statusHeader')}</th>
+                <th className="text-right px-6 py-4 text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase">{t('actionHeader')}</th>
               </tr>
             </thead>
             <tbody>
@@ -96,16 +98,16 @@ export default function Assignments() {
                   <td className="px-6 py-4 text-slate-600 dark:text-slate-400">{item.due_date ? new Date(item.due_date).toLocaleDateString() : 'N/A'}</td>
                   <td className="px-6 py-4">
                     <Badge variant={item.status === 'pending' ? 'warning' : item.status === 'submitted' ? 'info' : 'success'}>
-                      {item.status === 'pending' ? 'Pending' : item.status === 'submitted' ? 'Submitted' : `Graded ${item.grade || ''}`}
+                      {item.status === 'pending' ? t('pending') : item.status === 'submitted' ? t('submitted') : `${t('graded')} ${item.grade || ''}`}
                     </Badge>
                   </td>
                   <td className="px-6 py-4 text-right">
                     {item.status === 'pending' ? (
-                      <Button variant="primary" size="sm" className="!bg-navy-900 dark:!bg-teal-600 dark:!text-white" onClick={() => openSubmit(item)}>Submit</Button>
+                      <Button variant="primary" size="sm" className="!bg-navy-900 dark:!bg-teal-600 dark:!text-white" onClick={() => openSubmit(item)}>{t('submitBtn')}</Button>
                     ) : item.status === 'graded' ? (
-                      <Button variant="outline" size="sm">View Grade</Button>
+                      <Button variant="outline" size="sm">{t('viewGradeBtn')}</Button>
                     ) : (
-                      <Button variant="ghost" size="sm">View</Button>
+                      <Button variant="ghost" size="sm">{t('viewBtn')}</Button>
                     )}
                   </td>
                 </tr>
@@ -116,7 +118,7 @@ export default function Assignments() {
 
         <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 dark:border-slate-800">
           <span className="text-xs text-slate-500 dark:text-slate-400">
-            Page {page + 1} of {totalPages} ({assignments.length} total)
+            {t('pageInfo').replace('{page}', String(page + 1)).replace('{total}', String(totalPages)).replace('{count}', String(assignments.length))}
           </span>
           <div className="flex gap-2">
             <button type="button" disabled={page === 0} onClick={() => setPage((p) => p - 1)}
@@ -134,26 +136,26 @@ export default function Assignments() {
       {showSubmitModal && selectedAssignment && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <Card className="w-full max-w-lg space-y-4">
-            <h3 className="text-lg font-extrabold text-navy-900 dark:text-white">Submit: {selectedAssignment.title}</h3>
+            <h3 className="text-lg font-extrabold text-navy-900 dark:text-white">{t('submitModalTitle').replace('{title}', selectedAssignment.title)}</h3>
             {submitMsg && (
               <div className={`rounded-xl px-4 py-3 text-sm ${submitMsg.includes('success') ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400' : 'bg-red-50 text-red-700 dark:bg-rose-950/30 dark:text-rose-450'}`}>
                 {submitMsg}
               </div>
             )}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-500 dark:text-slate-400">Your Submission</label>
+              <label className="text-xs font-bold text-slate-500 dark:text-slate-400">{t('yourSubmissionLabel')}</label>
               <textarea
                 value={submissionText}
                 onChange={(e) => setSubmissionText(e.target.value)}
                 rows={6}
                 className="w-full border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-3 text-sm outline-none focus:border-navy-900 dark:focus:border-teal-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white resize-none"
-                placeholder="Write your submission here or paste a link to your work..."
+                placeholder={t('submissionPlaceholder')}
               />
             </div>
             <div className="flex gap-3 justify-end">
-              <Button variant="ghost" onClick={() => setShowSubmitModal(false)} disabled={submitting}>Cancel</Button>
+              <Button variant="ghost" onClick={() => setShowSubmitModal(false)} disabled={submitting}>{t('cancelBtn')}</Button>
               <Button variant="primary" className="!bg-navy-900 dark:!bg-teal-600 dark:!text-white" onClick={handleSubmit} disabled={submitting || !submissionText.trim()}>
-                {submitting ? 'Submitting...' : 'Submit Assignment'}
+                {submitting ? t('submittingBtn') : t('submitAssignmentBtn')}
               </Button>
             </div>
           </Card>

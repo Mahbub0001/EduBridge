@@ -2,6 +2,7 @@ import { MessageSquare, Users, Pin } from 'lucide-react';
 import PageHeader from '../../components/layout/PageHeader';
 import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
+import { useTranslation } from '../../utils/translations';
 
 const PLACEHOLDER_THREADS = [
   { id: '1', title: 'Best practices for React state management?', course: 'Advanced React Architectures', author: 'Jamie L.', replies: 12, pinned: true, lastActive: '2h ago' },
@@ -10,17 +11,18 @@ const PLACEHOLDER_THREADS = [
 ];
 
 export default function Discussions() {
+  const { t } = useTranslation();
   return (
     <div className="space-y-8">
       <PageHeader
-        title="Discussions"
-        description="Connect with peers and instructors. Full forum coming soon."
+        title={t('discussionsTitle')}
+        description={t('discussionsDesc')}
       />
 
       <Card className="bg-slate-50 dark:bg-slate-800/40 border-dashed text-center py-8">
         <MessageSquare className="mx-auto text-slate-400 dark:text-slate-500 mb-3" size={40} />
-        <p className="text-sm font-bold text-navy-900 dark:text-white">Discussion forum is under development</p>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Browse placeholder threads below.</p>
+        <p className="text-sm font-bold text-navy-900 dark:text-white">{t('discussionsUnderDev')}</p>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{t('browsePlaceholders')}</p>
       </Card>
 
       <div className="space-y-4">
@@ -34,7 +36,7 @@ export default function Discussions() {
                 <div className="flex items-center gap-2 flex-wrap">
                   {thread.pinned && <Pin size={14} className="text-amber-500" />}
                   <h3 className="font-extrabold text-navy-900 dark:text-white text-sm truncate">{thread.title}</h3>
-                  {thread.pinned && <Badge variant="warning">Pinned</Badge>}
+                  {thread.pinned && <Badge variant="warning">{t('pinnedLabel')}</Badge>}
                 </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{thread.course} • by {thread.author}</p>
               </div>

@@ -53,14 +53,14 @@ def my_courses(
         if course_id not in courses_map:
             continue
         cd = dict(courses_map[course_id])
-        cd["progress"] = ed.get("progress_percent", 0)
-        raw_status = ed.get("status", "active")
+        cd["progress"] = ed.get("progress_percent", ed.get("progress", 0))
+        raw_status = str(ed.get("status", "active")).lower()
         cd["status"] = "completed" if raw_status == "completed" else "in-progress"
         cd["enrolled_at"] = ed.get("enrolled_at")
-        if ed.get("status") == "completed":
+        if raw_status == "completed":
             cd["final_grade"] = ed.get("final_grade")
             cd["completed_on"] = ed.get("completed_at")
-            
+
         inst_id = cd.get("instructor_id", "")
         cd["instructor_name"] = instructors_map.get(inst_id, {}).get("name", "Instructor")
         results.append(cd)
@@ -74,28 +74,49 @@ def my_wishlist(
     db: Client = Depends(get_db),
 ):
     uid = current_user["id"]
-    wish_docs = (
+    wish_docs = list(
         db.collection("wishlist")
         .where("user_id", "==", uid)
         .stream()
     )
+    if not wish_docs:
+        return success_response(data=[])
+        
+    course_refs = [db.collection("courses").document(w.to_dict().get("course_id")) for w in wish_docs if w.to_dict().get("course_id")]
+    course_docs = db.get_all(course_refs)
+    
+    courses_map = {}
+    needed_instructor_ids = set()
+    for cdoc in course_docs:
+        if cdoc.exists:
+            cd = cdoc.to_dict()
+            cd["id"] = cdoc.id
+            cd["status"] = "wishlist"
+            courses_map[cdoc.id] = cd
+            inst_id = cd.get("instructor_id")
+            if inst_id:
+                needed_instructor_ids.add(inst_id)
+                
+    instructors_map = {}
+    if needed_instructor_ids:
+        inst_refs = [db.collection("users").document(iid) for iid in needed_instructor_ids]
+        inst_docs = db.get_all(inst_refs)
+        for idoc in inst_docs:
+            if idoc.exists:
+                instructors_map[idoc.id] = idoc.to_dict()
+                
     results = []
     for w in wish_docs:
-        wd = w.to_dict()
-        course_id = wd.get("course_id")
-        course_doc = db.collection("courses").document(course_id).get()
-        if not course_doc.exists:
+        course_id = w.to_dict().get("course_id")
+        if course_id not in courses_map:
             continue
-        cd = course_doc.to_dict()
-        cd["id"] = course_doc.id
-        cd["status"] = "wishlist"
-        instructor_ref = db.collection("users").document(cd.get("instructor_id", ""))
-        inst_doc = instructor_ref.get()
-        cd["instructor_name"] = (
-            inst_doc.to_dict().get("name", "Instructor") if inst_doc.exists else "Instructor"
-        )
+        cd = dict(courses_map[course_id])
+        inst_id = cd.get("instructor_id", "")
+        cd["instructor_name"] = instructors_map.get(inst_id, {}).get("name", "Instructor")
         results.append(cd)
+        
     return success_response(data=results)
+
 
 
 @router.post("/courses/{course_id}/enroll")

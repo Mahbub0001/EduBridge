@@ -118,6 +118,7 @@ function App() {
               </ProtectedRoute>
             }
           >
+            <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="my-courses" element={<MyCourses />} />
             <Route path="my-courses/all" element={<MyCourses />} />

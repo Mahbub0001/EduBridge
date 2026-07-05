@@ -24,23 +24,29 @@ def get_all_courses(
     
     docs = courses_ref.stream()
     courses = []
+    needed_instructor_ids = set()
     for doc in docs:
         c = doc.to_dict()
         c["id"] = doc.id
-        
-        # instructor name lookup
-        instructor_id = c.get("instructor_id", "")
-        if instructor_id:
-            instructor_ref = db.collection("users").document(instructor_id)
-            inst_doc = instructor_ref.get()
-            c["instructor_name"] = (
-                inst_doc.to_dict().get("name", "Instructor") if inst_doc.exists else "Instructor"
-            )
-        else:
-            c["instructor_name"] = "Instructor"
-            
         courses.append(c)
+        inst_id = c.get("instructor_id")
+        if inst_id:
+            needed_instructor_ids.add(inst_id)
+            
+    instructors_map = {}
+    if needed_instructor_ids:
+        inst_refs = [db.collection("users").document(iid) for iid in needed_instructor_ids]
+        inst_docs = db.get_all(inst_refs)
+        for idoc in inst_docs:
+            if idoc.exists:
+                instructors_map[idoc.id] = idoc.to_dict()
+                
+    for c in courses:
+        inst_id = c.get("instructor_id", "")
+        c["instructor_name"] = instructors_map.get(inst_id, {}).get("name", "Instructor")
+        
     return success_response(data=courses)
+
 
 @router.get("/me")
 def get_instructor_courses(

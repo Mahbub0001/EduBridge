@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 import type { User } from './types';
 
 export type Theme = 'light' | 'dark';
-export type Language = 'en' | 'es';
+export type Language = 'en' | 'bn';
 
 export type AuthUser = User & { uid: string };
 

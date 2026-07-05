@@ -150,3 +150,118 @@ Traceback (most recent call last):
         'The default Firebase app does not exist. Make sure to initialize '
         'the SDK by calling initialize_app().')
 ValueError: The default Firebase app does not exist. Make sure to initialize the SDK by calling initialize_app().
+General Exception verifying token (attempt 1): HTTPSConnectionPool(host='www.googleapis.com', port=443): Max retries exceeded with url: /robot/v1/metadata/x509/securetoken@system.gserviceaccount.com (Caused by NameResolutionError("HTTPSConnection(host='www.googleapis.com', port=443): Failed to resolve 'www.googleapis.com' ([Errno 11001] getaddrinfo failed)")) | Clock skew? False
+Traceback (most recent call last):
+  File "E:\ACADEMIC\3.2\blended\project-3\backend\.venv\Lib\site-packages\urllib3\connection.py", line 204, in _new_conn
+    sock = connection.create_connection(
+        (self._dns_host, self.port),
+    ...<2 lines>...
+        socket_options=self.socket_options,
+    )
+  File "E:\ACADEMIC\3.2\blended\project-3\backend\.venv\Lib\site-packages\urllib3\util\connection.py", line 60, in create_connection
+    for res in socket.getaddrinfo(host, port, family, socket.SOCK_STREAM):
+               ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\anaconda\Lib\socket.py", line 977, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+               ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+socket.gaierror: [Errno 11001] getaddrinfo failed
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "E:\ACADEMIC\3.2\blended\project-3\backend\.venv\Lib\site-packages\urllib3\connectionpool.py", line 788, in urlopen
+    response = self._make_request(
+        conn,
+    ...<10 lines>...
+        **response_kw,
+    )
+  File "E:\ACADEMIC\3.2\blended\project-3\backend\.venv\Lib\site-packages\urllib3\connectionpool.py", line 488, in _make_request
+    raise new_e
+  File "E:\ACADEMIC\3.2\blended\project-3\backend\.venv\Lib\site-packages\urllib3\connectionpool.py", line 464, in _make_request
+    self._validate_conn(conn)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "E:\ACADEMIC\3.2\blended\project-3\backend\.venv\Lib\site-packages\urllib3\connectionpool.py", line 1106, in _validate_conn
+    conn.connect()
+    ~~~~~~~~~~~~^^
+  File "E:\ACADEMIC\3.2\blended\project-3\backend\.venv\Lib\site-packages\urllib3\connection.py", line 759, in connect
+    self.sock = sock = self._new_conn()
+                       ~~~~~~~~~~~~~~^^
+  File "E:\ACADEMIC\3.2\blended\project-3\backend\.venv\Lib\site-packages\urllib3\connection.py", line 211, in _new_conn
+    raise NameResolutionError(self.host, self, e) from e
+urllib3.exceptions.NameResolutionError: HTTPSConnection(host='www.googleapis.com', port=443): Failed to resolve 'www.googleapis.com' ([Errno 11001] getaddrinfo failed)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "E:\ACADEMIC\3.2\blended\project-3\backend\.venv\Lib\site-packages\requests\adapters.py", line 696, in send
+    resp = conn.urlopen(
+        method=request.method,
+    ...<9 lines>...
+        chunked=chunked,
+    )
+  File "E:\ACADEMIC\3.2\blended\project-3\backend\.venv\Lib\site-packages\urllib3\connectionpool.py", line 842, in urlopen
+    retries = retries.increment(
+        method, url, error=new_e, _pool=self, _stacktrace=sys.exc_info()[2]
+    )
+  File "E:\ACADEMIC\3.2\blended\project-3\backend\.venv\Lib\site-packages\urllib3\util\retry.py", line 543, in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+urllib3.exceptions.MaxRetryError: HTTPSConnectionPool(host='www.googleapis.com', port=443): Max retries exceeded with url: /robot/v1/metadata/x509/securetoken@system.gserviceaccount.com (Caused by NameResolutionError("HTTPSConnection(host='www.googleapis.com', port=443): Failed to resolve 'www.googleapis.com' ([Errno 11001] getaddrinfo failed)"))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "E:\ACADEMIC\3.2\blended\project-3\backend\.venv\Lib\site-packages\google\auth\transport\requests.py", line 188, in __call__
+    response = self.session.request(
+        method, url, data=body, headers=headers, timeout=timeout, **kwargs
+    )
+  File "E:\ACADEMIC\3.2\blended\project-3\backend\.venv\Lib\site-packages\requests\sessions.py", line 651, in request
+    resp = self.send(prep, **send_kwargs)
+  File "E:\ACADEMIC\3.2\blended\project-3\backend\.venv\Lib\site-packages\requests\sessions.py", line 784, in send
+    r = adapter.send(request, **kwargs)
+  File "E:\ACADEMIC\3.2\blended\project-3\backend\.venv\Lib\site-packages\cachecontrol\adapter.py", line 76, in send
+    resp = super().send(request, stream, timeout, verify, cert, proxies)
+  File "E:\ACADEMIC\3.2\blended\project-3\backend\.venv\Lib\site-packages\requests\adapters.py", line 729, in send
+    raise ConnectionError(e, request=request)
+requests.exceptions.ConnectionError: HTTPSConnectionPool(host='www.googleapis.com', port=443): Max retries exceeded with url: /robot/v1/metadata/x509/securetoken@system.gserviceaccount.com (Caused by NameResolutionError("HTTPSConnection(host='www.googleapis.com', port=443): Failed to resolve 'www.googleapis.com' ([Errno 11001] getaddrinfo failed)"))
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "E:\ACADEMIC\3.2\blended\project-3\backend\.venv\Lib\site-packages\firebase_admin\_token_gen.py", line 396, in verify
+    verified_claims = google.oauth2.id_token.verify_token(
+        token,
+    ...<2 lines>...
+        certs_url=self.cert_url,
+        clock_skew_in_seconds=clock_skew_seconds)
+  File "E:\ACADEMIC\3.2\blended\project-3\backend\.venv\Lib\site-packages\google\oauth2\id_token.py", line 135, in verify_token
+    certs = _fetch_certs(request, certs_url)
+  File "E:\ACADEMIC\3.2\blended\project-3\backend\.venv\Lib\site-packages\google\oauth2\id_token.py", line 100, in _fetch_certs
+    response = request(certs_url, method="GET")
+  File "E:\ACADEMIC\3.2\blended\project-3\backend\.venv\Lib\site-packages\firebase_admin\_token_gen.py", line 265, in __call__
+    return self._delegate(
+           ~~~~~~~~~~~~~~^
+        url, method=method, body=body, headers=headers, timeout=timeout, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\ACADEMIC\3.2\blended\project-3\backend\.venv\Lib\site-packages\google\auth\transport\requests.py", line 195, in __call__
+    raise new_exc from caught_exc
+google.auth.exceptions.TransportError: HTTPSConnectionPool(host='www.googleapis.com', port=443): Max retries exceeded with url: /robot/v1/metadata/x509/securetoken@system.gserviceaccount.com (Caused by NameResolutionError("HTTPSConnection(host='www.googleapis.com', port=443): Failed to resolve 'www.googleapis.com' ([Errno 11001] getaddrinfo failed)"))
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "E:\ACADEMIC\3.2\blended\project-3\backend\app\core\security.py", line 28, in verify_firebase_token
+    decoded_token = auth.verify_id_token(token)
+  File "E:\ACADEMIC\3.2\blended\project-3\backend\.venv\Lib\site-packages\firebase_admin\auth.py", line 227, in verify_id_token
+    return client.verify_id_token(
+           ~~~~~~~~~~~~~~~~~~~~~~^
+        id_token, check_revoked=check_revoked, clock_skew_seconds=clock_skew_seconds)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\ACADEMIC\3.2\blended\project-3\backend\.venv\Lib\site-packages\firebase_admin\_auth_client.py", line 130, in verify_id_token
+    verified_claims = self._token_verifier.verify_id_token(id_token, clock_skew_seconds)
+  File "E:\ACADEMIC\3.2\blended\project-3\backend\.venv\Lib\site-packages\firebase_admin\_token_gen.py", line 293, in verify_id_token
+    return self.id_token_verifier.verify(id_token, self.request, clock_skew_seconds)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\ACADEMIC\3.2\blended\project-3\backend\.venv\Lib\site-packages\firebase_admin\_token_gen.py", line 405, in verify
+    raise CertificateFetchError(str(error), cause=error) from error
+firebase_admin._token_gen.CertificateFetchError: HTTPSConnectionPool(host='www.googleapis.com', port=443): Max retries exceeded with url: /robot/v1/metadata/x509/securetoken@system.gserviceaccount.com (Caused by NameResolutionError("HTTPSConnection(host='www.googleapis.com', port=443): Failed to resolve 'www.googleapis.com' ([Errno 11001] getaddrinfo failed)"))

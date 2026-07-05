@@ -17,8 +17,6 @@ def get_notifications(
     docs = (
         db.collection("notifications")
         .where("user_id", "==", uid)
-        .order_by("created_at", direction="DESCENDING")
-        .limit(20)
         .stream()
     )
     results = []
@@ -27,10 +25,9 @@ def get_notifications(
         nd["id"] = d.id
         results.append(nd)
 
-    if not results:
-        return success_response(data=[])
+    results.sort(key=lambda n: n.get("created_at") or "", reverse=True)
 
-    return success_response(data=results)
+    return success_response(data=results[:20])
 
 
 @router.patch("/{notification_id}/read")

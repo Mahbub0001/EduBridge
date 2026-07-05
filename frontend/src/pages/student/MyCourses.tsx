@@ -8,6 +8,7 @@ import Card from '../../components/ui/Card';
 import ProgressBar from '../../components/ui/ProgressBar';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
+import { useTranslation } from '../../utils/translations';
 
 const TABS = [
   { key: 'all', label: 'All', path: '/student/my-courses/all' },
@@ -35,6 +36,7 @@ function tabFromPath(pathname: string): TabKey {
 }
 
 export default function MyCourses() {
+  const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const activeTab = tabFromPath(location.pathname);
@@ -50,8 +52,9 @@ export default function MyCourses() {
         getMyWishlist().catch(() => []),
         getCourses('published').catch(() => []),
       ]);
+      const sortedEnrolled = enrolled.sort((a: any, b: any) => (b.progress ?? 0) - (a.progress ?? 0));
       const wishlistWithStatus = wishlist.map((c: any) => ({ ...c, status: 'wishlist' as const }));
-      setCourses([...enrolled, ...wishlistWithStatus]);
+      setCourses([...sortedEnrolled, ...wishlistWithStatus]);
       setAllPublishedCourses(allPublished);
     } catch (err) {
       console.error('Failed to load courses data', err);
@@ -74,7 +77,11 @@ export default function MyCourses() {
     const q = searchQuery.toLowerCase();
     if (activeTab === 'explore') {
       const enrolledIds = new Set(
-        courses.filter((c) => c.status === 'in-progress' || c.status === 'completed').map((c) => c.id)
+        courses
+          .filter((c) =>
+            c.status === 'in-progress' || c.status === 'active' || c.status === 'enrolled' || c.status === 'completed'
+          )
+          .map((c) => c.id)
       );
       return allPublishedCourses.filter((c) => {
         if (enrolledIds.has(c.id)) return false;
@@ -91,7 +98,8 @@ export default function MyCourses() {
         (c.instructor_name?.toLowerCase().includes(q) ?? false);
       if (!match) return false;
       if (activeTab === 'all') return c.status !== 'wishlist';
-      if (activeTab === 'in-progress') return c.status === 'in-progress';
+      if (activeTab === 'in-progress')
+        return c.status === 'in-progress' || c.status === 'active' || c.status === 'enrolled';
       if (activeTab === 'completed') return c.status === 'completed';
       return c.status === 'wishlist';
     });
@@ -136,14 +144,14 @@ export default function MyCourses() {
   return (
     <div className="space-y-8">
       <PageHeader
-        title="My Courses"
-        description="Track your progress and continue learning your enrolled programs."
+        title={t('myCoursesTitle')}
+        description={t('myCoursesDesc')}
         action={
           <div className="flex items-center bg-slate-100 rounded-2xl px-4 py-2.5 border border-transparent focus-within:border-slate-300 focus-within:bg-white w-full sm:w-72 dark:bg-slate-900 dark:border-slate-800 dark:focus-within:bg-slate-800 dark:focus-within:border-slate-700">
             <Search size={16} className="text-slate-500 dark:text-slate-400" />
             <input
               type="text"
-              placeholder="Search my courses..."
+              placeholder={t('searchCoursesPlaceholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="bg-transparent border-none outline-none w-full ml-2 text-xs dark:text-white dark:placeholder-slate-500"
@@ -159,15 +167,17 @@ export default function MyCourses() {
               <TrendingUp size={24} />
             </div>
             <div>
-              <h3 className="font-extrabold text-sm">Weekly Learning Insight</h3>
+              <h3 className="font-extrabold text-sm">{t('insightTitle')}</h3>
               <p className="text-xs text-slate-300 mt-0.5">
-                You're averaging {avgProgress}% across {inProgressCount} active course{inProgressCount > 1 ? 's' : ''}. Keep it up!
+                {inProgressCount > 1
+                  ? t('insightDesc').replace('{progress}', String(avgProgress)).replace('{count}', String(inProgressCount))
+                  : t('insightDescSingle').replace('{progress}', String(avgProgress)).replace('{count}', String(inProgressCount))}
               </p>
             </div>
           </div>
           <div className="text-right">
             <div className="text-2xl font-black">{avgProgress}%</div>
-            <div className="text-[10px] uppercase tracking-wider text-slate-300 font-bold">Avg Progress</div>
+            <div className="text-[10px] uppercase tracking-wider text-slate-300 font-bold">{t('avgProgressLabel')}</div>
           </div>
         </Card>
       )}
@@ -181,7 +191,7 @@ export default function MyCourses() {
               activeTab === tab.key ? 'border-navy-900 text-navy-900 dark:border-teal-500 dark:text-teal-400' : 'border-transparent text-slate-500 hover:text-navy-900 dark:text-slate-400 dark:hover:text-white'
             }`}
           >
-            {tab.label}
+            {tab.key === 'all' ? t('tabAll') : tab.key === 'in-progress' ? t('tabInProgress') : tab.key === 'completed' ? t('tabCompleted') : tab.key === 'wishlist' ? t('tabWishlist') : t('tabExplore')}
           </Link>
         ))}
       </div>
@@ -200,7 +210,7 @@ export default function MyCourses() {
                   )}
                   {course.status === 'completed' && (
                     <span className="absolute top-4 left-4">
-                      <Badge variant="success">Completed</Badge>
+                      <Badge variant="success">{t('tabCompleted')}</Badge>
                     </span>
                   )}
                 </div>
@@ -233,7 +243,7 @@ export default function MyCourses() {
                     )}
                     <ProgressBar value={course.progress ?? 0} showLabel />
                     <Link to={`/student/courses/${course.id}/learn`}>
-                      <Button variant="primary" size="sm" className="w-full !bg-navy-900 dark:!bg-teal-600 dark:hover:!bg-teal-500">Continue Learning</Button>
+                      <Button variant="primary" size="sm" className="w-full !bg-navy-900 dark:!bg-teal-600 dark:hover:!bg-teal-500">{t('continueLearningBtn')}</Button>
                     </Link>
                   </>
                 )}
@@ -241,10 +251,10 @@ export default function MyCourses() {
                 {course.status === 'completed' && (
                   <div className="flex gap-2">
                     <Link to={`/student/courses/${course.id}`} className="flex-1">
-                      <Button variant="outline" size="sm" className="w-full">View Certificate</Button>
+                      <Button variant="outline" size="sm" className="w-full">{t('viewCertificateBtn')}</Button>
                     </Link>
                     <Link to={`/student/courses/${course.id}/learn`} className="flex-1">
-                      <Button variant="ghost" size="sm" className="w-full">Review</Button>
+                      <Button variant="ghost" size="sm" className="w-full">{t('reviewBtn')}</Button>
                     </Link>
                   </div>
                 )}
@@ -256,10 +266,10 @@ export default function MyCourses() {
                       className="text-xs font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1"
                       onClick={() => handleRemoveFromWishlist(course.id)}
                     >
-                      <Trash2 size={14} /> Remove
+                      <Trash2 size={14} /> {t('removeBtn')}
                     </button>
                     <Button variant="primary" size="sm" className="!bg-navy-900 dark:!bg-teal-600 dark:hover:!bg-teal-500" onClick={() => handleEnroll(course.id)}>
-                      Enroll <ArrowRight size={12} />
+                      {t('enrollBtn')} <ArrowRight size={12} />
                     </Button>
                   </div>
                 )}
@@ -272,7 +282,7 @@ export default function MyCourses() {
                         className="text-xs font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1 hover:text-rose-700 dark:hover:text-rose-300 transition-colors"
                         onClick={() => handleRemoveFromWishlist(course.id)}
                       >
-                        <Trash2 size={14} /> Remove Wishlist
+                        <Trash2 size={14} /> {t('removeWishlistBtn')}
                       </button>
                     ) : (
                       <button
@@ -280,11 +290,11 @@ export default function MyCourses() {
                         className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1 hover:text-navy-900 dark:hover:text-white transition-colors"
                         onClick={() => handleAddToWishlist(course.id)}
                       >
-                        <Star size={14} /> Wishlist
+                        <Star size={14} /> {t('wishlistBtn')}
                       </button>
                     )}
                     <Button variant="primary" size="sm" className="!bg-navy-900 dark:!bg-teal-600 dark:hover:!bg-teal-500" onClick={() => handleEnroll(course.id)}>
-                      Enroll <ArrowRight size={12} />
+                      {t('enrollBtn')} <ArrowRight size={12} />
                     </Button>
                   </div>
                 )}
@@ -295,8 +305,8 @@ export default function MyCourses() {
       ) : (
         <Card className="text-center py-16">
           <BookOpen className="mx-auto text-slate-300 dark:text-slate-700" size={48} />
-          <h3 className="text-lg font-bold text-navy-900 dark:text-white mt-4">No courses found</h3>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">No courses match your filters.</p>
+          <h3 className="text-lg font-bold text-navy-900 dark:text-white mt-4">{t('noCoursesFoundTitle')}</h3>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">{t('noCoursesFoundDesc')}</p>
         </Card>
       )}
     </div>

@@ -4,8 +4,10 @@ import { Calendar as CalIcon, AlertCircle, ChevronLeft, ChevronRight, Target, Za
 import { getCalendar } from '../../services/courseService';
 import PageHeader from '../../components/layout/PageHeader';
 import Card from '../../components/ui/Card';
+import { useTranslation } from '../../utils/translations';
 
 export default function Calendar() {
+  const { t, language } = useTranslation();
   const [current, setCurrent] = useState(new Date());
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -20,10 +22,14 @@ export default function Calendar() {
 
   const year = current.getFullYear();
   const month = current.getMonth();
-  const monthLabel = current.toLocaleString('en', { month: 'long', year: 'numeric' });
+  const monthLabel = current.toLocaleString(language === 'bn' ? 'bn-BD' : 'en', { month: 'long', year: 'numeric' });
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const today = new Date().getDate();
+
+  const weekdays = language === 'bn' 
+    ? ['রবি', 'সোম', 'মঙ্গল', 'বুধ', 'বৃহঃ', 'শুক্র', 'শনি']
+    : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   const gridDays = useMemo(() => {
     const cells: (number | null)[] = [...Array(firstDay).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)];
@@ -51,8 +57,8 @@ export default function Calendar() {
   return (
     <div className="space-y-8">
       <PageHeader
-        title="Academic Calendar"
-        description="Manage your course schedules, milestones, and deadlines."
+        title={t('calendarTitle')}
+        description={t('calendarDesc')}
         action={
           <div className="flex items-center gap-2">
             <button type="button" onClick={prevMonth} className="w-9 h-9 rounded-xl border border-slate-200 bg-white flex items-center justify-center hover:bg-slate-50 dark:bg-slate-900 dark:border-slate-800 dark:hover:bg-slate-800">
@@ -71,8 +77,8 @@ export default function Calendar() {
           <div className="flex items-center gap-3">
             <Zap size={24} />
             <div>
-              <h3 className="font-extrabold">Focus Mode Active</h3>
-              <p className="text-xs text-teal-100">Distractions minimized. Stay on track!</p>
+              <h3 className="font-extrabold">{t('focusModeBtn')}</h3>
+              <p className="text-xs text-teal-100">{t('focusModeDesc')}</p>
             </div>
           </div>
           <button type="button" onClick={() => setFocusMode(false)} className="text-xs font-bold bg-white/20 px-4 py-2 rounded-xl hover:bg-white/30">
@@ -84,7 +90,7 @@ export default function Calendar() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <Card className="lg:col-span-2" padding="md">
           <div className="grid grid-cols-7 gap-2 text-center text-xs font-extrabold text-slate-500 uppercase tracking-wider mb-4">
-            {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((d) => <div key={d}>{d}</div>)}
+            {weekdays.map((d) => <div key={d}>{d}</div>)}
           </div>
           <div className="grid grid-cols-7 gap-2">
             {gridDays.map((day, i) => {
@@ -115,7 +121,7 @@ export default function Calendar() {
         <div className="space-y-6">
           <Card className="space-y-4">
             <h3 className="font-extrabold text-sm text-navy-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-              <AlertCircle size={16} className="text-slate-500 dark:text-slate-400" /> Upcoming Deadlines
+              <AlertCircle size={16} className="text-slate-500 dark:text-slate-400" /> {t('upcomingMilestonesTitle')}
             </h3>
             <div className="space-y-3">
               {upcoming.length > 0 ? upcoming.slice(0, 5).map((event: any) => (
