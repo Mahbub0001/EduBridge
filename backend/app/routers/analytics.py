@@ -3,6 +3,7 @@ from google.cloud.firestore_v1.client import Client
 from datetime import datetime, timezone
 from ..core.dependencies import get_current_user, require_instructor, require_admin
 from ..core.firebase import get_db
+from ..core.cache import cache_response
 from ..utils.response import success_response
 
 router = APIRouter()
@@ -12,6 +13,7 @@ def get_analytics_root():
     return success_response(data={})
 
 @router.get("/instructor")
+@cache_response(ttl=60, prefix="analytics", is_user_scoped=True)
 def get_instructor_analytics(
     current_user: dict = Depends(require_instructor),
     db: Client = Depends(get_db)
@@ -42,6 +44,7 @@ def get_instructor_analytics(
 
 
 @router.get("/instructor/dashboard-summary")
+@cache_response(ttl=60, prefix="analytics", is_user_scoped=True)
 def get_instructor_dashboard_summary(
     current_user: dict = Depends(require_instructor),
     db: Client = Depends(get_db)
@@ -249,6 +252,7 @@ def get_instructor_dashboard_summary(
 
 
 @router.get("/admin")
+@cache_response(ttl=60, prefix="analytics")
 def get_admin_analytics(
     current_user: dict = Depends(require_admin),
     db: Client = Depends(get_db)
@@ -273,6 +277,7 @@ def get_admin_analytics(
 
 
 @router.get("/courses/{course_id}")
+@cache_response(ttl=60, prefix="analytics")
 def get_course_analytics(
     course_id: str,
     current_user: dict = Depends(get_current_user),
@@ -291,6 +296,11 @@ def get_course_analytics(
     for q in quizzes:
         quiz_attempts += len(list(db.collection("quiz_attempts").where("quiz_id", "==", q.id).stream()))
     submissions = list(db.collection("assignment_submissions").where("course_id", "==", course_id).stream())
+    if not submissions:
+        assignments = list(db.collection("assignments").where("course_id", "==", course_id).stream())
+        for a in assignments:
+            subs = list(db.collection("assignment_submissions").where("assignment_id", "==", a.id).stream())
+            submissions.extend(subs)
     graded = sum(1 for s in submissions if s.to_dict().get("status") == "graded")
     data = {
         "course_title": course.get("title"),

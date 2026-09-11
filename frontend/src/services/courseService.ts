@@ -50,6 +50,25 @@ export async function getCalendar(): Promise<any[]> {
   return unwrap<any[]>(res);
 }
 
+export async function createCalendarEvent(payload: Record<string, unknown>): Promise<any> {
+  const res = await api.post('/calendar/events', payload);
+  return unwrap<any>(res);
+}
+
+export async function updateCalendarEvent(eventId: string, payload: Record<string, unknown>): Promise<any> {
+  const res = await api.put(`/calendar/events/${eventId}`, payload);
+  return unwrap<any>(res);
+}
+
+export async function deleteCalendarEvent(eventId: string): Promise<void> {
+  await api.delete(`/calendar/events/${eventId}`);
+}
+
+export async function toggleCalendarEvent(eventId: string): Promise<{ completed: boolean }> {
+  const res = await api.patch(`/calendar/events/${eventId}/toggle`);
+  return unwrap<{ completed: boolean }>(res);
+}
+
 export async function getMyInstructorCourses(): Promise<Course[]> {
   const res = await api.get('/courses/me');
   return unwrap<Course[]>(res);

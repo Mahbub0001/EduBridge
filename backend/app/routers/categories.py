@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from ..core.dependencies import require_admin
 from ..core.firebase import get_db
+from ..core.cache import cache_response, invalidate_cache
 from ..utils.response import success_response
 from pydantic import BaseModel
 
@@ -16,6 +17,7 @@ class CategoryCreate(BaseModel):
 
 
 @router.get("/")
+@cache_response(ttl=300, prefix="categories")
 def get_categories(db: Client = Depends(get_db)):
     docs = db.collection("categories").order_by("name").stream()
     categories = []
@@ -37,6 +39,7 @@ def create_category(
     data["created_at"] = now
     _, ref = db.collection("categories").add(data)
     data["id"] = ref.id
+    invalidate_cache(["edubridge:categories*", "edubridge:courses*"])
     return success_response(data=data, message="Category created")
 
 
@@ -54,6 +57,7 @@ def update_category(
     ref.update(data)
     updated = ref.get().to_dict()
     updated["id"] = category_id
+    invalidate_cache(["edubridge:categories*", "edubridge:courses*"])
     return success_response(data=updated, message="Category updated")
 
 
@@ -67,4 +71,5 @@ def delete_category(
     if not ref.get().exists:
         raise HTTPException(status_code=404, detail="Category not found")
     ref.delete()
+    invalidate_cache(["edubridge:categories*", "edubridge:courses*"])
     return success_response(message="Category deleted")

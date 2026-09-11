@@ -5,12 +5,14 @@ from typing import Optional
 from pydantic import BaseModel
 from ..core.dependencies import get_current_user, require_instructor
 from ..core.firebase import get_db
+from ..core.cache import cache_response, invalidate_cache
 from ..utils.response import success_response
 from ..schemas.assessment import AssignmentSubmit
 
 router = APIRouter()
 
 @router.get("/courses/{course_id}/assignments")
+@cache_response(ttl=120, prefix="assignments")
 def get_course_assignments(course_id: str, db: Client = Depends(get_db)):
     docs = db.collection("assignments").where("course_id", "==", course_id).stream()
     assignments = []
@@ -28,12 +30,16 @@ def submit_assignment(
     db: Client = Depends(get_db)
 ):
     assignment_ref = db.collection("assignments").document(assignment_id)
-    if not assignment_ref.get().exists:
+    assignment_doc = assignment_ref.get()
+    if not assignment_doc.exists:
         raise HTTPException(status_code=404, detail="Assignment not found")
         
+    assignment_data = assignment_doc.to_dict()
+    course_id = assignment_data.get("course_id", "")
     now = datetime.now(timezone.utc)
     submission_data = {
         "assignment_id": assignment_id,
+        "course_id": course_id,
         "user_id": current_user["id"],
         "submission_text": submission.submission_text,
         "file_url": submission.file_url,
@@ -43,6 +49,7 @@ def submit_assignment(
     
     _, doc_ref = db.collection("assignment_submissions").add(submission_data)
     submission_data["id"] = doc_ref.id
+    invalidate_cache(["edubridge:analytics*", "edubridge:instructor*", "edubridge:assignments*"])
     
     return success_response(data=submission_data, message="Assignment submitted successfully")
 

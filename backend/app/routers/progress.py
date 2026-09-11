@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from datetime import datetime, timezone
 from ..core.dependencies import get_current_user
 from ..core.firebase import get_db
+from ..core.cache import cache_response, invalidate_cache
 from ..utils.response import success_response
 
 router = APIRouter()
@@ -15,6 +16,7 @@ class LessonCompletePayload(BaseModel):
 
 
 @router.get("/courses/{course_id}/progress")
+@cache_response(ttl=60, prefix="progress", is_user_scoped=True)
 def get_course_progress(
     course_id: str,
     current_user: dict = Depends(get_current_user),
@@ -104,4 +106,5 @@ def mark_lesson_complete(
             update_data["final_grade"] = round(70 + pct * 0.3, 1)
         e.reference.update(update_data)
 
+    invalidate_cache(["edubridge:progress*", "edubridge:enrollments*", "edubridge:analytics*", "edubridge:courses*"])
     return success_response(data={"completed": True, "progress_percent": pct}, message="Lesson marked complete")

@@ -5,12 +5,14 @@ from datetime import datetime, timezone
 from pydantic import BaseModel
 from ..core.dependencies import get_current_user, require_instructor, require_admin
 from ..core.firebase import get_db
+from ..core.cache import cache_response, invalidate_cache
 from ..utils.response import success_response, error_response
 from ..schemas.course import CourseCreate, CourseUpdate
 
 router = APIRouter()
 
 @router.get("/")
+@cache_response(ttl=120, prefix="courses")
 def get_all_courses(
     status: Optional[str] = None,
     skip: int = 0,
@@ -49,11 +51,16 @@ def get_all_courses(
 
 
 @router.get("/me")
+@cache_response(ttl=60, prefix="courses", is_user_scoped=True)
 def get_instructor_courses(
     current_user: dict = Depends(require_instructor),
     db: Client = Depends(get_db)
 ):
-    docs = db.collection("courses").stream()
+    query = db.collection("courses")
+    if current_user.get("role") == "instructor":
+        docs = query.where("instructor_id", "==", current_user["id"]).stream()
+    else:
+        docs = query.stream()
     courses = []
     for doc in docs:
         c = doc.to_dict()
@@ -62,6 +69,7 @@ def get_instructor_courses(
     return success_response(data=courses)
 
 @router.get("/{course_id}")
+@cache_response(ttl=120, prefix="courses")
 def get_course(course_id: str, db: Client = Depends(get_db)):
     doc = db.collection("courses").document(course_id).get()
     if not doc.exists:
@@ -99,6 +107,7 @@ def create_course(
     })
     _, doc_ref = db.collection("courses").add(course_data)
     course_data["id"] = doc_ref.id
+    invalidate_cache(["edubridge:courses*", "edubridge:instructor*", "edubridge:analytics*"])
     return success_response(data=course_data, message="Course created")
 
 @router.patch("/{course_id}")
@@ -123,9 +132,11 @@ def update_course(
     updated_doc = course_ref.get()
     data = updated_doc.to_dict()
     data["id"] = updated_doc.id
+    invalidate_cache(["edubridge:courses*", "edubridge:instructor*", "edubridge:analytics*"])
     return success_response(data=data, message="Course updated")
 
 @router.get("/{course_id}/modules")
+@cache_response(ttl=120, prefix="courses")
 def get_course_modules(course_id: str, db: Client = Depends(get_db)):
     """Return modules with nested lessons for a course."""
     module_docs = (
@@ -190,6 +201,7 @@ def delete_course(
             db.collection("discussions").document(d.id).delete()
 
     course_ref.delete()
+    invalidate_cache(["edubridge:courses*", "edubridge:instructor*", "edubridge:analytics*"])
     return success_response(message="Course deleted successfully")
 
 
@@ -222,6 +234,7 @@ def publish_course(
     if current_user.get("role") not in ["instructor", "admin", "super_admin"]:
         raise HTTPException(status_code=403, detail="Not authorized")
     course_ref.update({"status": "published", "updated_at": datetime.now(timezone.utc)})
+    invalidate_cache(["edubridge:courses*", "edubridge:instructor*", "edubridge:analytics*"])
     return success_response(message="Course published")
 
 
@@ -238,6 +251,7 @@ def archive_course(
     if current_user.get("role") not in ["instructor", "admin", "super_admin"]:
         raise HTTPException(status_code=403, detail="Not authorized")
     course_ref.update({"status": "archived", "updated_at": datetime.now(timezone.utc)})
+    invalidate_cache(["edubridge:courses*", "edubridge:instructor*", "edubridge:analytics*"])
     return success_response(message="Course archived")
 
 

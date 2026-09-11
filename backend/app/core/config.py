@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     )
     FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:5173")
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
+    REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    CACHE_ENABLED: bool = True
+    CACHE_DEFAULT_TTL: int = 120
 
     @property
     def cors_origins_list(self) -> List[str]:

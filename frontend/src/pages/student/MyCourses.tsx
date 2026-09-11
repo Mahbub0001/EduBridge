@@ -8,6 +8,7 @@ import Card from '../../components/ui/Card';
 import ProgressBar from '../../components/ui/ProgressBar';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
+import CourseThumbnail from '../../components/ui/CourseThumbnail';
 import { useTranslation } from '../../utils/translations';
 
 const TABS = [
@@ -202,7 +203,11 @@ export default function MyCourses() {
             <Card key={course.id} padding="none" className="overflow-hidden hover:border-slate-300 dark:hover:border-slate-700 group">
               <Link to={`/student/courses/${course.id}`} className="block">
                 <div className="h-44 overflow-hidden relative">
-                  <img src={course.thumbnail_url || course.image || course.thumbnail || 'https://placehold.co/600x400/1e293b/ffffff?text=Course'} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  <CourseThumbnail
+                    title={course.title}
+                    category={course.category}
+                    image={course.thumbnail_url || course.image || course.thumbnail}
+                  />
                   {courses.some((c) => c.id === course.id && c.status === 'wishlist') && (
                     <span className="absolute top-4 right-4 p-2 bg-white/90 dark:bg-slate-900/90 rounded-full text-rose-500 shadow-sm">
                       <Star size={16} className="fill-rose-500" />

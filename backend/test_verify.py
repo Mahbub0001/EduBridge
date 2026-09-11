@@ -1,66 +1,115 @@
 import os
 import sys
-import json
-import requests
+import time
 
-# Add current directory to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from app.core.firebase import get_db, init_firebase
-from firebase_admin import auth as admin_auth
+from fastapi.testclient import TestClient
+from app.main import app
+from app.core.cache import cache, invalidate_cache
 
-# 1. We need to fetch a valid ID token for student@example.com from the Firebase Auth REST API.
-# To do this, we need the API key from the frontend .env file!
-frontend_env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend", ".env")
+def run_tests():
+    client = TestClient(app)
+    print("=" * 60)
+    print("RUNNING EDUBRIDGE BACKEND SANITY & CACHE TEST SUITE")
+    print("=" * 60)
 
-api_key = None
-if os.path.exists(frontend_env_path):
-    with open(frontend_env_path, "r") as f:
-        for line in f:
-            if "VITE_FIREBASE_API_KEY" in line:
-                api_key = line.split("=")[1].strip()
-                break
+    # 1. Health & Root Check
+    print("\n[1] Testing Root & Health Endpoints...")
+    r = client.get("/")
+    assert r.status_code == 200, f"Root failed: {r.status_code}"
+    print(" -> Root / OK:", r.json().get("message"))
 
-if not api_key:
-    print("Failed to find VITE_FIREBASE_API_KEY in frontend/.env")
-    sys.exit(1)
+    r = client.get("/health")
+    assert r.status_code == 200, f"Health failed: {r.status_code}"
+    print(" -> Health /health OK:", r.json().get("message"))
 
-print(f"Using Firebase API Key: {api_key}")
+    # 2. Public Courses Caching & ETag Test
+    print("\n[2] Testing Courses Endpoint Caching & ETags...")
+    invalidate_cache(["edubridge:courses*"])
 
-# Sign in using Firebase Auth REST API to get ID token
-sign_in_url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={api_key}"
-payload = {
-    "email": "student@example.com",
-    "password": "password123",
-    "returnSecureToken": True
-}
+    # First request: Cache MISS
+    t0 = time.perf_counter()
+    r1 = client.get("/api/courses/")
+    t1 = time.perf_counter()
+    duration_miss = (t1 - t0) * 1000
+    assert r1.status_code == 200
+    assert r1.headers.get("X-Cache") == "MISS", f"Expected MISS, got {r1.headers.get('X-Cache')}"
+    etag = r1.headers.get("ETag")
+    assert etag is not None, "Missing ETag header"
+    print(f" -> First Request (MISS): {duration_miss:.2f}ms | ETag: {etag}")
 
-try:
-    print("Attempting to get ID token via Firebase Auth REST API...")
-    r = requests.post(sign_in_url, json=payload)
-    response_data = r.json()
-    
-    if "error" in response_data:
-        print(f"Auth REST API Error: {response_data['error']['message']}")
-        sys.exit(1)
-        
-    id_token = response_data["idToken"]
-    print("Successfully retrieved ID token!")
-    
-    # Initialize backend firebase admin sdk
-    print("Initializing Firebase Admin SDK...")
-    init_firebase()
-    
-    # 2. Try to verify the ID token using the Firebase Admin SDK
-    print("Verifying ID token...")
-    decoded_token = admin_auth.verify_id_token(id_token)
-    print("Successfully verified token!")
-    print(f"Decoded token keys: {list(decoded_token.keys())}")
-    print(f"User UID: {decoded_token.get('uid')}")
-    print(f"User Email: {decoded_token.get('email')}")
-    
-except Exception as e:
-    print(f"Error occurred: {e}")
-    import traceback
-    traceback.print_exc()
-    sys.exit(1)
+    # Second request: Cache HIT (Sub-millisecond / lightning-fast)
+    t0 = time.perf_counter()
+    r2 = client.get("/api/courses/")
+    t1 = time.perf_counter()
+    duration_hit = (t1 - t0) * 1000
+    assert r2.status_code == 200
+    assert r2.headers.get("X-Cache") == "HIT", f"Expected HIT, got {r2.headers.get('X-Cache')}"
+    print(f" -> Second Request (HIT):  {duration_hit:.2f}ms (Speedup: {duration_miss / max(duration_hit, 0.01):.1f}x)")
+
+    # Third request with If-None-Match: 304 Not Modified
+    r3 = client.get("/api/courses/", headers={"If-None-Match": etag})
+    assert r3.status_code == 304, f"Expected 304, got {r3.status_code}"
+    assert r3.headers.get("X-Cache") == "HIT-304"
+    print(" -> Conditional Request with ETag (304 Not Modified): OK")
+
+    # 5. Calendar Endpoints & Custom Events Evaluation Test
+    print("\n[5] Testing Academic Calendar & Custom Study Tasks...")
+    # Clean cache
+    invalidate_cache(["edubridge:calendar*"])
+
+    # Simulate calendar events with test auth user dependency override
+    from app.core.dependencies import get_current_user
+    mock_student = {
+        "id": "test-student-cal",
+        "email": "student@example.com",
+        "role": "student",
+        "name": "Test Student"
+    }
+    app.dependency_overrides[get_current_user] = lambda: mock_student
+
+    # Create a custom study event
+    event_payload = {
+        "title": "Study Group: Advanced Machine Learning",
+        "date": "2026-08-25",
+        "time": "04:00 PM",
+        "duration_mins": 90,
+        "type": "study",
+        "description": "Prepare notes for neural networks quiz",
+        "priority": "high"
+    }
+    r_create = client.post("/api/calendar/events", json=event_payload)
+    assert r_create.status_code == 200, f"Failed to create event: {r_create.text}"
+    created_event = r_create.json()["data"]
+    event_id = created_event["id"]
+    print(f" -> Created Custom Study Event ID: {event_id} (Status: {r_create.status_code})")
+
+    # Fetch Calendar & Verify Event Aggregation
+    r_cal = client.get("/api/me/calendar")
+    assert r_cal.status_code == 200
+    cal_events = r_cal.json()["data"]
+    matched = [e for e in cal_events if e.get("id") == event_id or e.get("raw_id") == event_id]
+    assert len(matched) > 0, "Created event not found in aggregated calendar"
+    print(f" -> Aggregated Calendar retrieved {len(cal_events)} total milestones (Custom event found: OK)")
+
+    # Toggle Completion
+    r_toggle = client.patch(f"/api/calendar/events/{event_id}/toggle")
+    assert r_toggle.status_code == 200
+    assert r_toggle.json()["data"]["completed"] is True
+    print(" -> Toggled event completion status to Completed (OK)")
+
+    # Delete Event
+    r_del = client.delete(f"/api/calendar/events/{event_id}")
+    assert r_del.status_code == 200
+    print(" -> Deleted Custom Event: OK")
+
+    # Clear dependency override
+    app.dependency_overrides.clear()
+
+    print("\n" + "=" * 60)
+    print("ALL SANITY, CACHING & CALENDAR TESTS PASSED (100% SUCCESS)")
+    print("=" * 60)
+
+if __name__ == "__main__":
+    run_tests()

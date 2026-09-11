@@ -5,6 +5,7 @@ from typing import Optional
 from pydantic import BaseModel
 from ..core.dependencies import get_current_user, require_instructor
 from ..core.firebase import get_db
+from ..core.cache import cache_response, invalidate_cache
 from ..utils.response import success_response
 from ..schemas.assessment import QuizSubmit
 
@@ -12,6 +13,7 @@ router = APIRouter()
 
 
 @router.get("/courses/{course_id}/quizzes")
+@cache_response(ttl=120, prefix="quizzes")
 def get_course_quizzes(course_id: str, db: Client = Depends(get_db)):
     docs = db.collection("quizzes").where("course_id", "==", course_id).stream()
     quizzes = []
@@ -23,7 +25,8 @@ def get_course_quizzes(course_id: str, db: Client = Depends(get_db)):
 
 
 @router.get("/courses/{course_id}/quizzes/{quiz_id}")
-def get_quiz(quiz_id: str, db: Client = Depends(get_db)):
+@cache_response(ttl=120, prefix="quizzes")
+def get_quiz(course_id: str, quiz_id: str, db: Client = Depends(get_db)):
     doc = db.collection("quizzes").document(quiz_id).get()
     if not doc.exists:
         raise HTTPException(status_code=404, detail="Quiz not found")

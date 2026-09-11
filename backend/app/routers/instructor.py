@@ -8,6 +8,7 @@ import uuid
 import shutil
 from ..core.dependencies import require_instructor
 from ..core.firebase import get_db
+from ..core.cache import cache_response, invalidate_cache
 from ..utils.response import success_response
 
 router = APIRouter()
@@ -75,11 +76,16 @@ class ResourceCreateUpdate(BaseModel):
 
 # ── GET /instructor/courses ──
 @router.get("/courses")
+@cache_response(ttl=60, prefix="instructor", is_user_scoped=True)
 def get_instructor_courses_list(
     current_user: dict = Depends(require_instructor),
     db: Client = Depends(get_db)
 ):
-    docs = db.collection("courses").stream()
+    query = db.collection("courses")
+    if current_user.get("role") == "instructor":
+        docs = query.where("instructor_id", "==", current_user["id"]).stream()
+    else:
+        docs = query.stream()
     courses = []
     for doc in docs:
         c = doc.to_dict()
@@ -89,6 +95,7 @@ def get_instructor_courses_list(
 
 # ── GET /instructor/courses/{course_id}/builder ──
 @router.get("/courses/{course_id}/builder")
+@cache_response(ttl=60, prefix="instructor")
 def get_course_builder_data(
     course_id: str,
     current_user: dict = Depends(require_instructor),

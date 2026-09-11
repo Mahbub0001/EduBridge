@@ -27,6 +27,13 @@ uploads_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "up
 os.makedirs(uploads_dir, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
 
+from .core.cache import cache_request_middleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+
+app.add_middleware(GZipMiddleware, minimum_size=500)
+app.add_middleware(BaseHTTPMiddleware, dispatch=cache_request_middleware)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,

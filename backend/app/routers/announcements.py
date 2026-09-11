@@ -5,13 +5,14 @@ from typing import Optional
 from pydantic import BaseModel
 from ..core.dependencies import get_current_user, require_admin
 from ..core.firebase import get_db
+from ..core.cache import cache_response, invalidate_cache
 from ..utils.response import success_response
-from datetime import datetime
 
 router = APIRouter()
 
 
 @router.get("/")
+@cache_response(ttl=60, prefix="announcements")
 def get_announcements(
     current_user: dict = Depends(get_current_user),
     db: Client = Depends(get_db),
@@ -57,6 +58,7 @@ def create_announcement(
     data["created_at"] = now
     _, ref = db.collection("announcements").add(data)
     data["id"] = ref.id
+    invalidate_cache(["edubridge:announcements*"])
     return success_response(data=data, message="Announcement created")
 
 
@@ -70,6 +72,7 @@ def delete_announcement(
     if not ref.get().exists:
         raise HTTPException(status_code=404, detail="Announcement not found")
     ref.delete()
+    invalidate_cache(["edubridge:announcements*"])
     return success_response(message="Announcement deleted")
 
 

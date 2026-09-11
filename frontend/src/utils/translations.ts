@@ -33,6 +33,7 @@ export const translations = {
     completedCourses: "Completed Courses",
     pendingAssignments: "Pending Assignments",
     certificates: "Certificates",
+    progress: "Progress",
     noPendingTasks: "No pending tasks. You're all caught up!",
     // Assignments Page
     assignmentsTitle: "My Assignments",
@@ -177,6 +178,7 @@ export const translations = {
     completedCourses: "সম্পূর্ণ কোর্স",
     pendingAssignments: "বাকি অ্যাসাইনমেন্ট",
     certificates: "সার্টিফিকেট",
+    progress: "অগ্রগতি",
     noPendingTasks: "কোনো কাজ বাকি নেই। আপনি সব শেষ করেছেন!",
     // Assignments Page
     assignmentsTitle: "আমার অ্যাসাইনমেন্ট",

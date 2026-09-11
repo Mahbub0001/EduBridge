@@ -130,6 +130,7 @@ export default function Settings() {
               {[
                 { label: t('emailNotificationsLabel'), desc: t('emailNotificationsDesc'), checked: emailNotif, set: setEmailNotif },
                 { label: t('pushNotificationsLabel'), desc: t('pushNotificationsDesc'), checked: pushNotif, set: setPushNotif },
+                { label: 'Assignment Reminders', desc: 'Receive reminders before assignment deadlines', checked: assignmentReminders, set: setAssignmentReminders },
               ].map((pref) => (
                 <div key={pref.label} className="flex justify-between items-center py-3 border-b border-slate-100 dark:border-slate-800 last:border-0">
                   <div>
