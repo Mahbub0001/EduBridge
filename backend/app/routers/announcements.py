@@ -17,19 +17,32 @@ def get_announcements(
     current_user: dict = Depends(get_current_user),
     db: Client = Depends(get_db),
 ):
-    docs = (
+    docs = list(
         db.collection("announcements")
         .order_by("created_at", direction="DESCENDING")
         .limit(10)
         .stream()
     )
     results = []
+    needed_author_ids = set()
     for d in docs:
         ad = d.to_dict()
         ad["id"] = d.id
-        author_doc = db.collection("users").document(ad.get("author_id", "")).get()
-        ad["author_name"] = author_doc.to_dict().get("name", "Admin") if author_doc.exists else "Admin"
         results.append(ad)
+        if ad.get("author_id"):
+            needed_author_ids.add(ad["author_id"])
+
+    users_map = {}
+    if needed_author_ids:
+        author_refs = [db.collection("users").document(aid) for aid in needed_author_ids]
+        author_docs = db.get_all(author_refs)
+        for a in author_docs:
+            if a.exists:
+                users_map[a.id] = a.to_dict()
+
+    for ad in results:
+        author = users_map.get(ad.get("author_id", ""), {})
+        ad["author_name"] = author.get("name", "Admin")
 
     if not results:
         results = [
@@ -43,23 +56,21 @@ class AnnouncementCreate(BaseModel):
     title: str
     content: str
     course_id: Optional[str] = None
-    type: Optional[str] = "global"
 
 
 @router.post("/")
 def create_announcement(
     announcement: AnnouncementCreate,
     current_user: dict = Depends(require_admin),
-    db: Client = Depends(get_db)
+    db: Client = Depends(get_db),
 ):
-    now = datetime.now(timezone.utc)
     data = announcement.model_dump()
     data["author_id"] = current_user["id"]
-    data["created_at"] = now
+    data["created_at"] = datetime.now(timezone.utc)
     _, ref = db.collection("announcements").add(data)
     data["id"] = ref.id
     invalidate_cache(["edubridge:announcements*"])
-    return success_response(data=data, message="Announcement created")
+    return success_response(data=data, message="Announcement created successfully")
 
 
 @router.delete("/{announcement_id}")
@@ -76,26 +87,39 @@ def delete_announcement(
     return success_response(message="Announcement deleted")
 
 
-@router.get("/course/{course_id}")
+@router.get("/courses/{course_id}")
+@cache_response(ttl=60, prefix="announcements")
 def get_student_course_announcements(
     course_id: str,
     current_user: dict = Depends(get_current_user),
     db: Client = Depends(get_db)
 ):
-    docs = (
+    docs = list(
         db.collection("announcements")
         .where("course_id", "==", course_id)
         .where("status", "==", "published")
         .stream()
     )
     results = []
+    needed_author_ids = set()
     for d in docs:
         ad = d.to_dict()
         ad["id"] = d.id
-        
-        author_doc = db.collection("users").document(ad.get("author_id", "")).get()
-        ad["author_name"] = author_doc.to_dict().get("name", "Instructor") if author_doc.exists else "Instructor"
         results.append(ad)
+        if ad.get("author_id"):
+            needed_author_ids.add(ad["author_id"])
+
+    users_map = {}
+    if needed_author_ids:
+        author_refs = [db.collection("users").document(aid) for aid in needed_author_ids]
+        author_docs = db.get_all(author_refs)
+        for a in author_docs:
+            if a.exists:
+                users_map[a.id] = a.to_dict()
+
+    for ad in results:
+        author = users_map.get(ad.get("author_id", ""), {})
+        ad["author_name"] = author.get("name", "Instructor")
         
     def safe_sort_key(item):
         val = item.get("published_at") or item.get("created_at")

@@ -3,6 +3,7 @@ from google.cloud.firestore_v1.client import Client
 from datetime import datetime, timezone
 from ..core.dependencies import get_current_user
 from ..core.firebase import get_db
+from ..core.cache import cache_response, invalidate_cache
 from ..utils.response import success_response
 from pydantic import BaseModel
 from typing import Optional
@@ -28,31 +29,71 @@ class ModuleCommentCreate(BaseModel):
 
 
 @router.get("/courses/{course_id}")
+@cache_response(ttl=45, prefix="discussions")
 def get_course_discussions(
     course_id: str,
     db: Client = Depends(get_db)
 ):
-    docs = db.collection("discussions").where("course_id", "==", course_id).stream()
-    results = []
+    docs = list(db.collection("discussions").where("course_id", "==", course_id).stream())
+    if not docs:
+        return success_response(data=[])
+
+    threads = []
+    thread_ids = []
+    needed_user_ids = set()
+
     for d in docs:
         dd = d.to_dict()
         if dd.get("is_module_feedback") is True:
             continue
         dd["id"] = d.id
-        author_doc = db.collection("users").document(dd.get("author_id", "")).get()
-        dd["author_name"] = author_doc.to_dict().get("name", "Unknown") if author_doc.exists else "Unknown"
-        dd["author_photo"] = author_doc.to_dict().get("photo_url", "") if author_doc.exists else ""
-        replies_raw = list(db.collection("discussion_replies").where("thread_id", "==", d.id).stream())
-        replies_raw.sort(key=lambda r: r.to_dict().get("created_at") or datetime.min.replace(tzinfo=timezone.utc))
-        dd["replies"] = []
-        for r in replies_raw:
+        threads.append(dd)
+        thread_ids.append(d.id)
+        if dd.get("author_id"):
+            needed_user_ids.add(dd["author_id"])
+
+    if not threads:
+        return success_response(data=[])
+
+    # Batch fetch replies for all threads in chunks of 10
+    replies_by_thread = {}
+    for i in range(0, len(thread_ids), 10):
+        chunk = thread_ids[i:i+10]
+        reply_docs = db.collection("discussion_replies").where("thread_id", "in", chunk).stream()
+        for r in reply_docs:
             rd = r.to_dict()
             rd["id"] = r.id
-            reply_author = db.collection("users").document(rd.get("author_id", "")).get()
-            rd["author_name"] = reply_author.to_dict().get("name", "Unknown") if reply_author.exists else "Unknown"
-            dd["replies"].append(rd)
-        dd["reply_count"] = len(dd["replies"])
+            tid = rd.get("thread_id")
+            if tid:
+                replies_by_thread.setdefault(tid, []).append(rd)
+            if rd.get("author_id"):
+                needed_user_ids.add(rd["author_id"])
+
+    # Batch fetch all unique authors in a single db.get_all call
+    users_map = {}
+    if needed_user_ids:
+        user_refs = [db.collection("users").document(uid) for uid in needed_user_ids]
+        user_docs = db.get_all(user_refs)
+        for u in user_docs:
+            if u.exists:
+                users_map[u.id] = u.to_dict()
+
+    results = []
+    for dd in threads:
+        author = users_map.get(dd.get("author_id", ""), {})
+        dd["author_name"] = author.get("name", "Unknown")
+        dd["author_photo"] = author.get("photo_url", "")
+        
+        thread_replies = replies_by_thread.get(dd["id"], [])
+        thread_replies.sort(key=lambda r: r.get("created_at") or datetime.min.replace(tzinfo=timezone.utc))
+        for rd in thread_replies:
+            reply_author = users_map.get(rd.get("author_id", ""), {})
+            rd["author_name"] = reply_author.get("name", "Unknown")
+        
+        dd["replies"] = thread_replies
+        dd["reply_count"] = len(thread_replies)
         results.append(dd)
+
     results.sort(key=lambda x: x.get("created_at") or "", reverse=True)
     return success_response(data=results)
 
@@ -74,6 +115,7 @@ def create_discussion(
     })
     _, ref = db.collection("discussions").add(data)
     data["id"] = ref.id
+    invalidate_cache(["edubridge:discussions*"])
     return success_response(data=data, message="Discussion created")
 
 
@@ -96,6 +138,7 @@ def create_reply(
     })
     _, ref = db.collection("discussion_replies").add(data)
     data["id"] = ref.id
+    invalidate_cache(["edubridge:discussions*"])
     return success_response(data=data, message="Reply added")
 
 
@@ -114,6 +157,7 @@ def toggle_pin_thread(
         raise HTTPException(status_code=403, detail="Only instructors can pin threads")
     current = thread_data.get("is_pinned", False)
     ref.update({"is_pinned": not current})
+    invalidate_cache(["edubridge:discussions*"])
     return success_response(message="Thread pin status toggled")
 
 
@@ -134,6 +178,7 @@ def delete_discussion(
     for r in replies:
         db.collection("discussion_replies").document(r.id).delete()
     ref.delete()
+    invalidate_cache(["edubridge:discussions*"])
     return success_response(message="Discussion deleted")
 
 
@@ -180,14 +225,24 @@ def get_module_discussion(
 
     replies_raw = list(db.collection("discussion_replies").where("thread_id", "==", thread_data["id"]).stream())
     replies_raw.sort(key=lambda r: r.to_dict().get("created_at") or datetime.min.replace(tzinfo=timezone.utc))
+    
+    needed_uids = {r.to_dict().get("author_id") for r in replies_raw if r.to_dict().get("author_id")}
+    authors_map = {}
+    if needed_uids:
+        user_refs = [db.collection("users").document(uid) for uid in needed_uids]
+        user_docs = db.get_all(user_refs)
+        for u in user_docs:
+            if u.exists:
+                authors_map[u.id] = u.to_dict()
+
     reply_list = []
     for r in replies_raw:
         rd = r.to_dict()
         rd["id"] = r.id
-        author_doc = db.collection("users").document(rd.get("author_id", "")).get()
-        rd["author_name"] = author_doc.to_dict().get("name", "Unknown") if author_doc.exists else "Unknown"
-        rd["author_photo"] = author_doc.to_dict().get("photo_url", "") if author_doc.exists else ""
-        rd["author_role"] = author_doc.to_dict().get("role", "") if author_doc.exists else ""
+        author = authors_map.get(rd.get("author_id", ""), {})
+        rd["author_name"] = author.get("name", "Unknown")
+        rd["author_photo"] = author.get("photo_url", "")
+        rd["author_role"] = author.get("role", "")
         reply_list.append(rd)
 
     return success_response(data={"thread": thread_data, "replies": reply_list})

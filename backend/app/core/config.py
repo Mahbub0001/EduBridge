@@ -17,7 +17,18 @@ class Settings(BaseSettings):
     @property
     def cors_origins_list(self) -> List[str]:
         raw = os.getenv("FRONTEND_URL", self.FRONTEND_URL)
-        return [origin.strip() for origin in raw.split(",") if origin.strip()] or ["http://localhost:5173"]
+        custom_origins = [origin.strip() for origin in raw.split(",") if origin.strip()]
+        default_origins = [
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+            "http://localhost:5174",
+            "http://127.0.0.1:5174",
+            "http://localhost:8000",
+            "http://127.0.0.1:8000"
+        ]
+        return list(set(custom_origins + default_origins))
 
     class Config:
         env_file = ".env"

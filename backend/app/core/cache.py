@@ -5,6 +5,8 @@ import logging
 import inspect
 import sqlite3
 import os
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from functools import wraps
 from typing import Optional, Any, Callable
 from datetime import datetime, date
@@ -13,6 +15,9 @@ from fastapi.responses import JSONResponse
 from .config import settings
 
 logger = logging.getLogger(__name__)
+
+_local = threading.local()
+_cache_write_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="cache_writer")
 
 class CustomJSONEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -75,22 +80,27 @@ class SQLiteCache:
         self._init_db()
 
     def _get_connection(self):
-        conn = sqlite3.connect(self.db_path, timeout=10.0, check_same_thread=False)
-        conn.execute("PRAGMA journal_mode = WAL;")
-        conn.execute("PRAGMA synchronous = NORMAL;")
+        conn = getattr(_local, "conn", None)
+        if conn is None:
+            conn = sqlite3.connect(self.db_path, timeout=10.0, check_same_thread=False)
+            _local.conn = conn
         return conn
 
     def _init_db(self):
         try:
-            with self._get_connection() as conn:
-                conn.execute("""
-                    CREATE TABLE IF NOT EXISTS http_cache (
-                        key TEXT PRIMARY KEY,
-                        value TEXT NOT NULL,
-                        expiry REAL
-                    )
-                """)
-                conn.execute("CREATE INDEX IF NOT EXISTS idx_cache_expiry ON http_cache (expiry)")
+            conn = sqlite3.connect(self.db_path, timeout=10.0)
+            conn.execute("PRAGMA journal_mode = WAL;")
+            conn.execute("PRAGMA synchronous = NORMAL;")
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS http_cache (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL,
+                    expiry REAL
+                )
+            """)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_cache_expiry ON http_cache (expiry)")
+            conn.commit()
+            conn.close()
         except Exception as e:
             logger.warning("SQLiteCache init failed: %s", e)
 
@@ -206,14 +216,23 @@ class CacheManager:
         if not settings.CACHE_ENABLED:
             return
         ttl = ttl or settings.CACHE_DEFAULT_TTL
+        # L1 Memory cache: synchronous instant store (0.001 ms)
         self.memory_cache.set(key, value, ttl=ttl)
-        self.sqlite_cache.set(key, value, ttl=ttl)
-        if self.is_redis_available and self.redis_client:
+
+        # Offload persistent write (SQLite & Redis) to background thread pool
+        def _persist():
             try:
-                serialized = json.dumps(value, cls=CustomJSONEncoder)
-                self.redis_client.setex(key, ttl, serialized)
+                self.sqlite_cache.set(key, value, ttl=ttl)
+                if self.is_redis_available and self.redis_client:
+                    try:
+                        serialized = json.dumps(value, cls=CustomJSONEncoder)
+                        self.redis_client.setex(key, ttl, serialized)
+                    except Exception as e:
+                        logger.warning("Redis set failed for %s: %s", key, e)
             except Exception as e:
-                logger.warning("Redis set failed for %s: %s", key, e)
+                logger.debug("Background cache persist failed: %s", e)
+
+        _cache_write_executor.submit(_persist)
 
     def delete(self, key: str):
         self.memory_cache.delete(key)
@@ -257,9 +276,24 @@ def cache_response(ttl: int = 120, prefix: str = "api", is_user_scoped: bool = F
     return decorator
 
 from contextvars import ContextVar
-from starlette.middleware.base import BaseHTTPMiddleware
 
 _current_request_ctx: ContextVar[Optional[Request]] = ContextVar("_current_request_ctx", default=None)
+
+class RequestContextMiddleware:
+    """Ultra-lightweight ASGI middleware for setting contextvar without BaseHTTPMiddleware overhead."""
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+            req = Request(scope, receive=receive)
+            token = _current_request_ctx.set(req)
+            try:
+                await self.app(scope, receive, send)
+            finally:
+                _current_request_ctx.reset(token)
+        else:
+            await self.app(scope, receive, send)
 
 async def cache_request_middleware(request: Request, call_next):
     token = _current_request_ctx.set(request)
@@ -365,9 +399,9 @@ def _process_and_cache_result(result, cache_key, request, ttl, is_user_scoped):
         content = getattr(result, "__dict__", str(result))
 
     try:
-        json_content = json.loads(json.dumps(content, cls=CustomJSONEncoder))
-        serialized = json.dumps(json_content, cls=CustomJSONEncoder)
-        etag = f'"{hashlib.md5(serialized.encode()).hexdigest()}"'
+        json_str = json.dumps(content, cls=CustomJSONEncoder)
+        etag = f'"{hashlib.md5(json_str.encode()).hexdigest()}"'
+        json_content = json.loads(json_str)
         cache.set(cache_key, {"_data": json_content, "_etag": etag}, ttl=ttl)
         scope = "private" if is_user_scoped else "public"
         return JSONResponse(

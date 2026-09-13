@@ -3,12 +3,14 @@ from google.cloud.firestore_v1.client import Client
 from datetime import datetime, timezone
 from ..core.dependencies import get_current_user
 from ..core.firebase import get_db
+from ..core.cache import cache_response, invalidate_cache
 from ..utils.response import success_response
 
 router = APIRouter()
 
 
 @router.get("/")
+@cache_response(ttl=20, prefix="notifications", is_user_scoped=True)
 def get_notifications(
     current_user: dict = Depends(get_current_user),
     db: Client = Depends(get_db),
@@ -49,6 +51,7 @@ def mark_all_notifications_read(
             updated = True
     if updated:
         batch.commit()
+    invalidate_cache(["edubridge:notifications*"])
     return success_response(message="All notifications marked as read")
 
 
@@ -62,4 +65,5 @@ def mark_notification_read(
     doc = ref.get()
     if doc.exists:
         ref.update({"is_read": True, "read": True})
+    invalidate_cache(["edubridge:notifications*"])
     return success_response(message="Notification marked as read")

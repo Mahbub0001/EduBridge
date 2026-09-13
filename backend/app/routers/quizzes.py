@@ -36,6 +36,7 @@ def get_quiz(course_id: str, quiz_id: str, db: Client = Depends(get_db)):
 
 
 @router.get("/quizzes/{quiz_id}/questions")
+@cache_response(ttl=60, prefix="quizzes", is_user_scoped=True)
 def get_quiz_questions(quiz_id: str, current_user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
     docs = (
         db.collection("questions")

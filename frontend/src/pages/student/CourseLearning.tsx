@@ -525,6 +525,11 @@ export default function CourseLearning() {
                         <RotateCcw size={14} className="text-amber-600 dark:text-amber-400" />
                         Returned for Revision
                       </span>
+                    ) : (activeSubmission?.status === 'resubmitted' || activeSubmission?.is_resubmission) ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-800 dark:bg-purple-950/70 dark:text-purple-300 border border-purple-300 dark:border-purple-700 shadow-xs">
+                        <RotateCcw size={14} className="text-purple-600 dark:text-purple-400" />
+                        Revised Work Submitted • Under Review
+                      </span>
                     ) : activeSubmission ? (
                       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 dark:bg-blue-950/50 dark:text-blue-300 border border-blue-300 dark:border-blue-800">
                         <Clock size={14} className="text-blue-600 dark:text-blue-400" />
@@ -718,14 +723,23 @@ export default function CourseLearning() {
                 <Card className="space-y-4">
                   <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
                     <div>
-                      <h3 className="text-sm font-extrabold text-navy-900 dark:text-white">
-                        Your Submission
-                      </h3>
-                      {activeSubmission.submitted_at && (
-                        <p className="text-xs text-slate-400">
-                          Submitted on {new Date(activeSubmission.submitted_at).toLocaleString()}
-                        </p>
-                      )}
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-extrabold text-navy-900 dark:text-white">
+                          Your Submission
+                        </h3>
+                        {(activeSubmission.status === 'resubmitted' || activeSubmission.is_resubmission) && (
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-100 text-purple-800 dark:bg-purple-950/70 dark:text-purple-300 border border-purple-300 dark:border-purple-700 flex items-center gap-1 shadow-xs">
+                            <RotateCcw size={10} /> Revised Work
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        {activeSubmission.resubmitted_at
+                          ? `Revised on ${new Date(activeSubmission.resubmitted_at).toLocaleString()}`
+                          : activeSubmission.submitted_at
+                          ? `Submitted on ${new Date(activeSubmission.submitted_at).toLocaleString()}`
+                          : ''}
+                      </p>
                     </div>
 
                     {activeSubmission.status !== 'graded' && activeAssignment.allow_resubmission !== false && (
@@ -738,6 +752,19 @@ export default function CourseLearning() {
                       </Button>
                     )}
                   </div>
+
+                  {/* Resubmission Confirmation Info Banner */}
+                  {(activeSubmission.status === 'resubmitted' || activeSubmission.is_resubmission) && activeSubmission.status !== 'graded' && (
+                    <div className="p-3.5 rounded-xl bg-purple-50/80 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800/60 flex items-start gap-2.5">
+                      <RotateCcw size={15} className="text-purple-600 dark:text-purple-400 mt-0.5 shrink-0" />
+                      <div className="text-xs text-purple-900 dark:text-purple-200 space-y-0.5">
+                        <p className="font-bold">Revised work submitted to teacher</p>
+                        <p className="text-[11px] text-purple-700 dark:text-purple-300">
+                          Your updated assignment has been received. Your instructor has received a notification and can review your revisions alongside the previous feedback.
+                        </p>
+                      </div>
+                    </div>
+                  )}
 
                   {activeSubmission.submission_text && (
                     <div className="space-y-1.5">

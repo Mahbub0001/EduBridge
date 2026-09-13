@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import {
   Search, Filter, CheckCircle2, ShieldAlert, FileText, Check, Clock, AlertTriangle,
-  Download, ExternalLink, Award, RefreshCw, X, Edit3
+  Download, ExternalLink, Award, RefreshCw, X, Edit3, RotateCcw
 } from 'lucide-react';
 import { getMyInstructorCourses } from '../../services/courseService';
 import {
@@ -80,7 +80,8 @@ export default function InstructorSubmissions() {
     if (selectedStatus !== 'all') {
       const isLate = sub.submitted_at && sub.due_date && new Date(sub.submitted_at) > new Date(sub.due_date);
       if (selectedStatus === 'late' && !isLate) return false;
-      if (selectedStatus === 'submitted' && sub.status !== 'pending' && sub.status !== 'submitted') return false;
+      if (selectedStatus === 'submitted' && sub.status !== 'pending' && sub.status !== 'submitted' && sub.status !== 'resubmitted') return false;
+      if (selectedStatus === 'resubmitted' && sub.status !== 'resubmitted' && !sub.is_resubmission) return false;
       if (selectedStatus === 'graded' && sub.status !== 'graded') return false;
       if (selectedStatus === 'returned' && sub.status !== 'revision') return false;
     }
@@ -297,6 +298,7 @@ export default function InstructorSubmissions() {
             >
               <option value="all">All statuses</option>
               <option value="submitted">Pending grading</option>
+              <option value="resubmitted">Revised submissions</option>
               <option value="late">Late papers</option>
               <option value="graded">Graded papers</option>
               <option value="returned">Revision / Returned</option>
@@ -387,9 +389,15 @@ export default function InstructorSubmissions() {
                       </td>
                       <td className="py-4 px-3">
                         <div className="flex flex-col gap-1 items-start">
-                          <Badge variant={sub.status === 'graded' ? 'success' : sub.status === 'revision' ? 'default' : 'warning'} className="text-[8px] uppercase">
-                            {sub.status === 'revision' ? 'Returned' : sub.status === 'graded' ? 'Graded' : 'Submitted'}
-                          </Badge>
+                          {sub.status === 'resubmitted' || sub.is_resubmission ? (
+                            <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-purple-100 text-purple-800 dark:bg-purple-950/70 dark:text-purple-300 border border-purple-300 dark:border-purple-700 flex items-center gap-1">
+                              <RotateCcw size={9} /> Revised
+                            </span>
+                          ) : (
+                            <Badge variant={sub.status === 'graded' ? 'success' : sub.status === 'revision' ? 'default' : 'warning'} className="text-[8px] uppercase">
+                              {sub.status === 'revision' ? 'Returned' : sub.status === 'graded' ? 'Graded' : 'Submitted'}
+                            </Badge>
+                          )}
                           {isLate && (
                             <span className="text-red-500 text-[8px] font-black uppercase tracking-wide flex items-center gap-0.5">
                               <AlertTriangle size={8} /> Late submission
@@ -453,17 +461,26 @@ export default function InstructorSubmissions() {
                 <div className="space-y-6">
                   
                   {/* Student profile card */}
-                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center gap-3.5">
-                    <div className="w-10 h-10 rounded-full bg-slate-900 text-white flex items-center justify-center font-black text-sm">
-                      {selectedSub.student_name?.slice(0, 2).toUpperCase()}
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-black text-slate-950">{selectedSub.student_name}</h4>
-                      <p className="text-[10px] text-slate-500 font-mono mt-0.5">{selectedSub.student_email}</p>
-                      <div className="flex items-center gap-2 mt-1.5">
-                        <Badge variant="default" className="text-[8px] uppercase">{selectedSub.course_title}</Badge>
-                        <span className="text-[10px] font-bold text-slate-400">/</span>
-                        <span className="text-[10px] font-extrabold text-slate-600 line-clamp-1">{selectedSub.assignment_title}</span>
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between gap-3.5">
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-10 h-10 rounded-full bg-slate-900 text-white flex items-center justify-center font-black text-sm">
+                        {selectedSub.student_name?.slice(0, 2).toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="text-xs font-black text-slate-950">{selectedSub.student_name}</h4>
+                          {(selectedSub.status === 'resubmitted' || selectedSub.is_resubmission) && (
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-purple-100 text-purple-800 dark:bg-purple-950/70 dark:text-purple-300 border border-purple-300 dark:border-purple-700 flex items-center gap-1">
+                              <RotateCcw size={10} /> Revised
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-slate-500 font-mono mt-0.5">{selectedSub.student_email}</p>
+                        <div className="flex items-center gap-2 mt-1.5">
+                          <Badge variant="default" className="text-[8px] uppercase">{selectedSub.course_title}</Badge>
+                          <span className="text-[10px] font-bold text-slate-400">/</span>
+                          <span className="text-[10px] font-extrabold text-slate-600 line-clamp-1">{selectedSub.assignment_title}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -473,6 +490,11 @@ export default function InstructorSubmissions() {
                     <div className="flex flex-col gap-1 text-slate-400">
                       <span>Submitted Time</span>
                       <span className="text-slate-800 text-xs font-black">{new Date(selectedSub.submitted_at).toLocaleString()}</span>
+                      {selectedSub.resubmitted_at && (
+                        <span className="text-purple-600 dark:text-purple-400 font-bold mt-0.5 flex items-center gap-1">
+                          <RotateCcw size={10} /> Resubmitted: {new Date(selectedSub.resubmitted_at).toLocaleString()}
+                        </span>
+                      )}
                     </div>
                     <div className="flex flex-col gap-1 text-slate-400">
                       <span>Deadline Status</span>
@@ -487,6 +509,30 @@ export default function InstructorSubmissions() {
                       )}
                     </div>
                   </div>
+
+                  {/* Previous Feedback & Revision Card if Resubmission */}
+                  {(selectedSub.previous_feedback || selectedSub.is_resubmission) && (
+                    <div className="p-4 rounded-xl bg-purple-50/90 dark:bg-purple-950/40 border-2 border-purple-300 dark:border-purple-700/80 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-black uppercase tracking-wider text-purple-900 dark:text-purple-200 flex items-center gap-1.5">
+                          <RotateCcw size={13} className="text-purple-600 dark:text-purple-400" />
+                          Previous Instructor Feedback (Returned for Revision)
+                        </span>
+                        {selectedSub.revision_count && (
+                          <span className="text-[10px] font-extrabold px-2 py-0.5 rounded bg-purple-200/80 text-purple-900 dark:bg-purple-900/60 dark:text-purple-200">
+                            Revision #{selectedSub.revision_count}
+                          </span>
+                        )}
+                      </div>
+                      <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-purple-200 dark:border-purple-800 text-xs font-medium text-slate-800 dark:text-slate-200 leading-relaxed whitespace-pre-wrap">
+                        {selectedSub.previous_feedback || 'Revision was requested.'}
+                      </div>
+                      <p className="text-[11px] text-purple-700 dark:text-purple-300 font-semibold flex items-center gap-1">
+                        <span>💡</span>
+                        <span>Student has updated and resubmitted their assignment based on your feedback above.</span>
+                      </p>
+                    </div>
+                  )}
 
                   {/* Written Answer */}
                   {selectedSub.submission_text && (

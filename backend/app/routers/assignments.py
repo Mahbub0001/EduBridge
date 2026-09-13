@@ -54,20 +54,71 @@ def submit_assignment(
         .where("user_id", "==", current_user["id"])
         .stream()
     )
+    is_resubmission = False
     if existing_docs:
+        existing_data = existing_docs[0].to_dict()
+        is_resubmission = (
+            existing_data.get("status") in ["revision", "returned"]
+            or existing_data.get("is_resubmission", False)
+            or bool(existing_data.get("feedback"))
+        )
+        prev_feedback = existing_data.get("feedback") or existing_data.get("previous_feedback")
+
+        submission_data["is_resubmission"] = is_resubmission
+        submission_data["status"] = "resubmitted" if is_resubmission else "pending"
+        if is_resubmission:
+            submission_data["resubmitted_at"] = now
+            if prev_feedback:
+                submission_data["previous_feedback"] = prev_feedback
+            submission_data["revision_count"] = existing_data.get("revision_count", 0) + 1
+
         doc_ref = existing_docs[0].reference
         doc_ref.update(submission_data)
         submission_data["id"] = doc_ref.id
     else:
+        submission_data["is_resubmission"] = False
+        submission_data["status"] = "pending"
         _, doc_ref = db.collection("assignment_submissions").add(submission_data)
         submission_data["id"] = doc_ref.id
 
-    invalidate_cache(["edubridge:analytics*", "edubridge:instructor*", "edubridge:assignments*", f"edubridge:student_progress:{current_user['id']}*"])
+    # Notify course instructor about the submission
+    course_doc = db.collection("courses").document(course_id).get() if course_id else None
+    if course_doc and course_doc.exists:
+        c_data = course_doc.to_dict()
+        instructor_id = c_data.get("instructor_id")
+        course_title = c_data.get("title", "Course")
+        assign_title = assignment_data.get("title", "Assignment")
+        student_name = current_user.get("name", "A student")
+
+        if instructor_id:
+            if is_resubmission:
+                notif_title = f"Revised Assignment Submitted: {student_name}"
+                notif_msg = f"{student_name} has submitted revised work for '{assign_title}' in {course_title}."
+            else:
+                notif_title = f"New Assignment Submission: {student_name}"
+                notif_msg = f"{student_name} submitted '{assign_title}' in {course_title}."
+
+            db.collection("notifications").add({
+                "user_id": instructor_id,
+                "title": notif_title,
+                "message": notif_msg,
+                "type": "assignment_submission",
+                "course_id": course_id,
+                "assignment_id": assignment_id,
+                "link": f"/instructor/assignments?courseId={course_id}&assignmentId={assignment_id}",
+                "read": False,
+                "is_read": False,
+                "created_at": now
+            })
+            invalidate_cache([f"edubridge:instructor:{instructor_id}*"])
+
+    invalidate_cache(["edubridge:analytics*", "edubridge:instructor*", "edubridge:assignments*", "edubridge:submissions*", "edubridge:instructor_submissions*", f"edubridge:student_progress:{current_user['id']}*"])
     
     return success_response(data=submission_data, message="Assignment submitted successfully")
 
 
 @router.get("/assignments/{assignment_id}/submission")
+@cache_response(ttl=60, prefix="submissions", is_user_scoped=True)
 def get_my_submission(
     assignment_id: str,
     current_user: dict = Depends(get_current_user),

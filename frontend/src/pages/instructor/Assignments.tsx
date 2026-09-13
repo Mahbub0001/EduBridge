@@ -1,8 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Plus, Edit2, Trash2, Search, CheckCircle2, ShieldAlert, Eye,
-  FileText, Clock, AlertTriangle, ArrowLeft, Check, HelpCircle, User, Download, ExternalLink
+  FileText, Clock, AlertTriangle, ArrowLeft, Check, HelpCircle, User, Download, ExternalLink,
+  RotateCcw
 } from 'lucide-react';
 import { getMyInstructorCourses, getCourseModules } from '../../services/courseService';
 import {
@@ -26,6 +28,10 @@ interface RubricCriterion {
 }
 
 export default function InstructorAssignments() {
+  const [searchParams] = useSearchParams();
+  const courseIdParam = searchParams.get('courseId');
+  const assignmentIdParam = searchParams.get('assignmentId');
+
   const [courses, setCourses] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
@@ -70,7 +76,9 @@ export default function InstructorAssignments() {
     try {
       const data = await getMyInstructorCourses();
       setCourses(data);
-      if (selectFirst && data.length > 0) {
+      if (courseIdParam && data.some((c) => c.id === courseIdParam)) {
+        setSelectedCourseId(courseIdParam);
+      } else if (selectFirst && data.length > 0) {
         setSelectedCourseId(data[0].id);
       }
     } catch {
@@ -92,6 +100,13 @@ export default function InstructorAssignments() {
       
       const mData = await getCourseModules(courseId);
       setModules(mData);
+
+      if (assignmentIdParam) {
+        const targetAssign = aData.find((a: any) => a.id === assignmentIdParam);
+        if (targetAssign) {
+          viewSubmissions(targetAssign);
+        }
+      }
     } catch {
       showToast('Failed to load course assignments', 'error');
     } finally {
@@ -102,9 +117,11 @@ export default function InstructorAssignments() {
   useEffect(() => {
     if (selectedCourseId) {
       loadCourseData(selectedCourseId);
-      setActiveAssignment(null);
-      setSelectedSubmission(null);
-      setGradingSubmissions([]);
+      if (!assignmentIdParam) {
+        setActiveAssignment(null);
+        setSelectedSubmission(null);
+        setGradingSubmissions([]);
+      }
     }
   }, [selectedCourseId]);
 
@@ -494,9 +511,19 @@ export default function InstructorAssignments() {
                     >
                       <div className="flex justify-between items-center w-full">
                         <span className="text-xs font-black line-clamp-1">{sub.student_name}</span>
-                        <Badge variant={sub.status === 'graded' ? 'success' : 'warning'} className="text-[8px] uppercase">
-                          {sub.status}
-                        </Badge>
+                        {sub.status === 'resubmitted' || sub.is_resubmission ? (
+                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider flex items-center gap-1 border ${
+                            active
+                              ? 'bg-purple-500/30 text-purple-200 border-purple-400'
+                              : 'bg-purple-100 text-purple-800 dark:bg-purple-950/70 dark:text-purple-300 border-purple-300 dark:border-purple-700'
+                          }`}>
+                            <RotateCcw size={10} /> Revised
+                          </span>
+                        ) : (
+                          <Badge variant={sub.status === 'graded' ? 'success' : 'warning'} className="text-[8px] uppercase">
+                            {sub.status}
+                          </Badge>
+                        )}
                       </div>
                       
                       <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wide">
@@ -525,11 +552,23 @@ export default function InstructorAssignments() {
                 <Card className="border border-slate-200 space-y-4">
                   <div className="flex flex-col sm:flex-row justify-between sm:items-center pb-3 border-b border-slate-100 gap-2">
                     <div>
-                      <h3 className="text-sm font-black text-slate-900">{selectedSubmission.student_name}</h3>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-sm font-black text-slate-900">{selectedSubmission.student_name}</h3>
+                        {(selectedSubmission.status === 'resubmitted' || selectedSubmission.is_resubmission) && (
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-100 text-purple-800 dark:bg-purple-950/70 dark:text-purple-300 border border-purple-300 dark:border-purple-700 flex items-center gap-1 shadow-xs">
+                            <RotateCcw size={11} /> Revised Submission
+                          </span>
+                        )}
+                      </div>
                       <p className="text-[10px] text-slate-500 font-mono mt-0.5">{selectedSubmission.student_email}</p>
                     </div>
                     <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider flex flex-col items-end">
                       <span>Submitted: {new Date(selectedSubmission.submitted_at).toLocaleString()}</span>
+                      {selectedSubmission.resubmitted_at && (
+                        <span className="text-purple-600 dark:text-purple-400 font-bold mt-0.5 flex items-center gap-1">
+                          <RotateCcw size={10} /> Resubmitted: {new Date(selectedSubmission.resubmitted_at).toLocaleString()}
+                        </span>
+                      )}
                       {selectedSubmission.submitted_at && activeAssignment.due_date && new Date(selectedSubmission.submitted_at) > new Date(activeAssignment.due_date) && (
                         <span className="text-red-500 font-extrabold flex items-center gap-1 mt-1">
                           <AlertTriangle size={12} /> Late Submission (Penalty eligible)
@@ -537,6 +576,30 @@ export default function InstructorAssignments() {
                       )}
                     </div>
                   </div>
+
+                  {/* Previous Feedback Alert if this is a revised submission */}
+                  {(selectedSubmission.previous_feedback || selectedSubmission.is_resubmission) && (
+                    <div className="p-4 rounded-xl bg-purple-50/90 dark:bg-purple-950/40 border-2 border-purple-300 dark:border-purple-700/80 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-black uppercase tracking-wider text-purple-900 dark:text-purple-200 flex items-center gap-1.5">
+                          <RotateCcw size={13} className="text-purple-600 dark:text-purple-400" />
+                          Previous Instructor Feedback (Returned for Revision)
+                        </span>
+                        {selectedSubmission.revision_count && (
+                          <span className="text-[10px] font-extrabold px-2 py-0.5 rounded bg-purple-200/80 text-purple-900 dark:bg-purple-900/60 dark:text-purple-200">
+                            Revision #{selectedSubmission.revision_count}
+                          </span>
+                        )}
+                      </div>
+                      <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-purple-200 dark:border-purple-800 text-xs font-medium text-slate-800 dark:text-slate-200 leading-relaxed whitespace-pre-wrap">
+                        {selectedSubmission.previous_feedback || 'Revision was requested without specific note.'}
+                      </div>
+                      <p className="text-[11px] text-purple-700 dark:text-purple-300 font-semibold flex items-center gap-1">
+                        <span>💡</span>
+                        <span>Student has updated and resubmitted their assignment based on your feedback above.</span>
+                      </p>
+                    </div>
+                  )}
 
                   {selectedSubmission.submission_text && (
                     <div className="space-y-1">

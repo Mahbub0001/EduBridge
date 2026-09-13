@@ -859,6 +859,7 @@ def delete_instructor_assignment(
 
 # 5. GET /instructor/assignments/{assignment_id}/submissions
 @router.get("/assignments/{assignment_id}/submissions")
+@cache_response(ttl=45, prefix="instructor_submissions")
 def get_instructor_assignment_submissions(
     assignment_id: str,
     current_user: dict = Depends(require_instructor),
@@ -871,18 +872,29 @@ def get_instructor_assignment_submissions(
     assign_data = assign_doc.to_dict()
     check_course_permission(assign_data.get("course_id"), current_user, db)
 
-    docs = db.collection("assignment_submissions").where("assignment_id", "==", assignment_id).stream()
+    docs = list(db.collection("assignment_submissions").where("assignment_id", "==", assignment_id).stream())
     submissions = []
+    needed_user_ids = set()
     for d in docs:
         sd = d.to_dict()
         sd["id"] = d.id
-        
-        # Hydrate student details
-        user_doc = db.collection("users").document(sd.get("user_id", "")).get()
-        sd["student_name"] = user_doc.to_dict().get("name", "Unknown student") if user_doc.exists else "Unknown student"
-        sd["student_email"] = user_doc.to_dict().get("email", "") if user_doc.exists else ""
-        
         submissions.append(sd)
+        if sd.get("user_id"):
+            needed_user_ids.add(sd["user_id"])
+
+    users_map = {}
+    if needed_user_ids:
+        user_refs = [db.collection("users").document(uid) for uid in needed_user_ids]
+        user_docs = db.get_all(user_refs)
+        for u in user_docs:
+            if u.exists:
+                users_map[u.id] = u.to_dict()
+
+    for sd in submissions:
+        user = users_map.get(sd.get("user_id", ""), {})
+        sd["student_name"] = user.get("name", "Unknown student")
+        sd["student_email"] = user.get("email", "")
+
     return success_response(data=submissions)
 
 def _notify_student_assignment_status(db: Client, sub_data: dict, assign_doc_data: dict, status: str, feedback: Optional[str], score: Optional[float]):
@@ -974,6 +986,7 @@ def grade_instructor_submission(
 
     updated = sub_ref.get().to_dict()
     updated["id"] = submission_id
+    invalidate_cache(["edubridge:instructor_submissions*", "edubridge:submissions*", "edubridge:analytics*"])
     return success_response(data=updated, message="Submission successfully graded!")
 
 # 7. PATCH /instructor/assignments/{assignment_id}/publish
@@ -1014,6 +1027,7 @@ def publish_instructor_assignment_endpoint(
 
 # 10. GET /instructor/submissions
 @router.get("/submissions")
+@cache_response(ttl=30, prefix="instructor_submissions", is_user_scoped=True)
 def get_instructor_all_submissions(
     current_user: dict = Depends(require_instructor),
     db: Client = Depends(get_db)
@@ -1059,6 +1073,7 @@ def get_instructor_all_submissions(
         chunk_docs = db.collection("assignment_submissions").where("assignment_id", "in", chunk).stream()
         sub_docs.extend(list(chunk_docs))
 
+    needed_user_ids = set()
     for d in sub_docs:
         sd = d.to_dict()
         sd["id"] = d.id
@@ -1071,13 +1086,22 @@ def get_instructor_all_submissions(
             sd["due_date"] = assign.get("due_date")
             sd["total_marks"] = assign.get("total_marks", 100)
             sd["rubrics"] = assign.get("rubrics", [])
-            
-            # Hydrate student
-            user_doc = db.collection("users").document(sd.get("user_id", "")).get()
-            sd["student_name"] = user_doc.to_dict().get("name", "Unknown student") if user_doc.exists else "Unknown student"
-            sd["student_email"] = user_doc.to_dict().get("email", "") if user_doc.exists else ""
-            
             submissions.append(sd)
+            if sd.get("user_id"):
+                needed_user_ids.add(sd["user_id"])
+
+    users_map = {}
+    if needed_user_ids:
+        user_refs = [db.collection("users").document(uid) for uid in needed_user_ids]
+        user_docs = db.get_all(user_refs)
+        for u in user_docs:
+            if u.exists:
+                users_map[u.id] = u.to_dict()
+
+    for sd in submissions:
+        user = users_map.get(sd.get("user_id", ""), {})
+        sd["student_name"] = user.get("name", "Unknown student")
+        sd["student_email"] = user.get("email", "")
 
     submissions.sort(key=lambda x: x.get("submitted_at", ""), reverse=True)
     return success_response(data=submissions)
@@ -1151,6 +1175,7 @@ def return_instructor_submission_for_revision(
 
     updated = sub_ref.get().to_dict()
     updated["id"] = submission_id
+    invalidate_cache(["edubridge:instructor_submissions*", "edubridge:submissions*", "edubridge:analytics*"])
     return success_response(data=updated, message="Submission returned for revision successfully!")
 
 

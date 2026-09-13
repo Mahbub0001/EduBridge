@@ -138,40 +138,52 @@ def update_course(
 @router.get("/{course_id}/modules")
 @cache_response(ttl=120, prefix="courses")
 def get_course_modules(course_id: str, db: Client = Depends(get_db)):
-    """Return modules with nested lessons for a course."""
-    module_docs = (
+    """Return modules with nested lessons for a course in only 3 batched queries."""
+    module_docs = list(
         db.collection("modules")
         .where("course_id", "==", course_id)
         .stream()
     )
+    if not module_docs:
+        return success_response(data=[])
+
+    # Batch fetch all lessons for this course in a single query
+    lesson_docs = list(
+        db.collection("lessons")
+        .where("course_id", "==", course_id)
+        .stream()
+    )
+    lessons_by_module = {}
+    for l in lesson_docs:
+        ld = l.to_dict()
+        ld["id"] = l.id
+        mid = ld.get("module_id")
+        if mid:
+            lessons_by_module.setdefault(mid, []).append(ld)
+
+    # Batch fetch all resources for this course in a single query
+    resource_docs = list(
+        db.collection("resources")
+        .where("course_id", "==", course_id)
+        .stream()
+    )
+    resources_by_module = {}
+    for r in resource_docs:
+        rd = r.to_dict()
+        rd["id"] = r.id
+        mid = rd.get("module_id")
+        if mid:
+            resources_by_module.setdefault(mid, []).append(rd)
+
     result = []
     for m in module_docs:
         md = m.to_dict()
         md["id"] = m.id
-        lesson_docs = (
-            db.collection("lessons")
-            .where("module_id", "==", m.id)
-            .stream()
-        )
-        lessons = []
-        for l in lesson_docs:
-            ld = l.to_dict()
-            ld["id"] = l.id
-            lessons.append(ld)
+        lessons = lessons_by_module.get(m.id, [])
         lessons.sort(key=lambda x: x.get("order", 0))
         md["lessons"] = lessons
 
-        # Fetch resources for this module
-        resource_docs = (
-            db.collection("resources")
-            .where("module_id", "==", m.id)
-            .stream()
-        )
-        resources = []
-        for r in resource_docs:
-            rd = r.to_dict()
-            rd["id"] = r.id
-            resources.append(rd)
+        resources = resources_by_module.get(m.id, [])
         resources.sort(key=lambda x: x.get("order", 0))
         md["resources"] = resources
 
@@ -425,6 +437,7 @@ def admin_update_course_status(
 
 
 @router.get("/{course_id}/modules/unlock-status")
+@cache_response(ttl=30, prefix="unlock_status", is_user_scoped=True)
 def get_module_unlock_status(
     course_id: str,
     current_user: dict = Depends(get_current_user),
