@@ -46,14 +46,15 @@ export default function Login() {
   useEffect(() => {
     const handleRedirectResult = async () => {
       try {
-        setLoading(true);
         const result = await getRedirectResult(auth);
         if (result) {
+          setLoading(true);
           await completeLogin();
         }
       } catch (err: any) {
         console.error('Redirect sign-in failed:', err);
-        setError(err instanceof Error ? err.message : 'Google redirect sign-in failed');
+        const msg = err?.response?.data?.detail || err?.message || 'Google redirect sign-in failed';
+        setError(msg);
       } finally {
         setLoading(false);
       }
@@ -64,16 +65,39 @@ export default function Login() {
   const handleGoogleLogin = async () => {
     setLoading(true);
     setError('');
+    let userCred = null;
     try {
-      await signInWithPopup(auth, googleProvider);
-      await completeLogin();
+      userCred = await signInWithPopup(auth, googleProvider);
     } catch (err: any) {
-      console.warn('Google popup blocked or failed. Falling back to redirect...', err);
+      console.warn('Google popup error:', err);
+      if (err?.code === 'auth/unauthorized-domain') {
+        setError(`Firebase Auth Error: Domain "${window.location.hostname}" is not authorized. Please add it to Firebase Console -> Authentication -> Settings -> Authorized Domains.`);
+        setLoading(false);
+        return;
+      }
+      if (err?.code === 'auth/popup-blocked') {
+        try {
+          await signInWithRedirect(auth, googleProvider);
+          return;
+        } catch (redirectErr: any) {
+          setError(redirectErr instanceof Error ? redirectErr.message : 'Google sign-in redirect failed');
+          setLoading(false);
+          return;
+        }
+      }
+      setError(err instanceof Error ? err.message : 'Google sign-in failed');
+      setLoading(false);
+      return;
+    }
+
+    if (userCred) {
       try {
-        await signInWithRedirect(auth, googleProvider);
-      } catch (redirectErr: any) {
-        console.error('Google redirect fallback failed:', redirectErr);
-        setError(redirectErr instanceof Error ? redirectErr.message : 'Google sign-in failed');
+        await completeLogin();
+      } catch (err: any) {
+        console.error('Session establishment error:', err);
+        const detail = err?.response?.data?.detail || err?.message || 'Network error connecting to backend API';
+        setError(`Google sign-in succeeded, but backend connection failed: ${detail}. Check VITE_API_BASE_URL and backend status.`);
+      } finally {
         setLoading(false);
       }
     }
