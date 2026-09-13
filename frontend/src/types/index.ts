@@ -45,10 +45,14 @@ export interface Assignment {
   id: string;
   title: string;
   subtitle?: string;
+  course_id?: string;
   course_name: string;
   due_date: string;
   status: 'pending' | 'submitted' | 'graded';
   grade?: string;
+  instructions?: string;
+  total_marks?: number;
+  [key: string]: any;
 }
 
 export interface Resource {

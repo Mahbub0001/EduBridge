@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Calendar, CheckCircle2, AlertCircle, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getAllAssignments, submitAssignment } from '../../services/assignmentService';
 import type { Assignment } from '../../types';
@@ -102,13 +103,26 @@ export default function Assignments() {
                     </Badge>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    {item.status === 'pending' ? (
-                      <Button variant="primary" size="sm" className="!bg-navy-900 dark:!bg-teal-600 dark:!text-white" onClick={() => openSubmit(item)}>{t('submitBtn')}</Button>
-                    ) : item.status === 'graded' ? (
-                      <Button variant="outline" size="sm">{t('viewGradeBtn')}</Button>
-                    ) : (
-                      <Button variant="ghost" size="sm">{t('viewBtn')}</Button>
-                    )}
+                    <div className="flex items-center justify-end gap-2">
+                      {item.status === 'pending' ? (
+                        <>
+                          <Button variant="ghost" size="sm" onClick={() => openSubmit(item)}>{t('submitBtn')}</Button>
+                          <Link to={`/student/courses/${item.course_id}/learn?assignmentId=${item.id}`}>
+                            <Button variant="primary" size="sm" className="!bg-navy-900 dark:!bg-teal-600 dark:!text-white">
+                              Open
+                            </Button>
+                          </Link>
+                        </>
+                      ) : item.status === 'graded' ? (
+                        <Link to={`/student/courses/${item.course_id}/learn?assignmentId=${item.id}`}>
+                          <Button variant="outline" size="sm">{t('viewGradeBtn')}</Button>
+                        </Link>
+                      ) : (
+                        <Link to={`/student/courses/${item.course_id}/learn?assignmentId=${item.id}`}>
+                          <Button variant="ghost" size="sm">{t('viewBtn')}</Button>
+                        </Link>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -148,7 +162,7 @@ export default function Assignments() {
                 value={submissionText}
                 onChange={(e) => setSubmissionText(e.target.value)}
                 rows={6}
-                className="w-full border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-3 text-sm outline-none focus:border-navy-900 dark:focus:border-teal-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white resize-none"
+                className="w-full border border-slate-200 rounded-2xl px-4 py-3 text-sm outline-none resize-none dark:bg-white dark:border-slate-300 dark:text-black dark:focus:border-slate-500 text-black"
                 placeholder={t('submissionPlaceholder')}
               />
             </div>

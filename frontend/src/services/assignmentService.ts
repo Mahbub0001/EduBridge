@@ -26,6 +26,7 @@ export async function getAllAssignments(): Promise<Assignment[]> {
         a.status = sub.status === 'graded' ? 'graded' : 'submitted';
         a.grade = sub.grade ? `${sub.score || sub.grade}` : undefined;
       }
+      a.course_id = c.id;
       a.course_name = c.title;
       all.push(a);
     }

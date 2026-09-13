@@ -715,18 +715,29 @@ export default function Calendar() {
                       className={cn(
                         'aspect-square p-2 border rounded-2xl flex flex-col justify-between cursor-pointer transition-all duration-200 relative group overflow-hidden',
                         isSelected
-                          ? 'ring-2 ring-teal-500 border-teal-500 bg-teal-50/30 dark:bg-teal-950/20'
+                          ? 'ring-2 ring-teal-500 border-teal-500 bg-teal-50/60 dark:bg-teal-950/40 shadow-xs'
                           : isToday
-                          ? 'bg-navy-900 text-white border-navy-900 dark:bg-teal-600 dark:border-teal-600'
-                          : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60'
+                          ? 'bg-teal-50/20 dark:bg-teal-950/20 border-teal-300 dark:border-teal-700/80 hover:bg-teal-50/40'
+                          : 'bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60'
                       )}
                     >
                       <div className="flex items-center justify-between">
-                        <span className={cn('text-xs font-extrabold', isToday ? 'text-white' : 'text-slate-900 dark:text-white')}>
-                          {day}
-                        </span>
+                        {isToday ? (
+                          <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-black bg-teal-600 text-white shadow-xs shrink-0">
+                            {day}
+                          </span>
+                        ) : (
+                          <span className={cn(
+                            'text-xs font-extrabold w-6 h-6 flex items-center justify-center shrink-0',
+                            isSelected ? 'text-teal-700 dark:text-teal-300' : 'text-slate-900 dark:text-white'
+                          )}>
+                            {day}
+                          </span>
+                        )}
                         {isToday && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-teal-400 dark:bg-white animate-pulse" />
+                          <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-teal-100 text-teal-800 dark:bg-teal-900/60 dark:text-teal-300 shrink-0">
+                            Today
+                          </span>
                         )}
                       </div>
 
@@ -751,10 +762,7 @@ export default function Calendar() {
                             ))}
                           </div>
                           <div className="hidden sm:block">
-                            <span className={cn(
-                              'text-[10px] font-bold block truncate px-1.5 py-0.5 rounded-md',
-                              isToday ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
-                            )}>
+                            <span className="text-[10px] font-bold block truncate px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                               {dayEv[0].title}
                             </span>
                           </div>
@@ -808,8 +816,12 @@ export default function Calendar() {
                           {d.toLocaleDateString(language === 'bn' ? 'bn-BD' : 'en', { weekday: 'short' })}
                         </span>
                         <span className={cn(
-                          'text-sm font-black inline-block px-2 py-0.5 rounded-lg mt-0.5',
-                          isToday ? 'bg-teal-600 text-white' : 'text-slate-900 dark:text-white'
+                          'text-sm font-black inline-flex items-center justify-center w-7 h-7 rounded-full mt-1',
+                          isToday
+                            ? 'bg-teal-600 text-white shadow-xs'
+                            : isSelected
+                            ? 'text-teal-700 dark:text-teal-300'
+                            : 'text-slate-900 dark:text-white'
                         )}>
                           {d.getDate()}
                         </span>
@@ -935,13 +947,20 @@ export default function Calendar() {
                 <span className="text-[10px] font-extrabold uppercase tracking-widest text-teal-600 dark:text-teal-400 block">
                   Day Inspector
                 </span>
-                <h3 className="text-base font-black text-navy-900 dark:text-white tracking-tight">
-                  {selectedDate.toLocaleDateString(language === 'bn' ? 'bn-BD' : 'en', {
-                    weekday: 'long',
-                    month: 'short',
-                    day: 'numeric',
-                  })}
-                </h3>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <h3 className="text-base font-black text-navy-900 dark:text-white tracking-tight">
+                    {selectedDate.toLocaleDateString(language === 'bn' ? 'bn-BD' : 'en', {
+                      weekday: 'long',
+                      month: 'short',
+                      day: 'numeric',
+                    })}
+                  </h3>
+                  {selectedDate.toDateString() === todayDate.toDateString() && (
+                    <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-teal-100 text-teal-800 dark:bg-teal-900/60 dark:text-teal-300 shrink-0">
+                      Today
+                    </span>
+                  )}
+                </div>
               </div>
               <Button
                 variant="outline"

@@ -1,10 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import {
   Play, FileText, CheckCircle2, ChevronDown, ChevronUp, Download,
   ChevronLeft, ChevronRight, Clock, Award, ClipboardList,
   ExternalLink, Lock, HelpCircle, XCircle, RotateCcw, MessageSquare, Send, User,
+  Calendar, AlertCircle,
 } from 'lucide-react';
 import { getCourse, getCourseModules } from '../../services/courseService';
 import { getCourseProgress, markLessonComplete } from '../../services/progressService';
@@ -57,16 +58,35 @@ async function getCourseQuizzesList(courseId: string): Promise<any[]> {
   return unwrap<any[]>(res);
 }
 
+async function getCourseAssignmentsList(courseId: string): Promise<any[]> {
+  const res = await api.get(`/courses/${courseId}/assignments`);
+  return unwrap<any[]>(res);
+}
+
+async function getAssignmentSubmission(assignmentId: string): Promise<any> {
+  const res = await api.get(`/assignments/${assignmentId}/submission`);
+  return unwrap<any>(res);
+}
+
 type FlatItem =
   | { kind: 'lesson'; id: string; moduleId: string; moduleTitle: string; [key: string]: any }
-  | { kind: 'quiz'; id: string; moduleId: string; moduleTitle: string; quiz: any };
+  | { kind: 'quiz'; id: string; moduleId: string; moduleTitle: string; quiz: any }
+  | { kind: 'assignment'; id: string; moduleId: string; moduleTitle: string; assignment: any };
+
 export default function CourseLearning() {
   const { courseId } = useParams<{ courseId: string }>();
+  const [searchParams] = useSearchParams();
+  const assignmentIdParam = searchParams.get('assignmentId');
+
   const [course, setCourse] = useState<any>(null);
   const [modules, setModules] = useState<any[]>([]);
   const [progress, setProgress] = useState<any>(null);
   const [moduleUnlockStatus, setModuleUnlockStatus] = useState<ModuleUnlockStatus[]>([]);
   const [courseQuizzes, setCourseQuizzes] = useState<any[]>([]);
+  const [courseAssignments, setCourseAssignments] = useState<any[]>([]);
+  const [assignmentSubmissions, setAssignmentSubmissions] = useState<Record<string, any>>({});
+  const [assignmentsBoxExpanded, setAssignmentsBoxExpanded] = useState<boolean>(true);
+
   const [activeItemId, setActiveItemId] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [marking, setMarking] = useState(false);
@@ -81,6 +101,14 @@ export default function CourseLearning() {
   const [quizAttempts, setQuizAttempts] = useState<any[]>([]);
   const [loadingQuiz, setLoadingQuiz] = useState(false);
 
+  // Assignment submission state
+  const [assignmentSubmitText, setAssignmentSubmitText] = useState('');
+  const [assignmentSubmitUrl, setAssignmentSubmitUrl] = useState('');
+  const [assignmentSubmitting, setAssignmentSubmitting] = useState(false);
+  const [assignmentSuccessMsg, setAssignmentSuccessMsg] = useState('');
+  const [assignmentErrorMsg, setAssignmentErrorMsg] = useState('');
+  const [isEditingAssignment, setIsEditingAssignment] = useState(false);
+
   // Module discussion state
   const [moduleDiscussion, setModuleDiscussion] = useState<{ thread: any; replies: any[] } | null>(null);
   const [discussionLoading, setDiscussionLoading] = useState(false);
@@ -91,12 +119,13 @@ export default function CourseLearning() {
     if (!courseId) return;
     (async () => {
       try {
-        const [c, m, p, quizzes, unlockStat] = await Promise.all([
+        const [c, m, p, quizzes, unlockStat, assigns] = await Promise.all([
           getCourse(courseId),
           getCourseModules(courseId).catch(() => []),
           getCourseProgress(courseId).catch(() => null),
           getCourseQuizzesList(courseId).catch(() => []),
           getModuleUnlockStatus(courseId).catch(() => []),
+          getCourseAssignmentsList(courseId).catch(() => []),
         ]);
         setCourse(c);
         setModules(m);
@@ -105,10 +134,29 @@ export default function CourseLearning() {
         setCourseQuizzes(quizzes.filter((q: any) => q.status === 'published' || !q.status));
         setModuleUnlockStatus(unlockStat);
 
-        if (p?.last_lesson_id) {
+        const validAssignments = (assigns || []).filter((a: any) => a.status === 'published' || !a.status);
+        setCourseAssignments(validAssignments);
+
+        // Fetch student submissions for assignments in parallel
+        const subMap: Record<string, any> = {};
+        await Promise.all(
+          validAssignments.map(async (a: any) => {
+            try {
+              const sub = await getAssignmentSubmission(a.id);
+              if (sub) subMap[a.id] = sub;
+            } catch {}
+          })
+        );
+        setAssignmentSubmissions(subMap);
+
+        if (assignmentIdParam) {
+          setActiveItemId(`assignment-${assignmentIdParam}`);
+        } else if (p?.last_lesson_id) {
           setActiveItemId(p.last_lesson_id);
         } else if (m.length > 0 && m[0].lessons?.length > 0) {
           setActiveItemId(m[0].lessons[0].id);
+        } else if (validAssignments.length > 0) {
+          setActiveItemId(`assignment-${validAssignments[0].id}`);
         }
 
         const expanded: Record<string, boolean> = {};
@@ -120,8 +168,7 @@ export default function CourseLearning() {
         setLoading(false);
       }
     })();
-  }, [courseId]);
-
+  }, [courseId, assignmentIdParam]);
 
   const refreshUnlockStatus = () => {
     if (courseId) {
@@ -131,8 +178,8 @@ export default function CourseLearning() {
     }
   };
 
-  const isModuleLocked = (moduleId: string) => {
-    if (moduleUnlockStatus.length === 0) return false;
+  const isModuleLocked = (moduleId?: string) => {
+    if (!moduleId || moduleUnlockStatus.length === 0) return false;
     const status = moduleUnlockStatus.find((x) => x.module_id === moduleId);
     return status ? status.locked : false;
   };
@@ -144,6 +191,7 @@ export default function CourseLearning() {
   const flatItems = useMemo<FlatItem[]>(() => {
     const items: FlatItem[] = [];
     const assignedQuizIds = new Set<string>();
+    const assignedAssignmentIds = new Set<string>();
 
     modules.forEach((mod) => {
       (mod.lessons || []).forEach((l: any) => {
@@ -161,6 +209,18 @@ export default function CourseLearning() {
           quiz: modQuiz,
         });
       }
+      // Module-specific assignments
+      const modAssigns = courseAssignments.filter((a: any) => a.module_id === mod.id);
+      modAssigns.forEach((a: any) => {
+        assignedAssignmentIds.add(a.id);
+        items.push({
+          kind: 'assignment',
+          id: `assignment-${a.id}`,
+          moduleId: mod.id,
+          moduleTitle: mod.title,
+          assignment: a,
+        });
+      });
     });
 
     // Attach unassigned quizzes (no module_id) to the last module
@@ -180,8 +240,22 @@ export default function CourseLearning() {
       });
     }
 
+    // Attach course-level assignments
+    const unassignedAssignments = courseAssignments.filter(
+      (a: any) => !assignedAssignmentIds.has(a.id)
+    );
+    unassignedAssignments.forEach((a: any) => {
+      items.push({
+        kind: 'assignment',
+        id: `assignment-${a.id}`,
+        moduleId: lastMod ? lastMod.id : '',
+        moduleTitle: 'Assignments',
+        assignment: a,
+      });
+    });
+
     return items;
-  }, [modules, courseQuizzes]);
+  }, [modules, courseQuizzes, courseAssignments]);
 
   const activeIndex = flatItems.findIndex((i) => i.id === activeItemId);
   const activeItem = flatItems[activeIndex] || flatItems[0] || null;
@@ -265,6 +339,54 @@ export default function CourseLearning() {
     }
   };
 
+  useEffect(() => {
+    if (activeItem?.kind === 'assignment' && activeItem.assignment) {
+      const sub = assignmentSubmissions[activeItem.assignment.id];
+      setAssignmentSubmitText(sub?.submission_text || '');
+      setAssignmentSubmitUrl(sub?.file_url || '');
+      setAssignmentSuccessMsg('');
+      setAssignmentErrorMsg('');
+      setIsEditingAssignment(!sub);
+    }
+  }, [activeItem?.id, assignmentSubmissions]);
+
+  const handleSubmitAssignment = async (assignmentId: string) => {
+    if (!assignmentSubmitText.trim() && !assignmentSubmitUrl.trim()) {
+      setAssignmentErrorMsg('Please enter your submission text or provide an attachment link.');
+      return;
+    }
+    setAssignmentSubmitting(true);
+    setAssignmentErrorMsg('');
+    setAssignmentSuccessMsg('');
+    try {
+      await api.post(`/assignments/${assignmentId}/submit`, {
+        submission_text: assignmentSubmitText.trim(),
+        file_url: assignmentSubmitUrl.trim() || undefined,
+      });
+      const updatedSub = await getAssignmentSubmission(assignmentId).catch(() => ({
+        id: `temp-${Date.now()}`,
+        assignment_id: assignmentId,
+        submission_text: assignmentSubmitText.trim(),
+        file_url: assignmentSubmitUrl.trim(),
+        submitted_at: new Date().toISOString(),
+        status: 'pending',
+      }));
+      setAssignmentSubmissions((prev) => ({
+        ...prev,
+        [assignmentId]: updatedSub,
+      }));
+      setAssignmentSuccessMsg('Assignment submitted successfully!');
+      setIsEditingAssignment(false);
+    } catch (err: any) {
+      setAssignmentErrorMsg(err?.response?.data?.detail || 'Failed to submit assignment. Please try again.');
+    } finally {
+      setAssignmentSubmitting(false);
+    }
+  };
+
+  const activeAssignment = activeItem?.kind === 'assignment' ? activeItem.assignment : null;
+  const activeSubmission = activeAssignment ? assignmentSubmissions[activeAssignment.id] : null;
+
   const activeLesson = activeItem?.kind === 'lesson' ? activeItem : null;
   const lessonType = activeLesson?.type || activeLesson?.content_type || 'video';
   const lessonDuration = activeLesson?.estimated_duration || activeLesson?.duration_minutes || 0;
@@ -333,7 +455,14 @@ export default function CourseLearning() {
         items={[
           { label: 'My Courses', href: '/student/my-courses' },
           { label: course?.title || 'Course', href: courseId ? `/student/courses/${courseId}` : undefined },
-          { label: activeItem?.kind === 'quiz' ? `Quiz: ${activeItem.quiz.title}` : (activeLesson?.title || 'Lesson') },
+          {
+            label:
+              activeItem?.kind === 'quiz'
+                ? `Quiz: ${activeItem.quiz.title}`
+                : activeItem?.kind === 'assignment'
+                ? `Assignment: ${activeItem.assignment.title}`
+                : (activeLesson?.title || 'Lesson'),
+          },
         ]}
       />
 
@@ -345,15 +474,348 @@ export default function CourseLearning() {
               {activeItem?.kind === 'quiz' && (
                 <span className="ml-2 text-amber-600 dark:text-amber-400">· Module Quiz</span>
               )}
+              {activeItem?.kind === 'assignment' && (
+                <span className="ml-2 text-teal-600 dark:text-teal-400">· Course Assignment</span>
+              )}
             </p>
             <h1 className="text-xl font-extrabold text-navy-900 dark:text-white">
-              {activeItem?.kind === 'quiz' ? activeItem.quiz.title : (activeLesson?.title || 'Select a lesson')}
+              {activeItem?.kind === 'quiz'
+                ? activeItem.quiz.title
+                : activeItem?.kind === 'assignment'
+                ? activeItem.assignment.title
+                : (activeLesson?.title || 'Select a lesson')}
             </h1>
             <div className="flex items-center gap-3 mt-1 text-xs text-slate-500 dark:text-slate-400">
               <span className="flex items-center gap-1"><Award size={14} /> {Math.round(progressPct)}% complete</span>
               <span className="flex items-center gap-1"><Clock size={14} /> {flatItems.filter(i => i.kind === 'lesson').length} lessons</span>
+              {courseAssignments.length > 0 && (
+                <span className="flex items-center gap-1"><ClipboardList size={14} /> {courseAssignments.length} assignments</span>
+              )}
             </div>
           </div>
+
+          {/* Render Assignment UI if active item is an assignment */}
+          {activeItem?.kind === 'assignment' && activeAssignment && (
+            <div className="space-y-6">
+              {/* Assignment Header Card */}
+              <Card className="space-y-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300">
+                        Assignment
+                      </span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                        {activeItem.moduleTitle}
+                      </span>
+                    </div>
+                    <h2 className="text-xl font-black text-navy-900 dark:text-white">
+                      {activeAssignment.title}
+                    </h2>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Status Badge */}
+                    {activeSubmission?.status === 'graded' ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                        <CheckCircle2 size={14} className="text-emerald-600 dark:text-emerald-400" />
+                        Graded: {activeSubmission.score ?? activeSubmission.grade} / {activeAssignment.total_marks || 100}
+                      </span>
+                    ) : activeSubmission ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 dark:bg-blue-950/50 dark:text-blue-300 border border-blue-300 dark:border-blue-800">
+                        <Clock size={14} className="text-blue-600 dark:text-blue-400" />
+                        Submitted • Under Review
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+                        <AlertCircle size={14} className="text-amber-600 dark:text-amber-400" />
+                        Pending Submission
+                      </span>
+                    )}
+
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                      <Award size={14} className="text-teal-500" />
+                      {activeAssignment.total_marks || 100} Points
+                    </span>
+                  </div>
+                </div>
+
+                {/* Due Date & Submission Policy Details */}
+                <div className="flex flex-wrap gap-4 text-xs text-slate-500 dark:text-slate-400 pt-1">
+                  {activeAssignment.due_date && (
+                    <div className="flex items-center gap-1.5">
+                      <Calendar size={14} className="text-slate-400" />
+                      <span>Due: </span>
+                      <span className="font-bold text-navy-900 dark:text-slate-200">
+                        {new Date(activeAssignment.due_date).toLocaleString(undefined, {
+                          dateStyle: 'medium',
+                          timeStyle: 'short',
+                        })}
+                      </span>
+                    </div>
+                  )}
+                  {activeAssignment.submission_type && (
+                    <div className="flex items-center gap-1.5">
+                      <FileText size={14} className="text-slate-400" />
+                      <span>Format: </span>
+                      <span className="font-bold capitalize text-navy-900 dark:text-slate-200">
+                        {activeAssignment.submission_type}
+                      </span>
+                    </div>
+                  )}
+                  {activeAssignment.allow_late && (
+                    <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                      <span>Late Submissions Allowed ({activeAssignment.late_penalty || 0}% penalty)</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Instructions Section */}
+                <div className="space-y-2 pt-2">
+                  <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Assignment Instructions
+                  </h4>
+                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 text-sm leading-relaxed text-slate-800 dark:text-slate-200 whitespace-pre-wrap font-sans">
+                    {activeAssignment.instructions || 'No detailed instructions provided for this assignment.'}
+                  </div>
+                </div>
+
+                {/* Rubrics (if present) */}
+                {activeAssignment.rubrics && activeAssignment.rubrics.length > 0 && (
+                  <div className="space-y-2 pt-2">
+                    <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Evaluation Rubrics
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {activeAssignment.rubrics.map((rubric: any, idx: number) => (
+                        <div
+                          key={idx}
+                          className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex justify-between items-start gap-2"
+                        >
+                          <div>
+                            <p className="text-xs font-bold text-navy-900 dark:text-white capitalize">
+                              {rubric.name || rubric.criterion_name}
+                            </p>
+                            {rubric.description && (
+                              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                                {rubric.description}
+                              </p>
+                            )}
+                          </div>
+                          <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300 shrink-0">
+                            {rubric.max_marks} pts
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </Card>
+
+              {/* Graded Result Card (if graded) */}
+              {activeSubmission?.status === 'graded' && (
+                <Card className="border-2 border-emerald-300 dark:border-emerald-800/80 bg-emerald-50/30 dark:bg-emerald-950/20 space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-emerald-200 dark:border-emerald-800/60">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 size={20} className="text-emerald-600 dark:text-emerald-400" />
+                      <h3 className="text-base font-black text-navy-900 dark:text-white">
+                        Grade &amp; Instructor Feedback
+                      </h3>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
+                        {activeSubmission.score ?? activeSubmission.grade}
+                      </span>
+                      <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                        {' '}/ {activeAssignment.total_marks || 100}
+                      </span>
+                    </div>
+                  </div>
+
+                  {activeSubmission.feedback ? (
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
+                        Instructor Comment:
+                      </p>
+                      <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-800 text-sm text-slate-800 dark:text-slate-200 leading-relaxed whitespace-pre-wrap">
+                        {activeSubmission.feedback}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-500 italic">No written feedback provided.</p>
+                  )}
+                </Card>
+              )}
+
+              {/* Existing Submission Details (if submitted) */}
+              {activeSubmission && !isEditingAssignment && (
+                <Card className="space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                    <div>
+                      <h3 className="text-sm font-extrabold text-navy-900 dark:text-white">
+                        Your Submission
+                      </h3>
+                      {activeSubmission.submitted_at && (
+                        <p className="text-xs text-slate-400">
+                          Submitted on {new Date(activeSubmission.submitted_at).toLocaleString()}
+                        </p>
+                      )}
+                    </div>
+
+                    {activeSubmission.status !== 'graded' && activeAssignment.allow_resubmission !== false && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsEditingAssignment(true)}
+                      >
+                        Edit / Resubmit
+                      </Button>
+                    )}
+                  </div>
+
+                  {activeSubmission.submission_text && (
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400">Submitted Text:</p>
+                      <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm text-slate-800 dark:text-slate-200 whitespace-pre-wrap font-mono text-xs">
+                        {activeSubmission.submission_text}
+                      </div>
+                    </div>
+                  )}
+
+                  {activeSubmission.file_url && (
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400">Attached File / Link:</p>
+                      <a
+                        href={resolveUrl(activeSubmission.file_url)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-teal-200 dark:border-teal-800 bg-teal-50 dark:bg-teal-950/30 text-teal-800 dark:text-teal-300 text-xs font-bold hover:underline"
+                      >
+                        <ExternalLink size={14} />
+                        {activeSubmission.file_url}
+                      </a>
+                    </div>
+                  )}
+                </Card>
+              )}
+
+              {/* Submission Form (if not submitted or if editing) */}
+              {(isEditingAssignment || !activeSubmission) && (
+                <Card className="space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                    <h3 className="text-sm font-extrabold text-navy-900 dark:text-white">
+                      {activeSubmission ? 'Update Your Submission' : 'Submit Assignment'}
+                    </h3>
+                    {activeSubmission && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setIsEditingAssignment(false)}
+                      >
+                        Cancel Edit
+                      </Button>
+                    )}
+                  </div>
+
+                  {assignmentSuccessMsg && (
+                    <div className="p-3 rounded-xl bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-semibold flex items-center gap-2">
+                      <CheckCircle2 size={16} />
+                      {assignmentSuccessMsg}
+                    </div>
+                  )}
+
+                  {assignmentErrorMsg && (
+                    <div className="p-3 rounded-xl bg-rose-50 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-800 text-xs font-semibold flex items-center gap-2">
+                      <XCircle size={16} />
+                      {assignmentErrorMsg}
+                    </div>
+                  )}
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      Your Solution / Answer Text
+                    </label>
+                    <textarea
+                      rows={6}
+                      value={assignmentSubmitText}
+                      onChange={(e) => setAssignmentSubmitText(e.target.value)}
+                      placeholder="Write your assignment solution, code snippet, notes, or explanation here..."
+                      className="w-full bg-slate-50 border border-slate-200 focus:border-slate-400 rounded-2xl px-4 py-3 text-sm outline-none resize-none dark:bg-white dark:border-slate-300 dark:text-black dark:focus:border-slate-500 text-black"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      Project Link or File URL (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={assignmentSubmitUrl}
+                      onChange={(e) => setAssignmentSubmitUrl(e.target.value)}
+                      placeholder="e.g. Google Drive link, GitHub repository link, or cloud file URL"
+                      className="w-full bg-slate-50 border border-slate-200 focus:border-slate-400 rounded-2xl px-4 py-3 text-sm outline-none dark:bg-white dark:border-slate-300 dark:text-black dark:focus:border-slate-500 text-black"
+                    />
+                    <p className="text-[11px] text-slate-400">
+                      Make sure links (e.g. Google Drive) are set to "Anyone with the link can view".
+                    </p>
+                  </div>
+
+                  <div className="pt-2 flex justify-end gap-3">
+                    {activeSubmission && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={assignmentSubmitting}
+                        onClick={() => setIsEditingAssignment(false)}
+                      >
+                        Cancel
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      disabled={assignmentSubmitting || (!assignmentSubmitText.trim() && !assignmentSubmitUrl.trim())}
+                      onClick={() => handleSubmitAssignment(activeAssignment.id)}
+                      className="!bg-navy-900 dark:!bg-teal-600 dark:!text-white"
+                    >
+                      {assignmentSubmitting ? 'Submitting...' : activeSubmission ? 'Update Submission' : 'Submit Assignment'}
+                    </Button>
+                  </div>
+                </Card>
+              )}
+
+              {/* Navigation buttons at bottom */}
+              <div className="flex justify-between items-center mt-6">
+                {prevItem ? (
+                  <button
+                    type="button"
+                    onClick={() => navigateTo(prevItem)}
+                    className="flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-navy-900 dark:text-slate-400 dark:hover:text-white"
+                  >
+                    <ChevronLeft size={18} /> Previous: {prevItem.kind === 'quiz' ? prevItem.quiz.title : prevItem.kind === 'assignment' ? prevItem.assignment.title : prevItem.title}
+                  </button>
+                ) : <span />}
+
+                {nextItem && (
+                  <button
+                    type="button"
+                    onClick={() => !isModuleLocked(nextItem.moduleId) && navigateTo(nextItem)}
+                    disabled={isModuleLocked(nextItem.moduleId)}
+                    className={`flex items-center gap-2 text-sm font-bold transition-all ${
+                      isModuleLocked(nextItem.moduleId)
+                        ? 'text-amber-500 cursor-not-allowed'
+                        : 'text-navy-900 hover:text-navy-800 dark:text-teal-400 dark:hover:text-teal-300'
+                    }`}
+                  >
+                    {isModuleLocked(nextItem.moduleId) ? (
+                      <><Lock size={14} /> Pass quiz to unlock next module</>
+                    ) : (
+                      <>Next: {nextItem.kind === 'quiz' ? nextItem.quiz.title : nextItem.kind === 'assignment' ? nextItem.assignment.title : nextItem.title} <ChevronRight size={18} /></>
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Render Quiz UI if active item is a quiz */}
           {activeItem?.kind === 'quiz' && (
@@ -713,7 +1175,7 @@ export default function CourseLearning() {
           )}
 
           {/* Module Discussion / Q&A Section */}
-          {activeItem?.moduleId && (
+          {activeItem?.moduleId && activeItem.kind !== 'assignment' && (
             <Card className="space-y-4 mt-2">
               <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
                 <MessageSquare size={16} className="text-teal-500" />
@@ -838,6 +1300,7 @@ export default function CourseLearning() {
               const locked = isModuleLocked(mod.id);
               const modStatus = getModStatus(mod.id);
               const modQuiz = courseQuizzes.find((q: any) => q.module_id === mod.id);
+              const modAssignments = courseAssignments.filter((a: any) => a.module_id === mod.id);
 
               return (
                 <div
@@ -938,6 +1401,67 @@ export default function CourseLearning() {
                         );
                       })()}
 
+                      {modAssignments.map((assign: any) => {
+                        const assignItemId = `assignment-${assign.id}`;
+                        const isActive = assignItemId === activeItemId;
+                        const sub = assignmentSubmissions[assign.id];
+                        const isGraded = sub?.status === 'graded';
+                        const isSubmitted = sub && sub.status !== 'graded';
+
+                        return (
+                          <button
+                            key={assignItemId}
+                            type="button"
+                            onClick={() => setActiveItemId(assignItemId)}
+                            className={`w-full p-3 rounded-xl flex items-center justify-between text-left transition-all border ${
+                              isActive
+                                ? 'bg-navy-900 text-white dark:bg-teal-600 border-navy-900 dark:border-teal-600'
+                                : isGraded
+                                  ? 'border-emerald-200 dark:border-emerald-800/60 bg-emerald-50/40 dark:bg-emerald-950/20 hover:bg-emerald-50'
+                                  : isSubmitted
+                                    ? 'border-blue-200 dark:border-blue-800/60 bg-blue-50/40 dark:bg-blue-950/20 hover:bg-blue-50'
+                                    : 'border-transparent hover:bg-slate-50 dark:hover:bg-slate-900/60'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 min-w-0 pr-2">
+                              <ClipboardList
+                                size={14}
+                                className={
+                                  isActive
+                                    ? 'text-teal-300'
+                                    : isGraded
+                                      ? 'text-emerald-600 dark:text-emerald-400'
+                                      : isSubmitted
+                                        ? 'text-blue-600 dark:text-blue-400'
+                                        : 'text-slate-500 dark:text-slate-400'
+                                }
+                              />
+                              <span className="text-xs font-bold truncate">{assign.title}</span>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {isGraded ? (
+                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                  isActive ? 'bg-emerald-500/30 text-white' : 'text-emerald-700 dark:text-emerald-300'
+                                }`}>
+                                  {sub.score ?? sub.grade ?? 'Graded'}
+                                </span>
+                              ) : isSubmitted ? (
+                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                  isActive ? 'bg-blue-500/30 text-white' : 'text-blue-700 dark:text-blue-300'
+                                }`}>
+                                  Submitted
+                                </span>
+                              ) : (
+                                <span className={`text-[10px] ${isActive ? 'text-slate-300' : 'text-slate-400 dark:text-slate-500'}`}>
+                                  {assign.total_marks || 100} pts
+                                </span>
+                              )}
+                              {isGraded && <CheckCircle2 size={14} className={isActive ? 'text-white' : 'text-emerald-500'} />}
+                            </div>
+                          </button>
+                        );
+                      })}
+
                       {modStatus?.passed && (
                         <div className="flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-400">
                           <CheckCircle2 size={12} /> Module Completed
@@ -954,21 +1478,111 @@ export default function CourseLearning() {
                 </div>
               );
             })}
+
+            {/* Dedicated Assignment Box styled like a Module */}
+            <div className="border border-slate-100 dark:border-slate-800 rounded-2xl overflow-hidden transition-all shadow-xs">
+              <button
+                type="button"
+                onClick={() => setAssignmentsBoxExpanded((prev) => !prev)}
+                className="w-full flex items-center justify-between p-3 text-left transition-all bg-slate-50 dark:bg-slate-900/60 dark:hover:bg-slate-800/60"
+              >
+                <div className="flex items-center gap-2 truncate pr-2">
+                  <ClipboardList size={14} className="text-teal-600 dark:text-teal-400 shrink-0" />
+                  <span className="text-[11px] font-black text-navy-900 dark:text-slate-200 uppercase truncate">
+                    Assignments
+                  </span>
+                  {courseAssignments.length > 0 && (
+                    <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-teal-100 text-teal-800 dark:bg-teal-900/50 dark:text-teal-300">
+                      {courseAssignments.length}
+                    </span>
+                  )}
+                </div>
+                {assignmentsBoxExpanded ? (
+                  <ChevronUp size={16} className="shrink-0 dark:text-slate-400" />
+                ) : (
+                  <ChevronDown size={16} className="shrink-0 dark:text-slate-400" />
+                )}
+              </button>
+
+              {assignmentsBoxExpanded && (
+                <div className="p-2 space-y-1 bg-white dark:bg-slate-950">
+                  {courseAssignments.length === 0 ? (
+                    <div className="p-3 text-center text-xs text-slate-400 dark:text-slate-500 italic">
+                      No assignments for this course
+                    </div>
+                  ) : (
+                    courseAssignments.map((assign) => {
+                      const assignItemId = `assignment-${assign.id}`;
+                      const isActive = assignItemId === activeItemId;
+                      const sub = assignmentSubmissions[assign.id];
+                      const isGraded = sub?.status === 'graded';
+                      const isSubmitted = sub && sub.status !== 'graded';
+
+                      return (
+                        <button
+                          key={assign.id}
+                          type="button"
+                          onClick={() => setActiveItemId(assignItemId)}
+                          className={`w-full p-3 rounded-xl flex items-center justify-between text-left transition-all border ${
+                            isActive
+                              ? 'bg-navy-900 text-white dark:bg-teal-600 border-navy-900 dark:border-teal-600'
+                              : isGraded
+                                ? 'border-emerald-200 dark:border-emerald-800/60 bg-emerald-50/40 dark:bg-emerald-950/20 hover:bg-emerald-50'
+                                : isSubmitted
+                                  ? 'border-blue-200 dark:border-blue-800/60 bg-blue-50/40 dark:bg-blue-950/20 hover:bg-blue-50'
+                                  : 'border-transparent hover:bg-slate-50 dark:hover:bg-slate-900/60'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0 pr-2">
+                            <ClipboardList
+                              size={14}
+                              className={
+                                isActive
+                                  ? 'text-teal-300'
+                                  : isGraded
+                                    ? 'text-emerald-600 dark:text-emerald-400'
+                                    : isSubmitted
+                                      ? 'text-blue-600 dark:text-blue-400'
+                                      : 'text-slate-500 dark:text-slate-400'
+                              }
+                            />
+                            <span className="text-xs font-bold truncate">{assign.title}</span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {isGraded ? (
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                isActive ? 'bg-emerald-500/30 text-white' : 'text-emerald-700 dark:text-emerald-300'
+                              }`}>
+                                {sub.score ?? sub.grade ?? 'Graded'}
+                              </span>
+                            ) : isSubmitted ? (
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                isActive ? 'bg-blue-500/30 text-white' : 'text-blue-700 dark:text-blue-300'
+                              }`}>
+                                Submitted
+                              </span>
+                            ) : (
+                              <span className={`text-[10px] ${isActive ? 'text-slate-300' : 'text-slate-400 dark:text-slate-500'}`}>
+                                {assign.total_marks || 100} pts
+                              </span>
+                            )}
+                            {isGraded && <CheckCircle2 size={14} className={isActive ? 'text-white' : 'text-emerald-500'} />}
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
-          <div className="border-t border-slate-100 dark:border-slate-800 pt-4 space-y-2">
-            {courseId && (
-              <Link to={`/student/courses/${courseId}/assignments`}>
-                <Button variant="outline" size="sm" className="w-full">
-                  <ClipboardList size={14} /> View Assignments
-                </Button>
-              </Link>
-            )}
-          </div>
           {courseId && (
-            <Link to={`/student/courses/${courseId}`} className="block text-center text-xs font-bold text-navy-800 hover:underline dark:text-slate-400 dark:hover:text-white">
-              Back to course overview
-            </Link>
+            <div className="border-t border-slate-100 dark:border-slate-800 pt-3">
+              <Link to={`/student/courses/${courseId}`} className="block text-center text-xs font-bold text-navy-800 hover:underline dark:text-slate-400 dark:hover:text-white">
+                Back to course overview
+              </Link>
+            </div>
           )}
         </Card>
       </div>
