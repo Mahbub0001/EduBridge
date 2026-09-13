@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile, File
 from google.cloud.firestore_v1.client import Client
 from typing import Optional, List
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pydantic import BaseModel
+from concurrent.futures import ThreadPoolExecutor
 import os
 import uuid
 import shutil
@@ -76,7 +77,7 @@ class ResourceCreateUpdate(BaseModel):
 
 # ── GET /instructor/courses ──
 @router.get("/courses")
-@cache_response(ttl=60, prefix="instructor", is_user_scoped=True)
+@cache_response(ttl=600, prefix="instructor", is_user_scoped=True)
 def get_instructor_courses_list(
     current_user: dict = Depends(require_instructor),
     db: Client = Depends(get_db)
@@ -1091,6 +1092,7 @@ def return_instructor_submission_for_revision(
 # ── INSTRUCTOR COMPREHENSIVE ANALYTICS ENDPOINT ──
 
 @router.get("/analytics")
+@cache_response(ttl=600, prefix="instructor_analytics", is_user_scoped=True)
 def get_instructor_comprehensive_analytics(
     course_id: Optional[str] = None,
     date_range: Optional[str] = "all",
@@ -1124,95 +1126,170 @@ def get_instructor_comprehensive_analytics(
             "enrollment_trend": [], "progress_distribution": [], "quiz_performance": [], "assignment_status": [], "module_completion": [], "top_students": [], "at_risk_students": []
         })
 
-    # Fetch Enrollments in chunks
-    enrollments = []
-    for i in range(0, len(active_ids), 30):
-        chunk = active_ids[i:i+30]
-        docs = db.collection("enrollments").where("course_id", "in", chunk).stream()
-        enrollments.extend([d.to_dict() for d in docs])
+    # Helper to parse dates safely
+    def _parse_dt(val):
+        if not val:
+            return None
+        if isinstance(val, datetime):
+            return val if val.tzinfo else val.replace(tzinfo=timezone.utc)
+        try:
+            dt = datetime.fromisoformat(str(val).replace("Z", "+00:00"))
+            return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+        except Exception:
+            return None
+
+    now = datetime.now(timezone.utc)
+
+    # ── HIGH-CONCURRENCY PARALLEL DATA INGESTION (PHASE 1) ──
+    # Run independent Firestore queries concurrently
+    def _fetch_enrollments():
+        res = []
+        for i in range(0, len(active_ids), 30):
+            chunk = active_ids[i:i+30]
+            res.extend([d.to_dict() for d in db.collection("enrollments").where("course_id", "in", chunk).stream()])
+        return res
+
+    def _fetch_quizzes():
+        res = {}
+        for i in range(0, len(active_ids), 30):
+            chunk = active_ids[i:i+30]
+            for q in db.collection("quizzes").where("course_id", "in", chunk).stream():
+                qd = q.to_dict()
+                qd["id"] = q.id
+                res[q.id] = qd
+        return res
+
+    def _fetch_assignments():
+        res = {}
+        for i in range(0, len(active_ids), 30):
+            chunk = active_ids[i:i+30]
+            for a in db.collection("assignments").where("course_id", "in", chunk).stream():
+                ad = a.to_dict()
+                ad["id"] = a.id
+                res[a.id] = ad
+        return res
+
+    def _fetch_modules():
+        res = []
+        for i in range(0, len(active_ids), 30):
+            chunk = active_ids[i:i+30]
+            for m in db.collection("modules").where("course_id", "in", chunk).stream():
+                md = m.to_dict()
+                md["id"] = m.id
+                res.append(md)
+        return res
+
+    def _fetch_lessons():
+        res = []
+        for i in range(0, len(active_ids), 30):
+            chunk = active_ids[i:i+30]
+            for l in db.collection("lessons").where("course_id", "in", chunk).stream():
+                ld = l.to_dict()
+                ld["id"] = l.id
+                res.append(ld)
+        return res
+
+    def _fetch_progress():
+        res = []
+        for i in range(0, len(active_ids), 30):
+            chunk = active_ids[i:i+30]
+            for p in db.collection("progress").where("course_id", "in", chunk).stream():
+                res.append(p.to_dict())
+        return res
+
+    with ThreadPoolExecutor(max_workers=6) as executor:
+        fut_enr = executor.submit(_fetch_enrollments)
+        fut_qzs = executor.submit(_fetch_quizzes)
+        fut_asg = executor.submit(_fetch_assignments)
+        fut_mod = executor.submit(_fetch_modules)
+        fut_les = executor.submit(_fetch_lessons)
+        fut_prg = executor.submit(_fetch_progress)
+
+        enrollments = fut_enr.result()
+        quizzes_by_id = fut_qzs.result()
+        assignments_by_id = fut_asg.result()
+        modules_list = fut_mod.result()
+        lessons_list = fut_les.result()
+        progress_docs_list = fut_prg.result()
+
+    # ── HIGH-CONCURRENCY PARALLEL DATA INGESTION (PHASE 2) ──
+    # Run quiz_attempts and assignment_submissions queries concurrently
+    def _fetch_quiz_attempts():
+        res = []
+        if quizzes_by_id:
+            quiz_ids = list(quizzes_by_id.keys())
+            for i in range(0, len(quiz_ids), 30):
+                chunk = quiz_ids[i:i+30]
+                for ad in db.collection("quiz_attempts").where("quiz_id", "in", chunk).stream():
+                    res.append(ad.to_dict())
+        return res
+
+    def _fetch_assignment_submissions():
+        res = []
+        if assignments_by_id:
+            assign_ids = list(assignments_by_id.keys())
+            for i in range(0, len(assign_ids), 30):
+                chunk = assign_ids[i:i+30]
+                for s in db.collection("assignment_submissions").where("assignment_id", "in", chunk).stream():
+                    res.append(s.to_dict())
+        return res
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        fut_att = executor.submit(_fetch_quiz_attempts)
+        fut_sub = executor.submit(_fetch_assignment_submissions)
+        quiz_attempts_list = fut_att.result()
+        assignment_subs_list = fut_sub.result()
 
     # 1. Summary calculations
-    total_students = len(list(set(e.get("user_id") for e in enrollments if e.get("user_id"))))
-    avg_progress = round(sum(e.get("progress_percent", 0) for e in enrollments) / max(len(enrollments), 1), 1)
-    completed_count = sum(1 for e in enrollments if e.get("status") == "completed")
-    completion_rate = round((completed_count / max(len(enrollments), 1)) * 100, 1)
+    enrolled_uids = list({e.get("user_id") for e in enrollments if e.get("user_id")})
+    total_students = len(enrolled_uids)
+    avg_progress = round(sum(e.get("progress_percent", 0) for e in enrollments) / len(enrollments), 1) if enrollments else 0.0
+    completed_count = sum(1 for e in enrollments if e.get("status") == "completed" or e.get("progress_percent", 0) >= 100)
+    completion_rate = round((completed_count / len(enrollments)) * 100, 1) if enrollments else 0.0
 
     # 2. Quizzes & Quiz Pass Rate & Quiz Performance
-    quiz_pass_rate = 75.0  # fallback premium default
+    quiz_pass_rate = 0.0
     quiz_performance = []
-    quizzes_by_id = {}
-    for i in range(0, len(active_ids), 30):
-        chunk = active_ids[i:i+30]
-        for q in db.collection("quizzes").where("course_id", "in", chunk).stream():
-            qd = q.to_dict()
-            qd["id"] = q.id
-            quizzes_by_id[q.id] = qd
 
     if quizzes_by_id:
-        quiz_ids = list(quizzes_by_id.keys())
         attempts_passed = 0
-        total_attempts = 0
-        quiz_attempts_by_qid = {qid: [] for qid in quiz_ids}
+        total_attempts = len(quiz_attempts_list)
+        quiz_attempts_by_qid = {qid: [] for qid in quizzes_by_id}
 
-        for i in range(0, len(quiz_ids), 30):
-            chunk = quiz_ids[i:i+30]
-            for ad in db.collection("quiz_attempts").where("quiz_id", "in", chunk).stream():
-                att = ad.to_dict()
-                qid = att.get("quiz_id")
-                if qid in quiz_attempts_by_qid:
-                    quiz_attempts_by_qid[qid].append(att)
-                    total_attempts += 1
-                    if att.get("passed", False):
-                        attempts_passed += 1
+        for att in quiz_attempts_list:
+            qid = att.get("quiz_id")
+            if qid in quiz_attempts_by_qid:
+                quiz_attempts_by_qid[qid].append(att)
+                if att.get("passed", False):
+                    attempts_passed += 1
 
         if total_attempts > 0:
             quiz_pass_rate = round((attempts_passed / total_attempts) * 100, 1)
 
         for qid, qd in quizzes_by_id.items():
             atts = quiz_attempts_by_qid.get(qid, [])
-            if atts:
-                avg_score = round(sum(a.get("score", 0) for a in atts) / len(atts), 1)
-            else:
-                avg_score = 78.0  # premium dummy fallback
+            avg_score = round(sum(a.get("score", 0) for a in atts) / len(atts), 1) if atts else 0.0
             quiz_performance.append({
                 "quiz_title": qd.get("title", "Assessment"),
                 "average_score": avg_score
             })
 
-    if not quiz_performance:
-        quiz_performance = [
-            {"quiz_title": "Module 1 Assessment", "average_score": 82.5},
-            {"quiz_title": "Module 2 Assessment", "average_score": 74.0},
-            {"quiz_title": "Midterm Examination", "average_score": 88.2}
-        ]
-
     # 3. Assignment Submission Rate & Status
-    assignment_rate = 80.0  # fallback premium default
-    assignments_by_id = {}
-    for i in range(0, len(active_ids), 30):
-        chunk = active_ids[i:i+30]
-        for a in db.collection("assignments").where("course_id", "in", chunk).stream():
-            assignments_by_id[a.id] = a.to_dict()
-
+    assignment_rate = 0.0
     graded_count = 0
     pending_count = 0
     revision_count = 0
 
     if assignments_by_id:
-        assign_ids = list(assignments_by_id.keys())
-        total_subs = 0
-        for i in range(0, len(assign_ids), 30):
-            chunk = assign_ids[i:i+30]
-            for s in db.collection("assignment_submissions").where("assignment_id", "in", chunk).stream():
-                sd = s.to_dict()
-                total_subs += 1
-                status = sd.get("status", "pending")
-                if status == "graded":
-                    graded_count += 1
-                elif status == "revision":
-                    revision_count += 1
-                else:
-                    pending_count += 1
+        total_subs = len(assignment_subs_list)
+        for sd in assignment_subs_list:
+            status = sd.get("status", "pending")
+            if status == "graded":
+                graded_count += 1
+            elif status == "revision":
+                revision_count += 1
+            else:
+                pending_count += 1
 
         potential_total = len(enrollments) * len(assignments_by_id)
         if potential_total > 0:
@@ -1220,48 +1297,77 @@ def get_instructor_comprehensive_analytics(
             assignment_rate = min(assignment_rate, 100.0)
 
     assignment_status = [
-        {"status": "Graded", "value": graded_count if (graded_count or pending_count) else 15},
-        {"status": "Pending Evaluation", "value": pending_count if (graded_count or pending_count) else 4},
-        {"status": "Requires Revision", "value": revision_count if (graded_count or pending_count) else 2}
+        {"status": "Graded", "value": graded_count},
+        {"status": "Pending Evaluation", "value": pending_count},
+        {"status": "Requires Revision", "value": revision_count}
     ]
 
     # 4. Inactive students (progress < 15% and enrolled more than 7 days ago)
     inactive_students_count = 0
-    now = datetime.now(timezone.utc)
     for e in enrollments:
         prog = e.get("progress_percent", 0)
-        enrolled_str = e.get("enrolled_at")
-        if enrolled_str:
-            try:
-                enrolled_dt = datetime.fromisoformat(str(enrolled_str).replace("Z", "+00:00"))
-                days = (now - enrolled_dt).days
-                if prog < 15 and days > 7:
-                    inactive_students_count += 1
-            except Exception:
-                if prog < 15:
-                    inactive_students_count += 1
+        p_dt = _parse_dt(e.get("enrolled_at"))
+        if p_dt:
+            days = (now - p_dt).days
+            if prog < 15 and days > 7:
+                inactive_students_count += 1
+        else:
+            if prog < 15:
+                inactive_students_count += 1
 
-    # ── TRENDS & DISTRIBUTIONS ──
-
-    # Enrollment trend line
-    trend_map = {}
+    # ── EXACT REAL-TIME ENROLLMENT TREND ──
+    parsed_enrollment_dts = []
     for e in enrollments:
-        enrolled_at = e.get("enrolled_at")
-        if enrolled_at:
-            month = str(enrolled_at)[:7] # YYYY-MM
-            trend_map[month] = trend_map.get(month, 0) + 1
-    
-    enrollment_trend = [{"date": m, "enrollments": c} for m, c in sorted(trend_map.items())]
-    if len(enrollment_trend) < 3: # pad with premium simulated timeline for aesthetics
-        enrollment_trend = [
-            {"date": "2026-01", "enrollments": 12},
-            {"date": "2026-02", "enrollments": 28},
-            {"date": "2026-03", "enrollments": 45},
-            {"date": "2026-04", "enrollments": 60},
-            {"date": "2026-05", "enrollments": 84 + len(enrollments)}
-        ]
+        p_dt = _parse_dt(e.get("enrolled_at"))
+        if p_dt:
+            parsed_enrollment_dts.append(p_dt)
 
-    # Progress distribution
+    if date_range == "7":
+        enrollment_trend = []
+        for i in range(6, -1, -1):
+            day_target = (now - timedelta(days=i)).date()
+            day_str = day_target.strftime("%Y-%m-%d")
+            c = sum(1 for dt in parsed_enrollment_dts if dt.date() == day_target)
+            enrollment_trend.append({"date": day_str, "enrollments": c})
+    elif date_range == "30":
+        enrollment_trend = []
+        for i in range(29, -1, -1):
+            day_target = (now - timedelta(days=i)).date()
+            day_str = day_target.strftime("%Y-%m-%d")
+            c = sum(1 for dt in parsed_enrollment_dts if dt.date() == day_target)
+            enrollment_trend.append({"date": day_str, "enrollments": c})
+    else:
+        # All-time monthly trend
+        # Ensure at least last 6 consecutive calendar months up to current month
+        start_year = now.year
+        start_month = now.month - 5
+        while start_month <= 0:
+            start_month += 12
+            start_year -= 1
+
+        if parsed_enrollment_dts:
+            earliest = min(parsed_enrollment_dts)
+            if (earliest.year < start_year) or (earliest.year == start_year and earliest.month < start_month):
+                start_year = earliest.year
+                start_month = earliest.month
+
+        months_list = []
+        cy, cm = start_year, start_month
+        while (cy < now.year) or (cy == now.year and cm <= now.month):
+            months_list.append(f"{cy:04d}-{cm:02d}")
+            cm += 1
+            if cm > 12:
+                cm = 1
+                cy += 1
+
+        month_counts = {}
+        for dt in parsed_enrollment_dts:
+            m_str = dt.strftime("%Y-%m")
+            month_counts[m_str] = month_counts.get(m_str, 0) + 1
+
+        enrollment_trend = [{"date": m, "enrollments": month_counts.get(m, 0)} for m in months_list]
+
+    # ── PROGRESS DISTRIBUTION ──
     buckets = {"0-20%": 0, "21-40%": 0, "41-60%": 0, "61-80%": 0, "81-100%": 0}
     for e in enrollments:
         p = e.get("progress_percent", 0)
@@ -1270,39 +1376,39 @@ def get_instructor_comprehensive_analytics(
         elif p <= 60: buckets["41-60%"] += 1
         elif p <= 80: buckets["61-80%"] += 1
         else: buckets["81-100%"] += 1
-    
-    progress_distribution = [{"range": k, "students": v} for k, v in buckets.items()]
-    if sum(v for v in buckets.values()) == 0:
-        progress_distribution = [
-            {"range": "0-20%", "students": 4},
-            {"range": "21-40%", "students": 8},
-            {"range": "41-60%", "students": 15},
-            {"range": "61-80%", "students": 22},
-            {"range": "81-100%", "students": 11}
-        ]
 
-    # Module completion lists
+    progress_distribution = [{"range": k, "students": v} for k, v in buckets.items()]
+
+    # ── MODULE COMPLETION ──
     module_completion = []
-    for i in range(0, len(active_ids), 30):
-        chunk = active_ids[i:i+30]
-        for m in db.collection("modules").where("course_id", "in", chunk).stream():
-            md = m.to_dict()
-            comp_count = sum(1 for e in enrollments if e.get("progress_percent", 0) > 40)
+    if modules_list:
+        mod_lessons = {}
+        for l in lessons_list:
+            mid = l.get("module_id")
+            if mid:
+                mod_lessons.setdefault(mid, []).append(l["id"])
+
+        user_completed_lessons = {}
+        for p in progress_docs_list:
+            if p.get("completed", False):
+                user_completed_lessons.setdefault(p.get("user_id"), set()).add(p.get("lesson_id"))
+
+        for m in modules_list:
+            mid = m["id"]
+            req_lessons = mod_lessons.get(mid, [])
+            if req_lessons:
+                comp_count = sum(1 for uid in enrolled_uids if all(lid in user_completed_lessons.get(uid, set()) for lid in req_lessons))
+            else:
+                comp_count = 0
             module_completion.append({
-                "module_title": md.get("title", "Chapter"),
-                "completions": comp_count if comp_count else 5
+                "module_title": m.get("title", "Chapter"),
+                "completions": comp_count
             })
 
-    if not module_completion:
-        module_completion = [
-            {"module_title": "Chapter 1: Getting Started", "completions": 42},
-            {"module_title": "Chapter 2: Core Components", "completions": 28},
-            {"module_title": "Chapter 3: Advanced Abstractions", "completions": 14}
-        ]
-
-    # Top performing and at-risk students with batch-fetched user profiles
-    top_candidates = [e for e in enrollments if e.get("progress_percent", 0) > 50][:10]
-    risk_candidates = [e for e in enrollments if e.get("progress_percent", 0) < 25][:10]
+    # ── TOP PERFORMING AND AT-RISK STUDENTS ──
+    sorted_enrollments = sorted(enrollments, key=lambda x: x.get("progress_percent", 0), reverse=True)
+    top_candidates = [e for e in sorted_enrollments if e.get("progress_percent", 0) >= 50][:10]
+    risk_candidates = [e for e in reversed(sorted_enrollments) if e.get("progress_percent", 0) < 25][:10]
     needed_user_ids = list({e.get("user_id") for e in top_candidates + risk_candidates if e.get("user_id")})
 
     analytics_user_map = {}
@@ -1316,51 +1422,73 @@ def get_instructor_comprehensive_analytics(
 
     top_students = []
     for e in top_candidates:
-        u_data = analytics_user_map.get(e.get("user_id", ""))
+        uid_val = e.get("user_id", "")
+        u_data = analytics_user_map.get(uid_val)
         if u_data:
             c_title = course_map.get(e.get("course_id", ""), "EduBridge Course")
+            u_quizzes = [qa for qa in quiz_attempts_list if qa.get("user_id") == uid_val]
+            avg_q = round(sum(qa.get("score", 0) for qa in u_quizzes) / len(u_quizzes), 1) if u_quizzes else 0.0
+            u_subs = [s for s in assignment_subs_list if s.get("user_id") == uid_val and s.get("status") == "graded"]
+            assign_grade = round(sum(s.get("grade", 0) for s in u_subs) / len(u_subs), 1) if u_subs else 0.0
             top_students.append({
                 "student_name": u_data.get("name", "Student"),
                 "course_title": c_title,
                 "progress": e.get("progress_percent", 0),
-                "avg_quiz": 88.5,
-                "assignment_grade": 92.0
+                "avg_quiz": avg_q,
+                "assignment_grade": assign_grade
             })
-
-    if not top_students:
-        top_students = [
-            {"student_name": "Alexander Morgan", "course_title": "Intro to UI/UX Architecture", "progress": 95, "avg_quiz": 94.2, "assignment_grade": 96.0},
-            {"student_name": "Samantha Reeves", "course_title": "Advanced Web Frameworks", "progress": 88, "avg_quiz": 86.5, "assignment_grade": 90.0},
-            {"student_name": "Jonathan Vance", "course_title": "Intro to UI/UX Architecture", "progress": 82, "avg_quiz": 89.0, "assignment_grade": 85.5}
-        ]
 
     at_risk_students = []
     for e in risk_candidates:
-        u_data = analytics_user_map.get(e.get("user_id", ""))
+        uid_val = e.get("user_id", "")
+        u_data = analytics_user_map.get(uid_val)
         if u_data:
-            c_title = course_map.get(e.get("course_id", ""), "EduBridge Course")
+            cid = e.get("course_id", "")
+            c_title = course_map.get(cid, "EduBridge Course")
+
+            last_dt = None
+            u_prog_dates = [
+                _parse_dt(p.get("last_accessed_at") or p.get("completed_at"))
+                for p in progress_docs_list
+                if p.get("user_id") == uid_val and (p.get("last_accessed_at") or p.get("completed_at"))
+            ]
+            u_prog_dates = [d for d in u_prog_dates if d]
+            if u_prog_dates:
+                last_dt = max(u_prog_dates)
+            else:
+                last_dt = _parse_dt(e.get("enrolled_at"))
+
+            if last_dt:
+                diff_d = (now - last_dt).days
+                if diff_d <= 0:
+                    last_active_str = "Active today"
+                elif diff_d == 1:
+                    last_active_str = "1 day ago"
+                else:
+                    last_active_str = f"{diff_d} days ago"
+            else:
+                last_active_str = "Never"
+
+            course_assignments = [aid for aid, ad in assignments_by_id.items() if ad.get("course_id") == cid]
+            u_submitted_aids = {s.get("assignment_id") for s in assignment_subs_list if s.get("user_id") == uid_val}
+            missing_count = len([aid for aid in course_assignments if aid not in u_submitted_aids])
+
             at_risk_students.append({
                 "student_name": u_data.get("name", "Student"),
                 "course_title": c_title,
                 "progress": e.get("progress_percent", 0),
-                "last_active": "7 days ago",
-                "missing_assignments": 2
+                "last_active": last_active_str,
+                "missing_assignments": missing_count
             })
-
-    if not at_risk_students:
-        at_risk_students = [
-            {"student_name": "David Miller", "course_title": "Intro to UI/UX Architecture", "progress": 12, "last_active": "9 days ago", "missing_assignments": 3},
-            {"student_name": "Sophia Martinez", "course_title": "Advanced Web Frameworks", "progress": 8, "last_active": "14 days ago", "missing_assignments": 2}
-        ]
 
     data = {
         "summary": {
-            "total_students": total_students if total_students else 82,
-            "average_progress": avg_progress if avg_progress else 58.5,
-            "completion_rate": completion_rate if completion_rate else 64.0,
+            "total_students": total_students,
+            "average_progress": avg_progress,
+            "completion_rate": completion_rate,
             "quiz_pass_rate": quiz_pass_rate,
             "assignment_rate": assignment_rate,
-            "inactive_students": inactive_students_count if inactive_students_count else 4
+            "inactive_students": inactive_students_count
         },
         "enrollment_trend": enrollment_trend,
         "progress_distribution": progress_distribution,
@@ -1897,6 +2025,7 @@ class StudentNoteSaveRequest(BaseModel):
     notes: str
 
 @router.get("/students")
+@cache_response(ttl=600, prefix="instructor", is_user_scoped=True)
 def get_instructor_students_list(
     current_user: dict = Depends(require_instructor),
     db: Client = Depends(get_db)
@@ -2051,6 +2180,7 @@ def get_instructor_students_list(
 
 # ── GET STUDENT DETAILED PROGRESS ENDPOINT ──
 @router.get("/students/{student_id}/progress")
+@cache_response(ttl=300, prefix="instructor")
 def get_instructor_student_progress(
     student_id: str,
     course_id: str, # passed as query parameter

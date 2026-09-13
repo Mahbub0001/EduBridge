@@ -109,7 +109,7 @@ export default function StudentLayout() {
   return (
     <div className="flex h-screen overflow-hidden bg-[#F8FAFC] font-sans text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100">
       <aside className="hidden md:flex md:shrink-0">
-        <Sidebar navItems={navItems} onLogout={handleLogout} helpPath="/student/help" />
+        <Sidebar navItems={navItems} onLogout={handleLogout} />
       </aside>
 
       {drawerOpen && (
@@ -129,7 +129,6 @@ export default function StudentLayout() {
           navItems={navItems}
           onLogout={handleLogout}
           onNavigate={closeDrawer}
-          helpPath="/student/help"
         />
       </aside>
 

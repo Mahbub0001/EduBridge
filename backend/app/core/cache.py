@@ -3,6 +3,8 @@ import hashlib
 import time
 import logging
 import inspect
+import sqlite3
+import os
 from functools import wraps
 from typing import Optional, Any, Callable
 from datetime import datetime, date
@@ -35,7 +37,7 @@ class MemoryCache:
             return None
         value, expiry = item
         if expiry is not None and time.time() > expiry:
-            del self._cache[key]
+            self._cache.pop(key, None)
             return None
         return value
 
@@ -44,10 +46,10 @@ class MemoryCache:
             now = time.time()
             expired_keys = [k for k, v in self._cache.items() if v[1] is not None and now > v[1]]
             for k in expired_keys:
-                del self._cache[k]
+                self._cache.pop(k, None)
             if len(self._cache) >= self._max_items:
                 for k in list(self._cache.keys())[:100]:
-                    del self._cache[k]
+                    self._cache.pop(k, None)
         expiry = time.time() + ttl if ttl else None
         self._cache[key] = (value, expiry)
 
@@ -56,17 +58,102 @@ class MemoryCache:
 
     def delete_pattern(self, pattern: str):
         prefix = pattern.replace("*", "")
-        matching = [k for k in self._cache.keys() if k.startswith(prefix)]
+        matching = [k for k in list(self._cache.keys()) if k.startswith(prefix)]
         for k in matching:
-            del self._cache[k]
+            self._cache.pop(k, None)
 
     def clear(self):
         self._cache.clear()
 
+class SQLiteCache:
+    """Zero-dependency persistent local cache that survives server reboots/reloads."""
+    def __init__(self, db_path: Optional[str] = None):
+        if not db_path:
+            base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            db_path = os.path.join(base_dir, "cache.db")
+        self.db_path = db_path
+        self._init_db()
+
+    def _get_connection(self):
+        conn = sqlite3.connect(self.db_path, timeout=10.0, check_same_thread=False)
+        conn.execute("PRAGMA journal_mode = WAL;")
+        conn.execute("PRAGMA synchronous = NORMAL;")
+        return conn
+
+    def _init_db(self):
+        try:
+            with self._get_connection() as conn:
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS http_cache (
+                        key TEXT PRIMARY KEY,
+                        value TEXT NOT NULL,
+                        expiry REAL
+                    )
+                """)
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_cache_expiry ON http_cache (expiry)")
+        except Exception as e:
+            logger.warning("SQLiteCache init failed: %s", e)
+
+    def get(self, key: str) -> Optional[Any]:
+        try:
+            now = time.time()
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT value, expiry FROM http_cache WHERE key = ?", (key,))
+                row = cursor.fetchone()
+                if not row:
+                    return None
+                val_str, expiry = row
+                if expiry is not None and now > expiry:
+                    cursor.execute("DELETE FROM http_cache WHERE key = ?", (key,))
+                    conn.commit()
+                    return None
+                return json.loads(val_str)
+        except Exception as e:
+            logger.debug("SQLiteCache get error: %s", e)
+            return None
+
+    def set(self, key: str, value: Any, ttl: Optional[int] = None):
+        try:
+            now = time.time()
+            expiry = now + ttl if ttl else None
+            val_str = json.dumps(value, cls=CustomJSONEncoder)
+            with self._get_connection() as conn:
+                conn.execute(
+                    "INSERT OR REPLACE INTO http_cache (key, value, expiry) VALUES (?, ?, ?)",
+                    (key, val_str, expiry)
+                )
+        except Exception as e:
+            logger.debug("SQLiteCache set error: %s", e)
+
+    def delete(self, key: str):
+        try:
+            with self._get_connection() as conn:
+                conn.execute("DELETE FROM http_cache WHERE key = ?", (key,))
+        except Exception as e:
+            logger.debug("SQLiteCache delete error: %s", e)
+
+    def delete_pattern(self, pattern: str):
+        try:
+            prefix = pattern.replace("*", "") + "%"
+            with self._get_connection() as conn:
+                conn.execute("DELETE FROM http_cache WHERE key LIKE ?", (prefix,))
+        except Exception as e:
+            logger.debug("SQLiteCache delete_pattern error: %s", e)
+
+    def clear(self):
+        try:
+            with self._get_connection() as conn:
+                conn.execute("DELETE FROM http_cache")
+        except Exception as e:
+            logger.debug("SQLiteCache clear error: %s", e)
+
 class CacheManager:
+    """Multi-tier cache combining in-memory RAM (L1) and persistent SQLite (L2), plus Redis when present."""
     def __init__(self):
         self.redis_client = None
         self.memory_cache = MemoryCache()
+        self.sqlite_cache = SQLiteCache()
         self.is_redis_available = False
         self._init_redis()
 
@@ -88,7 +175,7 @@ class CacheManager:
         except Exception as e:
             self.is_redis_available = False
             self.redis_client = None
-            logger.info("Redis not accessible (%s). Operating with high-speed in-memory cache.", e)
+            logger.info("Redis not accessible (%s). Operating with high-speed multi-tier cache (RAM + SQLite).", e)
 
     def get(self, key: str) -> Optional[Any]:
         if not settings.CACHE_ENABLED:
@@ -100,13 +187,27 @@ class CacheManager:
                     return json.loads(data)
             except Exception as e:
                 logger.warning("Redis get failed for %s: %s", key, e)
-        return self.memory_cache.get(key)
+
+        # L1: Memory Cache hit (0.01ms)
+        val = self.memory_cache.get(key)
+        if val is not None:
+            return val
+
+        # L2: SQLite persistent cache hit (0.2ms)
+        val = self.sqlite_cache.get(key)
+        if val is not None:
+            # Promote to L1
+            self.memory_cache.set(key, val, ttl=300)
+            return val
+
+        return None
 
     def set(self, key: str, value: Any, ttl: Optional[int] = None):
         if not settings.CACHE_ENABLED:
             return
         ttl = ttl or settings.CACHE_DEFAULT_TTL
         self.memory_cache.set(key, value, ttl=ttl)
+        self.sqlite_cache.set(key, value, ttl=ttl)
         if self.is_redis_available and self.redis_client:
             try:
                 serialized = json.dumps(value, cls=CustomJSONEncoder)
@@ -116,6 +217,7 @@ class CacheManager:
 
     def delete(self, key: str):
         self.memory_cache.delete(key)
+        self.sqlite_cache.delete(key)
         if self.is_redis_available and self.redis_client:
             try:
                 self.redis_client.delete(key)
@@ -124,6 +226,7 @@ class CacheManager:
 
     def delete_pattern(self, pattern: str):
         self.memory_cache.delete_pattern(pattern)
+        self.sqlite_cache.delete_pattern(pattern)
         if self.is_redis_available and self.redis_client:
             try:
                 keys = self.redis_client.keys(pattern)

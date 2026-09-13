@@ -151,7 +151,7 @@ def enroll_course(
         "completed_at": None,
     })
     course_ref.update({"enrollment_count": Increment(1)})
-    invalidate_cache(["edubridge:enrollments*", "edubridge:courses*", "edubridge:analytics*", "edubridge:calendar*"])
+    invalidate_cache(["edubridge:enrollments*", "edubridge:courses*", "edubridge:analytics*", "edubridge:instructor*", "edubridge:calendar*"])
     return success_response(message="Enrolled successfully")
 
 

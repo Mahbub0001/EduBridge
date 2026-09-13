@@ -187,4 +187,5 @@ def grade_submission(
     })
     updated = ref.get().to_dict()
     updated["id"] = submission_id
+    invalidate_cache(["edubridge:analytics*", "edubridge:instructor*", "edubridge:assignments*"])
     return success_response(data=updated, message="Submission graded")

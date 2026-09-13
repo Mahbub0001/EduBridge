@@ -8,4 +8,54 @@
   body {
     @apply antialiased text-slate-900 bg-slate-50 font-sans;
   }
+
+  /* Dark mode: Ensure all writable text fields (input, textarea, select) have full black text when typing */
+  html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="color"]),
+  html.dark textarea,
+  html.dark select,
+  .dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="color"]),
+  .dark textarea,
+  .dark select {
+    color: #000000 !important;
+    background-color: #ffffff !important;
+    caret-color: #000000 !important;
+    border-color: #cbd5e1;
+  }
+
+  html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="color"]):focus,
+  html.dark textarea:focus,
+  html.dark select:focus,
+  .dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="color"]):focus,
+  .dark textarea:focus,
+  .dark select:focus {
+    color: #000000 !important;
+    background-color: #ffffff !important;
+    caret-color: #000000 !important;
+    border-color: #0f172a !important;
+  }
+
+  html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="color"]):disabled,
+  html.dark textarea:disabled,
+  html.dark select:disabled,
+  .dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="color"]):disabled,
+  .dark textarea:disabled,
+  .dark select:disabled {
+    color: #64748b !important;
+    background-color: #f1f5f9 !important;
+    border-color: #e2e8f0 !important;
+  }
+
+  html.dark input::placeholder,
+  html.dark textarea::placeholder,
+  .dark input::placeholder,
+  .dark textarea::placeholder {
+    color: #64748b !important;
+    opacity: 1;
+  }
+
+  html.dark select option,
+  .dark select option {
+    color: #000000 !important;
+    background-color: #ffffff !important;
+  }
 }

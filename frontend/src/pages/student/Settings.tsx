@@ -90,15 +90,15 @@ export default function Settings() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-500 dark:text-slate-400">{t('nameLabel')}</label>
-                  <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-slate-50 border border-slate-200 focus:border-slate-400 rounded-2xl px-4 py-3 text-sm outline-none dark:bg-slate-800 dark:border-slate-700 dark:text-white dark:focus:border-slate-500" />
+                  <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-slate-50 border border-slate-200 focus:border-slate-400 rounded-2xl px-4 py-3 text-sm outline-none dark:bg-white dark:border-slate-300 dark:text-black dark:focus:border-slate-500" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-500 dark:text-slate-400">Student ID</label>
-                  <input type="text" value={user?.student_id || 'STU-2024-001'} disabled className="w-full bg-slate-100 border border-slate-200 rounded-2xl px-4 py-3 text-sm text-slate-400 cursor-not-allowed dark:bg-slate-800/50 dark:border-slate-800 dark:text-slate-500" />
+                  <input type="text" value={user?.student_id || 'STU-2024-001'} disabled className="w-full bg-slate-100 border border-slate-200 rounded-2xl px-4 py-3 text-sm text-slate-400 cursor-not-allowed dark:bg-slate-100 dark:border-slate-200 dark:text-slate-400" />
                 </div>
                 <div className="md:col-span-2 space-y-1.5">
                   <label className="text-xs font-bold text-slate-500 dark:text-slate-400">{t('bioLabel')}</label>
-                  <textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={3} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm outline-none resize-none dark:bg-slate-800 dark:border-slate-700 dark:text-white dark:focus:border-slate-500" placeholder="Tell us about yourself..." />
+                  <textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={3} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm outline-none resize-none dark:bg-white dark:border-slate-300 dark:text-black dark:focus:border-slate-500" placeholder="Tell us about yourself..." />
                 </div>
               </div>
             </>
@@ -109,16 +109,16 @@ export default function Settings() {
               <h3 className="text-base font-extrabold text-navy-900 dark:text-white">{t('accountHeading')}</h3>
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-500 dark:text-slate-400">{t('emailLabel')}</label>
-                <input type="email" value={email} disabled className="w-full bg-slate-100 border border-slate-200 rounded-2xl px-4 py-3 text-sm text-slate-400 cursor-not-allowed dark:bg-slate-800/50 dark:border-slate-800 dark:text-slate-500" />
+                <input type="email" value={email} disabled className="w-full bg-slate-100 border border-slate-200 rounded-2xl px-4 py-3 text-sm text-slate-400 cursor-not-allowed dark:bg-slate-100 dark:border-slate-200 dark:text-slate-400" />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-500 dark:text-slate-400">{t('currentPasswordPlaceholder')}</label>
-                  <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm outline-none dark:bg-slate-800 dark:border-slate-700 dark:text-white dark:focus:border-slate-500" />
+                  <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm outline-none dark:bg-white dark:border-slate-300 dark:text-black dark:focus:border-slate-500" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-500 dark:text-slate-400">{t('newPasswordPlaceholder')}</label>
-                  <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm outline-none dark:bg-slate-800 dark:border-slate-700 dark:text-white dark:focus:border-slate-500" />
+                  <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm outline-none dark:bg-white dark:border-slate-300 dark:text-black dark:focus:border-slate-500" />
                 </div>
               </div>
             </>

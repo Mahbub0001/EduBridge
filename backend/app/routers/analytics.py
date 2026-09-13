@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from google.cloud.firestore_v1.client import Client
 from datetime import datetime, timezone
+from concurrent.futures import ThreadPoolExecutor
 from ..core.dependencies import get_current_user, require_instructor, require_admin
 from ..core.firebase import get_db
 from ..core.cache import cache_response
@@ -13,7 +14,7 @@ def get_analytics_root():
     return success_response(data={})
 
 @router.get("/instructor")
-@cache_response(ttl=60, prefix="analytics", is_user_scoped=True)
+@cache_response(ttl=600, prefix="analytics", is_user_scoped=True)
 def get_instructor_analytics(
     current_user: dict = Depends(require_instructor),
     db: Client = Depends(get_db)
@@ -44,7 +45,7 @@ def get_instructor_analytics(
 
 
 @router.get("/instructor/dashboard-summary")
-@cache_response(ttl=60, prefix="analytics", is_user_scoped=True)
+@cache_response(ttl=600, prefix="analytics", is_user_scoped=True)
 def get_instructor_dashboard_summary(
     current_user: dict = Depends(require_instructor),
     db: Client = Depends(get_db)
@@ -68,11 +69,21 @@ def get_instructor_dashboard_summary(
     all_enrollments = []
 
     if course_ids:
-        for chunk in [course_ids[i:i + 30] for i in range(0, len(course_ids), 30)]:
-            all_modules.extend(db.collection("modules").where("course_id", "in", chunk).stream())
-            all_quizzes.extend(db.collection("quizzes").where("course_id", "in", chunk).stream())
-            all_assignments.extend(db.collection("assignments").where("course_id", "in", chunk).stream())
-            all_enrollments.extend(db.collection("enrollments").where("course_id", "in", chunk).stream())
+        def _fetch_chunk(chunk):
+            m = list(db.collection("modules").where("course_id", "in", chunk).stream())
+            q = list(db.collection("quizzes").where("course_id", "in", chunk).stream())
+            a = list(db.collection("assignments").where("course_id", "in", chunk).stream())
+            e = list(db.collection("enrollments").where("course_id", "in", chunk).stream())
+            return m, q, a, e
+
+        chunks = [course_ids[i:i + 30] for i in range(0, len(course_ids), 30)]
+        with ThreadPoolExecutor(max_workers=min(4, len(chunks) or 1)) as executor:
+            results = list(executor.map(_fetch_chunk, chunks))
+            for m_res, q_res, a_res, e_res in results:
+                all_modules.extend(m_res)
+                all_quizzes.extend(q_res)
+                all_assignments.extend(a_res)
+                all_enrollments.extend(e_res)
 
     modules_by_course = {}
     quizzes_by_course = {}

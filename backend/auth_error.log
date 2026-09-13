@@ -265,3 +265,8 @@ Traceback (most recent call last):
   File "E:\ACADEMIC\3.2\blended\project-3\backend\.venv\Lib\site-packages\firebase_admin\_token_gen.py", line 405, in verify
     raise CertificateFetchError(str(error), cause=error) from error
 firebase_admin._token_gen.CertificateFetchError: HTTPSConnectionPool(host='www.googleapis.com', port=443): Max retries exceeded with url: /robot/v1/metadata/x509/securetoken@system.gserviceaccount.com (Caused by NameResolutionError("HTTPSConnection(host='www.googleapis.com', port=443): Failed to resolve 'www.googleapis.com' ([Errno 11001] getaddrinfo failed)"))
+InvalidIdTokenError (attempt 1): Wrong number of segments in token: b'mock_instructor_token' | Clock skew? False
+InvalidIdTokenError (attempt 1): Wrong number of segments in token: b'mock_instructor_token' | Clock skew? False
+InvalidIdTokenError (attempt 1): Wrong number of segments in token: b'mock_instructor_token' | Clock skew? False
+InvalidIdTokenError (attempt 1): Wrong number of segments in token: b'mock_instructor_token' | Clock skew? False
+InvalidIdTokenError (attempt 1): Wrong number of segments in token: b'mock_instructor_token' | Clock skew? False

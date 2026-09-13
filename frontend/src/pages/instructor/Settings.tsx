@@ -71,15 +71,15 @@ export default function InstructorSettings() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
                   <div className="space-y-1">
                     <label className="text-[10px] font-extrabold text-slate-400 dark:text-slate-550 uppercase tracking-wide">First Name</label>
-                    <input type="text" defaultValue="Demo" className="w-full border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-slate-950 dark:focus:border-teal-550 bg-slate-50/50 dark:bg-slate-800 text-slate-900 dark:text-white" />
+                    <input type="text" defaultValue="Demo" className="w-full border border-slate-200 dark:border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-slate-950 dark:focus:border-slate-950 bg-slate-50/50 dark:bg-white text-black dark:text-black" />
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-extrabold text-slate-400 dark:text-slate-550 uppercase tracking-wide">Last Name</label>
-                    <input type="text" defaultValue="Instructor" className="w-full border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-slate-950 dark:focus:border-teal-550 bg-slate-50/50 dark:bg-slate-800 text-slate-900 dark:text-white" />
+                    <input type="text" defaultValue="Instructor" className="w-full border border-slate-200 dark:border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-slate-950 dark:focus:border-slate-950 bg-slate-50/50 dark:bg-white text-black dark:text-black" />
                   </div>
                   <div className="space-y-1 sm:col-span-2">
                     <label className="text-[10px] font-extrabold text-slate-400 dark:text-slate-550 uppercase tracking-wide">Public Biography</label>
-                    <textarea rows={3} defaultValue="Dedicated educator specialized in blended learning, professional digital curriculum designs, and assessment methods." className="w-full border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-slate-950 dark:focus:border-teal-550 bg-slate-50/50 dark:bg-slate-800 text-slate-900 dark:text-white resize-none" />
+                    <textarea rows={3} defaultValue="Dedicated educator specialized in blended learning, professional digital curriculum designs, and assessment methods." className="w-full border border-slate-200 dark:border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-slate-950 dark:focus:border-slate-950 bg-slate-50/50 dark:bg-white text-black dark:text-black resize-none" />
                   </div>
                 </div>
               </div>

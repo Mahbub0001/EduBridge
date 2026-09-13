@@ -10,7 +10,21 @@ interface CacheEntry {
 }
 
 const clientCache = new Map<string, CacheEntry>();
-const CLIENT_CACHE_TTL_MS = 60000; // 60 seconds instant memory cache
+const CLIENT_CACHE_FRESH_TTL_MS = 300000; // 5 minutes fresh instant return
+const CLIENT_CACHE_STALE_TTL_MS = 1800000; // 30 minutes stale-while-revalidate window
+
+// Endpoints that use POST/PUT but do not mutate platform data or require global cache purges
+const EXEMPT_MUTATION_PATTERNS = [
+  '/auth/session',
+  '/auth/login',
+  '/auth/register',
+  '/announcements/',
+  '/read',
+  '/read-all',
+  '/publish-check',
+  '/reminder',
+  '/notes',
+];
 
 export function invalidateClientCache(pattern?: string) {
   if (!pattern) {
@@ -25,14 +39,23 @@ export function invalidateClientCache(pattern?: string) {
     } catch {}
     return;
   }
+
+  // Selective pattern invalidation in memory
   for (const key of clientCache.keys()) {
     if (key.includes(pattern)) {
       clientCache.delete(key);
-      try {
-        sessionStorage.removeItem(key);
-      } catch {}
     }
   }
+
+  // Selective pattern invalidation in sessionStorage
+  try {
+    for (let i = sessionStorage.length - 1; i >= 0; i--) {
+      const k = sessionStorage.key(i);
+      if (k && k.startsWith('edubridge:') && k.includes(pattern)) {
+        sessionStorage.removeItem(k);
+      }
+    }
+  } catch {}
 }
 
 const api = axios.create({
@@ -60,9 +83,40 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => {
     const method = response.config.method?.toLowerCase() || 'get';
+    const url = response.config.url || '';
+
     if (['post', 'put', 'patch', 'delete'].includes(method)) {
-      // Invalidate cache immediately on write mutations
-      invalidateClientCache();
+      // Check if this is an exempt read-like or session call
+      const isExempt = EXEMPT_MUTATION_PATTERNS.some((pat) => url.includes(pat));
+      if (!isExempt) {
+        // Selective invalidation by domain
+        if (url.includes('/quizzes')) {
+          invalidateClientCache('/quizzes');
+          invalidateClientCache('/instructor');
+          invalidateClientCache('/analytics');
+        } else if (url.includes('/assignments')) {
+          invalidateClientCache('/assignments');
+          invalidateClientCache('/instructor');
+          invalidateClientCache('/analytics');
+        } else if (url.includes('/courses')) {
+          invalidateClientCache('/courses');
+          invalidateClientCache('/instructor');
+          invalidateClientCache('/analytics');
+        } else if (url.includes('/enroll')) {
+          invalidateClientCache('/enroll');
+          invalidateClientCache('/courses');
+          invalidateClientCache('/instructor');
+          invalidateClientCache('/analytics');
+          invalidateClientCache('/calendar');
+        } else if (url.includes('/progress')) {
+          invalidateClientCache('/progress');
+          invalidateClientCache('/instructor');
+          invalidateClientCache('/analytics');
+        } else {
+          // General write mutation
+          invalidateClientCache();
+        }
+      }
     }
     return response;
   },
@@ -106,64 +160,81 @@ api.interceptors.response.use(
   }
 );
 
-// High-speed Instant-Cache Adapter for api.get
+// High-speed SWR (Stale-While-Revalidate) Instant-Cache Adapter for api.get
 const rawGet = api.get.bind(api);
 
 api.get = (async <T = any, R = AxiosResponse<T>, D = any>(url: string, config?: AxiosRequestConfig<D>): Promise<R> => {
   const fullUrl = `${api.defaults.baseURL || ''}${url}`;
   const cacheKey = `edubridge:${fullUrl}?${JSON.stringify(config?.params || {})}`;
+  const forceRefresh = config?.headers?.['x-force-refresh'] === 'true' || (config as any)?.forceRefresh === true;
 
-  // 1. Check in-memory cache
-  let cached = clientCache.get(cacheKey);
+  if (!forceRefresh) {
+    // 1. Check in-memory cache
+    let cached = clientCache.get(cacheKey);
 
-  // 2. Check sessionStorage if memory is empty
-  if (!cached) {
-    try {
-      const stored = sessionStorage.getItem(cacheKey);
-      if (stored) {
-        cached = JSON.parse(stored);
-        if (cached) clientCache.set(cacheKey, cached);
+    // 2. Check sessionStorage if memory is empty
+    if (!cached) {
+      try {
+        const stored = sessionStorage.getItem(cacheKey);
+        if (stored) {
+          cached = JSON.parse(stored);
+          if (cached) clientCache.set(cacheKey, cached);
+        }
+      } catch {}
+    }
+
+    if (cached) {
+      const age = Date.now() - cached.timestamp;
+
+      // Fresh cache hit: instant 0ms return
+      if (age < CLIENT_CACHE_FRESH_TTL_MS) {
+        return Promise.resolve({
+          data: cached.data,
+          status: 200,
+          statusText: 'OK (Instant Fresh Cache)',
+          headers: { 'x-cache': 'HIT-INSTANT' },
+          config: (config || {}) as any,
+        } as unknown as R);
       }
-    } catch {}
+
+      // Stale cache hit (SWR): return cached immediately to avoid spinners, revalidate silently
+      if (age < CLIENT_CACHE_STALE_TTL_MS) {
+        setTimeout(() => {
+          rawGet(url, {
+            ...config,
+            headers: {
+              ...(config?.headers || {}),
+              'If-None-Match': cached?.etag || '',
+            },
+          })
+            .then((freshRes: any) => {
+              if (freshRes?.data) {
+                const entry = {
+                  data: freshRes.data,
+                  etag: freshRes.headers?.etag || cached?.etag,
+                  timestamp: Date.now(),
+                };
+                clientCache.set(cacheKey, entry);
+                try {
+                  sessionStorage.setItem(cacheKey, JSON.stringify(entry));
+                } catch {}
+              }
+            })
+            .catch(() => {});
+        }, 0);
+
+        return Promise.resolve({
+          data: cached.data,
+          status: 200,
+          statusText: 'OK (Instant Stale Cache)',
+          headers: { 'x-cache': 'HIT-STALE' },
+          config: (config || {}) as any,
+        } as unknown as R);
+      }
+    }
   }
 
-  // 3. If cached and fresh, return immediately (0ms latency) & revalidate in background
-  if (cached && Date.now() - cached.timestamp < CLIENT_CACHE_TTL_MS) {
-    // Non-blocking background revalidation
-    setTimeout(() => {
-      rawGet(url, {
-        ...config,
-        headers: {
-          ...(config?.headers || {}),
-          'If-None-Match': cached?.etag || '',
-        },
-      })
-        .then((freshRes: any) => {
-          if (freshRes?.data) {
-            const entry = {
-              data: freshRes.data,
-              etag: freshRes.headers?.etag || cached?.etag,
-              timestamp: Date.now(),
-            };
-            clientCache.set(cacheKey, entry);
-            try {
-              sessionStorage.setItem(cacheKey, JSON.stringify(entry));
-            } catch {}
-          }
-        })
-        .catch(() => {});
-    }, 0);
-
-    return Promise.resolve({
-      data: cached.data,
-      status: 200,
-      statusText: 'OK (Instant Cache)',
-      headers: { 'x-cache': 'HIT-INSTANT' },
-      config: (config || {}) as any,
-    } as unknown as R);
-  }
-
-  // 4. If not cached, fetch over the wire and populate cache
+  // 3. If not cached or forced refresh, fetch over the wire and populate cache
   const response = await rawGet<T, R, D>(url, config);
   const etag = (response as any).headers?.['etag'];
   const entry: CacheEntry = {

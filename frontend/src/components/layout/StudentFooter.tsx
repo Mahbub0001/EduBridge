@@ -12,7 +12,6 @@ const footerLinks = {
     { label: 'Resources', to: '/student/resources' },
   ],
   Support: [
-    { label: 'Help Center', to: '/student/help' },
     { label: 'Contact', to: '/contact' },
     { label: 'FAQ', to: '/faq' },
   ],

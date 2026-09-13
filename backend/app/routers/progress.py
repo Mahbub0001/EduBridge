@@ -106,5 +106,5 @@ def mark_lesson_complete(
             update_data["final_grade"] = round(70 + pct * 0.3, 1)
         e.reference.update(update_data)
 
-    invalidate_cache(["edubridge:progress*", "edubridge:enrollments*", "edubridge:analytics*", "edubridge:courses*"])
+    invalidate_cache(["edubridge:progress*", "edubridge:enrollments*", "edubridge:analytics*", "edubridge:courses*", "edubridge:instructor*"])
     return success_response(data={"completed": True, "progress_percent": pct}, message="Lesson marked complete")

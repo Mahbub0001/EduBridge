@@ -134,6 +134,7 @@ def submit_quiz(
 
     _, doc_ref = db.collection("quiz_attempts").add(attempt_data)
     attempt_data["id"] = doc_ref.id
+    invalidate_cache(["edubridge:analytics*", "edubridge:instructor*"])
 
     return success_response(data=attempt_data, message="Quiz submitted successfully")
 

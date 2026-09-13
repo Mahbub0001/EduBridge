@@ -14,3 +14,7 @@ uploads/
 .DS_Store
 designs/
 stitch_edubridge_mooc_platform.zip
+*.db
+*.db-journal
+*.db-wal
+*.db-shm

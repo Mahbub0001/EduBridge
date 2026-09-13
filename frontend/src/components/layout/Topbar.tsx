@@ -105,14 +105,14 @@ export default function Topbar({
 
       <D className="flex items-center gap-3 md:gap-4">
         {showSearch && (
-          <D className="flex items-center bg-slate-100 rounded-full px-4 py-2 border border-transparent focus-within:border-slate-300 focus-within:bg-white transition-all w-48 lg:w-64 hidden sm:flex dark:bg-slate-800 dark:border-transparent dark:focus-within:border-slate-700 dark:focus-within:bg-slate-900">
-            <Search size={16} className="text-slate-500 shrink-0 dark:text-slate-450" />
+          <D className="flex items-center bg-slate-100 rounded-full px-4 py-2 border border-transparent focus-within:border-slate-300 focus-within:bg-white transition-all w-48 lg:w-64 hidden sm:flex dark:bg-white dark:border-slate-300">
+            <Search size={16} className="text-slate-500 shrink-0" />
             <input
               type="text"
               placeholder={t('searchPlaceholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="bg-transparent border-none outline-none w-full ml-2 text-xs text-slate-900 placeholder-slate-400 dark:text-white"
+              className="bg-transparent border-none outline-none w-full ml-2 text-xs text-black placeholder-slate-500 dark:text-black"
             />
           </D>
         )}

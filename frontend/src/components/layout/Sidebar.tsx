@@ -25,7 +25,7 @@ export interface SidebarProps {
 export default function Sidebar({
   navItems = defaultNavItems,
   onLogout,
-  helpPath = '/student/help',
+  helpPath,
   onNavigate,
   className,
 }: SidebarProps) {
@@ -89,16 +89,18 @@ export default function Sidebar({
           );
         })}
 
-        <D className="border-t border-slate-200 my-4 pt-4 dark:border-slate-800">
-          <Link
-            to={helpPath}
-            onClick={onNavigate}
-            className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
-          >
-            <HelpCircle size={18} className="text-slate-500 dark:text-slate-400" />
-            {t('helpCenter')}
-          </Link>
-        </D>
+        {helpPath && (
+          <D className="border-t border-slate-200 my-4 pt-4 dark:border-slate-800">
+            <Link
+              to={helpPath}
+              onClick={onNavigate}
+              className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
+            >
+              <HelpCircle size={18} className="text-slate-500 dark:text-slate-400" />
+              {t('helpCenter')}
+            </Link>
+          </D>
+        )}
       </D>
 
       {onLogout && (

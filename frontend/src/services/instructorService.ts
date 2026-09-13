@@ -62,16 +62,16 @@ export interface AtRiskStudent {
   enrolled_at: string;
 }
 
-export async function getInstructorDashboardSummary(): Promise<InstructorDashboardSummary> {
-  const res = await api.get('/analytics/instructor/dashboard-summary');
+export async function getInstructorDashboardSummary(config?: any): Promise<InstructorDashboardSummary> {
+  const res = await api.get('/analytics/instructor/dashboard-summary', config);
   return unwrap<InstructorDashboardSummary>(res);
 }
 
-export async function getInstructorComprehensiveAnalytics(courseId?: string, dateRange?: string): Promise<any> {
+export async function getInstructorComprehensiveAnalytics(courseId?: string, dateRange?: string, config?: any): Promise<any> {
   const params: Record<string, string> = {};
   if (courseId) params.course_id = courseId;
   if (dateRange) params.date_range = dateRange;
-  const res = await api.get('/instructor/analytics', { params });
+  const res = await api.get('/instructor/analytics', { ...config, params: { ...(config?.params || {}), ...params } });
   return unwrap<any>(res);
 }
 

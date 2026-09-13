@@ -9,7 +9,6 @@ import {
   Megaphone,
   MessageSquare,
   Settings,
-  HelpCircle,
 } from 'lucide-react';
 import Sidebar from '../components/layout/Sidebar';
 import Topbar from '../components/layout/Topbar';
@@ -29,7 +28,6 @@ const navItems = [
   { name: 'Analytics', path: '/instructor/analytics', icon: BarChart3 },
   { name: 'Students', path: '/instructor/students', icon: Users },
   { name: 'Settings', path: '/instructor/settings', icon: Settings },
-  { name: 'Help Center', path: '/instructor/help', icon: HelpCircle },
 ];
 
 
@@ -44,7 +42,6 @@ export default function InstructorLayout() {
         <Sidebar
           navItems={navItems}
           onLogout={handleLogout}
-          helpPath="/instructor/help"
         />
       </aside>
 
@@ -65,7 +62,6 @@ export default function InstructorLayout() {
           navItems={navItems}
           onLogout={handleLogout}
           onNavigate={closeDrawer}
-          helpPath="/instructor/help"
         />
       </aside>
 

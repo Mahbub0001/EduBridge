@@ -35,22 +35,35 @@ function MiniBar({ value, max, color }: { value: number; max: number; color: str
   );
 }
 
+let dashboardMemoryCache: InstructorDashboardSummary | null = null;
+
 export default function Dashboard() {
-  const [data, setData] = useState<InstructorDashboardSummary | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<InstructorDashboardSummary | null>(() => dashboardMemoryCache);
+  const [loading, setLoading] = useState(!dashboardMemoryCache);
   const [error, setError] = useState('');
   const [toastMsg, setToastMsg] = useState('');
 
-  const load = () => {
-    setLoading(true);
+  const load = (forceRefresh = false) => {
+    if (!forceRefresh && dashboardMemoryCache) {
+      setData(dashboardMemoryCache);
+      setLoading(false);
+      return;
+    }
+    if (!dashboardMemoryCache) {
+      setLoading(true);
+    }
     setError('');
-    getInstructorDashboardSummary()
-      .then(setData)
+    const config = forceRefresh ? { headers: { 'x-force-refresh': 'true' } } : undefined;
+    getInstructorDashboardSummary(config)
+      .then((res) => {
+        dashboardMemoryCache = res;
+        setData(res);
+      })
       .catch((e) => setError(e?.response?.data?.message || 'Failed to load dashboard'))
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(false); }, []);
 
   const toast = (msg: string) => {
     setToastMsg(msg);
@@ -58,10 +71,10 @@ export default function Dashboard() {
   };
 
   const handlePublish = async (id: string) => {
-    try { await publishCourse(id); toast('Course published'); load(); } catch { toast('Failed to publish'); }
+    try { await publishCourse(id); toast('Course published'); load(true); } catch { toast('Failed to publish'); }
   };
   const handleArchive = async (id: string) => {
-    try { await archiveCourse(id); toast('Course archived'); load(); } catch { toast('Failed to archive'); }
+    try { await archiveCourse(id); toast('Course archived'); load(true); } catch { toast('Failed to archive'); }
   };
 
   /* ── KPI definitions ── */
@@ -126,7 +139,7 @@ export default function Dashboard() {
       {error && (
         <Card className="flex items-center gap-3 text-red-600">
           <AlertTriangle size={20} /> <span className="text-sm font-semibold">{error}</span>
-          <Button variant="ghost" size="sm" onClick={load}>Retry</Button>
+          <Button variant="ghost" size="sm" onClick={() => load(true)}>Retry</Button>
         </Card>
       )}
 

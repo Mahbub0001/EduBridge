@@ -13,14 +13,18 @@ import {
   BarChart, Bar, PieChart, Pie, Cell
 } from 'recharts';
 
-export default function InstructorAnalytics() {
-  const [courses, setCourses] = useState<any[]>([]);
-  const [analyticsData, setAnalyticsData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+// High-performance client-side cache that survives page switches & re-mounts
+const analyticsMemoryCache: Record<string, any> = {};
+let cachedCourses: any[] = [];
 
-  // Filters
+export default function InstructorAnalytics() {
   const [selectedCourseId, setSelectedCourseId] = useState<string>('');
   const [selectedDateRange, setSelectedDateRange] = useState<string>('all');
+
+  const defaultKey = `${selectedCourseId || 'all'}_${selectedDateRange || 'all'}`;
+  const [courses, setCourses] = useState<any[]>(() => cachedCourses);
+  const [analyticsData, setAnalyticsData] = useState<any>(() => analyticsMemoryCache[defaultKey] || null);
+  const [loading, setLoading] = useState(!analyticsMemoryCache[defaultKey]);
 
   // Actions states
   const [toastMsg, setToastMsg] = useState('');
@@ -33,15 +37,36 @@ export default function InstructorAnalytics() {
     setTimeout(() => setToastMsg(''), 3000);
   };
 
-  const loadData = async (courseId?: string, dateRange?: string) => {
-    setLoading(true);
+  // Fetch courses once on mount
+  useEffect(() => {
+    if (cachedCourses.length > 0) return;
+    getMyInstructorCourses()
+      .then((cList) => {
+        const list = cList || [];
+        cachedCourses = list;
+        setCourses(list);
+      })
+      .catch(() => setCourses([]));
+  }, []);
+
+  const loadData = async (courseId?: string, dateRange?: string, forceRefresh = false) => {
+    const cacheKey = `${courseId || 'all'}_${dateRange || 'all'}`;
+
+    // Instant zero-latency render from client memory if already loaded
+    if (!forceRefresh && analyticsMemoryCache[cacheKey]) {
+      setAnalyticsData(analyticsMemoryCache[cacheKey]);
+      setLoading(false);
+      return;
+    }
+
+    if (!analyticsMemoryCache[cacheKey]) {
+      setLoading(true);
+    }
     try {
-      const [cList, analyticRes] = await Promise.all([
-        getMyInstructorCourses().catch(() => []),
-        getInstructorComprehensiveAnalytics(courseId, dateRange).catch(() => null)
-      ]);
-      setCourses(cList);
+      const config = forceRefresh ? { headers: { 'x-force-refresh': 'true' } } : undefined;
+      const analyticRes = await getInstructorComprehensiveAnalytics(courseId, dateRange, config).catch(() => null);
       if (analyticRes) {
+        analyticsMemoryCache[cacheKey] = analyticRes;
         setAnalyticsData(analyticRes);
       }
     } catch {
@@ -52,7 +77,7 @@ export default function InstructorAnalytics() {
   };
 
   useEffect(() => {
-    loadData(selectedCourseId, selectedDateRange);
+    loadData(selectedCourseId, selectedDateRange, false);
   }, [selectedCourseId, selectedDateRange]);
 
   const handleSendReminder = (studentName: string) => {
@@ -114,7 +139,7 @@ export default function InstructorAnalytics() {
             </select>
           </div>
 
-          <Button variant="ghost" size="sm" className="!p-2 hover:bg-slate-50 text-slate-700" onClick={() => loadData(selectedCourseId, selectedDateRange)}>
+          <Button variant="ghost" size="sm" className="!p-2 hover:bg-slate-50 text-slate-700" onClick={() => loadData(selectedCourseId, selectedDateRange, true)}>
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
           </Button>
         </div>
@@ -212,17 +237,23 @@ export default function InstructorAnalytics() {
                 <Award size={14} className="text-slate-500" />
                 <h3 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider">Assessment Scores Average</h3>
               </div>
-              <div className="h-56">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={analyticsData.quiz_performance} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis type="number" domain={[0, 100]} stroke="#94a3b8" fontSize={9} fontWeight="bold" />
-                    <YAxis dataKey="quiz_title" type="category" stroke="#94a3b8" fontSize={8} fontWeight="bold" width={80} />
-                    <Tooltip contentStyle={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 11, fontWeight: 'bold' }} />
-                    <Bar dataKey="average_score" fill="#0f172a" radius={[0, 4, 4, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+              {analyticsData.quiz_performance && analyticsData.quiz_performance.length > 0 ? (
+                <div className="h-56">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={analyticsData.quiz_performance} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                      <XAxis type="number" domain={[0, 100]} stroke="#94a3b8" fontSize={9} fontWeight="bold" />
+                      <YAxis dataKey="quiz_title" type="category" stroke="#94a3b8" fontSize={8} fontWeight="bold" width={80} />
+                      <Tooltip contentStyle={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 11, fontWeight: 'bold' }} />
+                      <Bar dataKey="average_score" fill="#0f172a" radius={[0, 4, 4, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="h-56 flex items-center justify-center text-xs text-slate-400 font-medium">
+                  No assessments created yet
+                </div>
+              )}
             </Card>
 
             {/* Assignment Status breakdown */}
@@ -231,26 +262,32 @@ export default function InstructorAnalytics() {
                 <PieIcon size={14} className="text-slate-500" />
                 <h3 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider">Submission Evaluations</h3>
               </div>
-              <div className="h-44 flex items-center justify-center">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={analyticsData.assignment_status}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={50}
-                      outerRadius={70}
-                      paddingAngle={3}
-                      dataKey="value"
-                    >
-                      {analyticsData.assignment_status.map((_: any, index: number) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip contentStyle={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 11, fontWeight: 'bold' }} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
+              {analyticsData.assignment_status && analyticsData.assignment_status.some((s: any) => s.value > 0) ? (
+                <div className="h-44 flex items-center justify-center">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={analyticsData.assignment_status}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={50}
+                        outerRadius={70}
+                        paddingAngle={3}
+                        dataKey="value"
+                      >
+                        {analyticsData.assignment_status.map((_: any, index: number) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip contentStyle={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 11, fontWeight: 'bold' }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="h-44 flex flex-col items-center justify-center text-xs text-slate-400 font-medium text-center p-4">
+                  <span>No assignment submissions yet</span>
+                </div>
+              )}
               {/* Custom Legend */}
               <div className="flex flex-wrap justify-center gap-3 text-[10px] font-extrabold uppercase text-slate-500">
                 {analyticsData.assignment_status.map((item: any, idx: number) => (
@@ -268,22 +305,32 @@ export default function InstructorAnalytics() {
                 <ListTodo size={14} className="text-slate-500" />
                 <h3 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider">Module Completion Progress</h3>
               </div>
-              <div className="space-y-3.5 max-h-[220px] overflow-y-auto pr-1">
-                {analyticsData.module_completion.map((m: any, idx: number) => (
-                  <div key={idx} className="space-y-1">
-                    <div className="flex justify-between items-center text-[10px] font-bold text-slate-700">
-                      <span className="line-clamp-1 pr-4">{m.module_title}</span>
-                      <span className="text-slate-900 font-extrabold">{m.completions} completed</span>
-                    </div>
-                    <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                      <div
-                        className="bg-slate-900 h-full rounded-full transition-all"
-                        style={{ width: `${Math.min((m.completions / (analyticsData.summary.total_students || 10)) * 100, 100)}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
+              {analyticsData.module_completion && analyticsData.module_completion.length > 0 ? (
+                <div className="space-y-3.5 max-h-[220px] overflow-y-auto pr-1">
+                  {analyticsData.module_completion.map((m: any, idx: number) => {
+                    const total = analyticsData.summary.total_students || 1;
+                    const pct = analyticsData.summary.total_students > 0 ? Math.min((m.completions / total) * 100, 100) : 0;
+                    return (
+                      <div key={idx} className="space-y-1">
+                        <div className="flex justify-between items-center text-[10px] font-bold text-slate-700">
+                          <span className="line-clamp-1 pr-4">{m.module_title}</span>
+                          <span className="text-slate-900 font-extrabold">{m.completions} completed</span>
+                        </div>
+                        <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                          <div
+                            className="bg-slate-900 h-full rounded-full transition-all"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="h-44 flex items-center justify-center text-xs text-slate-400 font-medium">
+                  No modules created yet
+                </div>
+              )}
             </Card>
 
           </div>
@@ -308,24 +355,32 @@ export default function InstructorAnalytics() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-xs font-semibold text-slate-700">
-                    {analyticsData.top_students.map((ts: any, idx: number) => (
-                      <tr key={idx} className="hover:bg-slate-50/60 transition-colors">
-                        <td className="py-3.5 px-4">
-                          <div className="font-black text-slate-900 leading-none">{ts.student_name}</div>
-                          <span className="text-[9px] text-slate-400 font-mono mt-0.5 block">{ts.course_title}</span>
-                        </td>
-                        <td className="py-3.5 px-3">
-                          <div className="flex items-center gap-1.5">
-                            <div className="w-10 bg-slate-100 h-1 rounded-full overflow-hidden">
-                              <div className="bg-emerald-500 h-full" style={{ width: `${ts.progress}%` }} />
+                    {analyticsData.top_students && analyticsData.top_students.length > 0 ? (
+                      analyticsData.top_students.map((ts: any, idx: number) => (
+                        <tr key={idx} className="hover:bg-slate-50/60 transition-colors">
+                          <td className="py-3.5 px-4">
+                            <div className="font-black text-slate-900 leading-none">{ts.student_name}</div>
+                            <span className="text-[9px] text-slate-400 font-mono mt-0.5 block">{ts.course_title}</span>
+                          </td>
+                          <td className="py-3.5 px-3">
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-10 bg-slate-100 h-1 rounded-full overflow-hidden">
+                                <div className="bg-emerald-500 h-full" style={{ width: `${ts.progress}%` }} />
+                              </div>
+                              <span>{ts.progress}%</span>
                             </div>
-                            <span>{ts.progress}%</span>
-                          </div>
+                          </td>
+                          <td className="py-3.5 px-3 text-slate-900 font-bold">{ts.avg_quiz}%</td>
+                          <td className="py-3.5 px-4 text-right text-slate-900 font-bold">{ts.assignment_grade}%</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={4} className="py-8 text-center text-xs text-slate-400 font-medium">
+                          No students qualified for high-performing cohort yet (progress &ge; 50%)
                         </td>
-                        <td className="py-3.5 px-3 text-slate-900 font-bold">{ts.avg_quiz}%</td>
-                        <td className="py-3.5 px-4 text-right text-slate-900 font-bold">{ts.assignment_grade}%</td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -348,35 +403,43 @@ export default function InstructorAnalytics() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-xs font-semibold text-slate-700">
-                    {analyticsData.at_risk_students.map((ar: any, idx: number) => (
-                      <tr key={idx} className="hover:bg-slate-50/60 transition-colors">
-                        <td className="py-3.5 px-4">
-                          <div className="font-black text-slate-900 leading-none">{ar.student_name}</div>
-                          <span className="text-[9px] text-slate-400 font-mono mt-0.5 block">{ar.course_title}</span>
-                        </td>
-                        <td className="py-3.5 px-3 text-red-500 font-bold">{ar.last_active}</td>
-                        <td className="py-3.5 px-3">
-                          <div className="flex items-center gap-1.5">
-                            <div className="w-10 bg-slate-100 h-1 rounded-full overflow-hidden">
-                              <div className="bg-red-500 h-full" style={{ width: `${ar.progress}%` }} />
+                    {analyticsData.at_risk_students && analyticsData.at_risk_students.length > 0 ? (
+                      analyticsData.at_risk_students.map((ar: any, idx: number) => (
+                        <tr key={idx} className="hover:bg-slate-50/60 transition-colors">
+                          <td className="py-3.5 px-4">
+                            <div className="font-black text-slate-900 leading-none">{ar.student_name}</div>
+                            <span className="text-[9px] text-slate-400 font-mono mt-0.5 block">{ar.course_title}</span>
+                          </td>
+                          <td className="py-3.5 px-3 text-red-500 font-bold">{ar.last_active}</td>
+                          <td className="py-3.5 px-3">
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-10 bg-slate-100 h-1 rounded-full overflow-hidden">
+                                <div className="bg-red-500 h-full" style={{ width: `${ar.progress}%` }} />
+                              </div>
+                              <span>{ar.progress}%</span>
                             </div>
-                            <span>{ar.progress}%</span>
-                          </div>
-                        </td>
-                        <td className="py-3.5 px-4 text-right">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-slate-900 hover:bg-slate-100 !px-2.5 !py-1 text-[10px]"
-                            onClick={() => handleSendReminder(ar.student_name)}
-                            disabled={remindingStudentId === ar.student_name}
-                          >
-                            <Send size={10} className="mr-1" />
-                            <span>{remindingStudentId === ar.student_name ? 'Sending...' : 'Remind'}</span>
-                          </Button>
+                          </td>
+                          <td className="py-3.5 px-4 text-right">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-slate-900 hover:bg-slate-100 !px-2.5 !py-1 text-[10px]"
+                              onClick={() => handleSendReminder(ar.student_name)}
+                              disabled={remindingStudentId === ar.student_name}
+                            >
+                              <Send size={10} className="mr-1" />
+                              <span>{remindingStudentId === ar.student_name ? 'Sending...' : 'Remind'}</span>
+                            </Button>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={4} className="py-8 text-center text-xs text-slate-400 font-medium">
+                          No at-risk students identified currently
                         </td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </div>
