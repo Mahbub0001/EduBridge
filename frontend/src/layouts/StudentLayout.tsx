@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import {
   Home,
@@ -7,26 +7,84 @@ import {
   Folder,
   ClipboardList,
   Settings,
+  Megaphone,
 } from 'lucide-react';
-import Sidebar from '../components/layout/Sidebar';
+import Sidebar, { type NavItem } from '../components/layout/Sidebar';
 import Topbar from '../components/layout/Topbar';
-import StudentFooter from '../components/layout/StudentFooter';
 import { useLogout } from '../hooks/useLogout';
 import { cn } from '../lib/utils';
-
-const navItems = [
-  { name: 'Dashboard', path: '/student/dashboard', icon: Home },
-    { name: 'My Courses', path: '/student/my-courses', icon: BookOpen },
-  { name: 'Calendar', path: '/student/calendar', icon: Calendar },
-  { name: 'Resources', path: '/student/resources', icon: Folder },
-  { name: 'Assignments', path: '/student/assignments', icon: ClipboardList },
-  { name: 'Settings', path: '/student/settings', icon: Settings },
-];
+import { getStudentUnreadAnnouncementCount } from '../services/announcementService';
+import {
+  getNotifications,
+  markAsRead as markNotifRead,
+  markAllNotificationsRead
+} from '../services/notificationService';
+import type { Notification } from '../types';
 
 export default function StudentLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [unreadAnnouncements, setUnreadAnnouncements] = useState<number>(0);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const location = useLocation();
   const handleLogout = useLogout();
+
+  const refreshUnreadCounts = useCallback(() => {
+    getStudentUnreadAnnouncementCount()
+      .then((count) => setUnreadAnnouncements(count || 0))
+      .catch(() => {});
+    getNotifications()
+      .then((notifs) => setNotifications(notifs || []))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    refreshUnreadCounts();
+
+    const handleUpdate = () => refreshUnreadCounts();
+    window.addEventListener('announcements-updated', handleUpdate);
+    window.addEventListener('focus', handleUpdate);
+
+    return () => {
+      window.removeEventListener('announcements-updated', handleUpdate);
+      window.removeEventListener('focus', handleUpdate);
+    };
+  }, [refreshUnreadCounts]);
+
+  // Refresh counts on route change
+  useEffect(() => {
+    refreshUnreadCounts();
+  }, [location.pathname, refreshUnreadCounts]);
+
+  const handleMarkNotifRead = async (id: string) => {
+    try {
+      await markNotifRead(id);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+      );
+    } catch {}
+  };
+
+  const handleMarkAllNotifRead = async () => {
+    try {
+      await markAllNotificationsRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    } catch {}
+  };
+
+  const navItems: NavItem[] = [
+    { name: 'Dashboard', path: '/student/dashboard', icon: Home },
+    { name: 'My Courses', path: '/student/my-courses', icon: BookOpen },
+    {
+      name: 'Announcements',
+      path: '/student/announcements',
+      icon: Megaphone,
+      badge: unreadAnnouncements,
+    },
+    { name: 'Calendar', path: '/student/calendar', icon: Calendar },
+    { name: 'Resources', path: '/student/resources', icon: Folder },
+    { name: 'Assignments', path: '/student/assignments', icon: ClipboardList },
+    { name: 'Settings', path: '/student/settings', icon: Settings },
+  ];
 
   const centerLinks = [
     {
@@ -38,6 +96,11 @@ export default function StudentLayout() {
       label: 'Courses',
       to: '/student/my-courses',
       active: location.pathname.includes('/student/my-courses') || location.pathname.includes('/student/courses'),
+    },
+    {
+      label: 'Announcements',
+      to: '/student/announcements',
+      active: location.pathname.includes('/student/announcements'),
     },
   ];
 
@@ -75,13 +138,15 @@ export default function StudentLayout() {
           onMenuClick={() => setDrawerOpen(true)}
           centerLinks={centerLinks}
           settingsPath="/student/settings"
+          notifications={notifications}
+          onMarkNotificationRead={handleMarkNotifRead}
+          onMarkAllNotificationsRead={handleMarkAllNotifRead}
         />
 
         <main className="flex flex-1 flex-col overflow-y-auto">
           <div className="mx-auto w-full max-w-7xl flex-1 space-y-8 p-6 md:p-8">
             <Outlet />
           </div>
-          <StudentFooter />
         </main>
       </div>
     </div>

@@ -29,3 +29,39 @@ export async function getStudentCourseAnnouncements(courseId: string): Promise<a
   return unwrap<any[]>(res);
 }
 
+export interface StudentAnnouncementsPayload {
+  announcements: any[];
+  unread_count: number;
+  enrolled_courses: Array<{ id: string; title: string }>;
+}
+
+export async function getStudentAnnouncements(params?: {
+  courseId?: string;
+  moduleId?: string;
+  unreadOnly?: boolean;
+}): Promise<StudentAnnouncementsPayload> {
+  const res = await api.get('/announcements/student', {
+    params: {
+      course_id: params?.courseId || undefined,
+      module_id: params?.moduleId || undefined,
+      unread_only: params?.unreadOnly ? true : undefined,
+    },
+  });
+  return unwrap<StudentAnnouncementsPayload>(res);
+}
+
+export async function getStudentUnreadAnnouncementCount(): Promise<number> {
+  const res = await api.get('/announcements/student/unread-count');
+  const data = unwrap<{ unread_count: number }>(res);
+  return data?.unread_count ?? 0;
+}
+
+export async function markAnnouncementAsRead(announcementId: string): Promise<void> {
+  await api.post(`/announcements/${announcementId}/read`);
+}
+
+export async function markAllAnnouncementsAsRead(): Promise<void> {
+  await api.post('/announcements/student/read-all');
+}
+
+

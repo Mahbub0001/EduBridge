@@ -26,6 +26,7 @@ import Assignments from './pages/student/Assignments';
 import Settings from './pages/student/Settings';
 import Discussions from './pages/student/Discussions';
 import Certificates from './pages/student/Certificates';
+import StudentAnnouncements from './pages/student/Announcements';
 
 import InstructorDashboard from './pages/instructor/Dashboard';
 import InstructorCourses from './pages/instructor/Courses';
@@ -131,6 +132,7 @@ function App() {
             <Route path="learning/:courseId" element={<CourseLearning />} />
             <Route path="calendar" element={<Calendar />} />
             <Route path="resources" element={<Resources />} />
+            <Route path="announcements" element={<StudentAnnouncements />} />
             <Route path="assignments" element={<Assignments />} />
             <Route path="discussions" element={<Discussions />} />
             <Route path="certificates" element={<Certificates />} />

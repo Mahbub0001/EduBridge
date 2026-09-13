@@ -186,6 +186,21 @@ export default function Calendar() {
     });
   }, [selectedDate]);
 
+  const getEventDateKey = (dateVal?: string): string => {
+  if (!dateVal) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateVal)) return dateVal;
+  try {
+    const d = new Date(dateVal);
+    if (!isNaN(d.getTime())) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
+  } catch {}
+  return dateVal.slice(0, 10);
+};
+
   // Filter Events
   const filteredEvents = useMemo(() => {
     return events.filter((e) => {
@@ -196,8 +211,14 @@ export default function Calendar() {
     });
   }, [events, filterType]);
 
+  const monthPrefix = `${year}-${String(month + 1).padStart(2, '0')}`;
+
   const getEventsForDateStr = (dateStr: string) => {
-    return filteredEvents.filter((e) => e.date && e.date.startsWith(dateStr));
+    return filteredEvents.filter((e) => getEventDateKey(e.date) === dateStr);
+  };
+
+  const getAllEventsForDateStr = (dateStr: string) => {
+    return events.filter((e) => getEventDateKey(e.date) === dateStr);
   };
 
   const eventsForDay = (day: number) => {
@@ -205,14 +226,56 @@ export default function Calendar() {
     return getEventsForDateStr(ds);
   };
 
+  const allEventsForDay = (day: number) => {
+    const ds = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    return getAllEventsForDateStr(ds);
+  };
+
   const selectedDateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
-  const selectedDayEvents = getEventsForDateStr(selectedDateStr);
+  const selectedDayFilteredEvents = getEventsForDateStr(selectedDateStr);
+  const selectedDayAllEvents = getAllEventsForDateStr(selectedDateStr);
+  const displayDayEvents = selectedDayFilteredEvents.length > 0 ? selectedDayFilteredEvents : selectedDayAllEvents;
+
+  // Events in current viewed month matching active filter
+  const currentMonthFilteredEvents = useMemo(() => {
+    return filteredEvents.filter((e) => getEventDateKey(e.date).startsWith(monthPrefix));
+  }, [filteredEvents, monthPrefix]);
+
+  // Events in other months matching active filter
+  const otherMonthsFilteredEvents = useMemo(() => {
+    return filteredEvents.filter((e) => !getEventDateKey(e.date).startsWith(monthPrefix));
+  }, [filteredEvents, monthPrefix]);
+
+  // Months containing events across all data
+  const monthsWithEvents = useMemo(() => {
+    const map = new Map<string, { year: number; month: number; label: string; count: number }>();
+    events.forEach((e) => {
+      const dKey = getEventDateKey(e.date);
+      if (dKey) {
+        const [yStr, mStr] = dKey.split('-');
+        const y = parseInt(yStr, 10);
+        const m = parseInt(mStr, 10) - 1;
+        if (!isNaN(y) && !isNaN(m)) {
+          const key = `${y}-${m}`;
+          const existing = map.get(key);
+          const tempDate = new Date(y, m, 1);
+          const label = tempDate.toLocaleDateString(language === 'bn' ? 'bn-BD' : 'en', { month: 'short', year: 'numeric' });
+          if (existing) {
+            existing.count += 1;
+          } else {
+            map.set(key, { year: y, month: m, label, count: 1 });
+          }
+        }
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => (a.year !== b.year ? a.year - b.year : a.month - b.month));
+  }, [events, language]);
 
   const upcomingList = useMemo(() => {
     return [...filteredEvents]
       .filter((e) => e.date)
-      .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
-      .slice(0, 8);
+      .sort((a, b) => (getEventDateKey(a.date) || '').localeCompare(getEventDateKey(b.date) || ''))
+      .slice(0, 10);
   }, [filteredEvents]);
 
   // Navigation handlers
@@ -327,93 +390,128 @@ export default function Calendar() {
       />
 
       {/* Control Bar: View Switcher, Month Navigation & Focus Mode */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-xs">
-        {/* Month Navigator */}
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={prevMonth}
-            className="w-9 h-9 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-center hover:bg-slate-100 dark:bg-slate-800 dark:border-slate-700 dark:hover:bg-slate-700 transition-colors"
-          >
-            <ChevronLeft size={18} className="text-slate-600 dark:text-slate-300" />
-          </button>
-          <span className="text-base font-extrabold text-navy-900 dark:text-white px-3 min-w-[150px] text-center tracking-tight">
-            {monthLabel}
-          </span>
-          <button
-            type="button"
-            onClick={nextMonth}
-            className="w-9 h-9 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-center hover:bg-slate-100 dark:bg-slate-800 dark:border-slate-700 dark:hover:bg-slate-700 transition-colors"
-          >
-            <ChevronRight size={18} className="text-slate-600 dark:text-slate-300" />
-          </button>
-          <button
-            type="button"
-            onClick={goToToday}
-            className="text-xs font-bold px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 ml-1"
-          >
-            Today
-          </button>
-        </div>
-
-        {/* View Switcher & Focus Mode Toggle */}
-        <div className="flex items-center gap-2">
-          <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200/60 dark:border-slate-700/60">
+      <div className="flex flex-col gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-xs">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+          {/* Month Navigator */}
+          <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setViewMode('month')}
-              className={cn(
-                'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all',
-                viewMode === 'month'
-                  ? 'bg-white dark:bg-slate-900 text-navy-900 dark:text-white shadow-xs'
-                  : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
-              )}
+              onClick={prevMonth}
+              className="w-9 h-9 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-center hover:bg-slate-100 dark:bg-slate-800 dark:border-slate-700 dark:hover:bg-slate-700 transition-colors"
             >
-              <LayoutGrid size={13} />
-              Month
+              <ChevronLeft size={18} className="text-slate-600 dark:text-slate-300" />
+            </button>
+            <span className="text-base font-extrabold text-navy-900 dark:text-white px-3 min-w-[150px] text-center tracking-tight">
+              {monthLabel}
+            </span>
+            <button
+              type="button"
+              onClick={nextMonth}
+              className="w-9 h-9 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-center hover:bg-slate-100 dark:bg-slate-800 dark:border-slate-700 dark:hover:bg-slate-700 transition-colors"
+            >
+              <ChevronRight size={18} className="text-slate-600 dark:text-slate-300" />
             </button>
             <button
               type="button"
-              onClick={() => setViewMode('week')}
-              className={cn(
-                'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all',
-                viewMode === 'week'
-                  ? 'bg-white dark:bg-slate-900 text-navy-900 dark:text-white shadow-xs'
-                  : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
-              )}
+              onClick={goToToday}
+              className="text-xs font-bold px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 ml-1"
             >
-              <CalendarRange size={13} />
-              Week
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('agenda')}
-              className={cn(
-                'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all',
-                viewMode === 'agenda'
-                  ? 'bg-white dark:bg-slate-900 text-navy-900 dark:text-white shadow-xs'
-                  : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
-              )}
-            >
-              <ListFilter size={13} />
-              Agenda
+              Today
             </button>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setFocusMode(!focusMode)}
-            className={cn(
-              'flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all border',
-              focusMode
-                ? 'bg-teal-600 text-white border-teal-600 shadow-sm'
-                : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
-            )}
-          >
-            <Sparkles size={14} className={focusMode ? 'text-amber-300' : 'text-teal-600'} />
-            Focus Timer
-          </button>
+          {/* View Switcher & Focus Mode Toggle */}
+          <div className="flex items-center gap-2">
+            <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200/60 dark:border-slate-700/60">
+              <button
+                type="button"
+                onClick={() => setViewMode('month')}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all',
+                  viewMode === 'month'
+                    ? 'bg-white dark:bg-slate-900 text-navy-900 dark:text-white shadow-xs'
+                    : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                )}
+              >
+                <LayoutGrid size={13} />
+                Month
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('week')}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all',
+                  viewMode === 'week'
+                    ? 'bg-white dark:bg-slate-900 text-navy-900 dark:text-white shadow-xs'
+                    : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                )}
+              >
+                <CalendarRange size={13} />
+                Week
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('agenda')}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all',
+                  viewMode === 'agenda'
+                    ? 'bg-white dark:bg-slate-900 text-navy-900 dark:text-white shadow-xs'
+                    : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                )}
+              >
+                <ListFilter size={13} />
+                Agenda
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setFocusMode(!focusMode)}
+              className={cn(
+                'flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all border',
+                focusMode
+                  ? 'bg-teal-600 text-white border-teal-600 shadow-sm'
+                  : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
+              )}
+            >
+              <Sparkles size={14} className={focusMode ? 'text-amber-300' : 'text-teal-600'} />
+              Focus Timer
+            </button>
+          </div>
         </div>
+
+        {/* Quick Month Jumps for Months with Events */}
+        {monthsWithEvents.length > 0 && (
+          <div className="flex items-center gap-1.5 overflow-x-auto pt-2.5 border-t border-slate-100 dark:border-slate-800 text-xs">
+            <span className="text-[11px] font-bold text-slate-400 shrink-0 mr-1 flex items-center gap-1">
+              <CalIcon size={12} className="text-teal-600" /> Milestone Months:
+            </span>
+            {monthsWithEvents.map((m) => {
+              const isViewing = m.year === year && m.month === month;
+              return (
+                <button
+                  key={`${m.year}-${m.month}`}
+                  type="button"
+                  onClick={() => {
+                    setCurrent(new Date(m.year, m.month, 1));
+                    setSelectedDate(new Date(m.year, m.month, 1));
+                  }}
+                  className={cn(
+                    'px-2.5 py-1 rounded-xl font-bold text-[11px] transition-all shrink-0 flex items-center gap-1.5 border',
+                    isViewing
+                      ? 'bg-teal-600 text-white border-teal-600 shadow-xs'
+                      : 'bg-slate-50 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 border-slate-200/70 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
+                  )}
+                >
+                  <span>{m.label}</span>
+                  <span className={cn('text-[10px] px-1.5 py-0.2 rounded-full font-extrabold', isViewing ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300')}>
+                    {m.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Pomodoro Focus Timer Panel */}
@@ -527,6 +625,56 @@ export default function Calendar() {
         ))}
       </div>
 
+      {/* Other Months Milestones Notice / Quick Jump */}
+      {filterType !== 'all' && currentMonthFilteredEvents.length === 0 && otherMonthsFilteredEvents.length > 0 && (
+        <div className="bg-amber-50/90 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-amber-900 dark:text-amber-200 shadow-xs animate-in fade-in duration-200">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 mt-0.5 sm:mt-0">
+              <AlertCircle size={18} />
+            </div>
+            <div className="text-xs space-y-0.5">
+              <p className="font-bold text-sm text-navy-900 dark:text-amber-100">
+                0 {filterType === 'quiz' ? 'Quizzes' : filterType === 'assignment' ? 'Assignments' : 'Tasks'} in {monthLabel}
+              </p>
+              <p className="text-slate-600 dark:text-slate-300">
+                You have {otherMonthsFilteredEvents.length} {filterType === 'quiz' ? 'quiz(zes)' : filterType === 'assignment' ? 'assignment(s)' : 'task(s)'} scheduled in other months:{' '}
+                <span className="font-semibold text-navy-900 dark:text-white">
+                  {otherMonthsFilteredEvents.map((e) => `${e.title} (${new Date(e.date).toLocaleDateString(language === 'bn' ? 'bn-BD' : 'en', { month: 'short', year: 'numeric' })})`).join(', ')}
+                </span>
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+            {otherMonthsFilteredEvents.slice(0, 2).map((e) => {
+              const eDate = new Date(e.date);
+              return (
+                <Button
+                  key={e.id}
+                  variant="primary"
+                  size="sm"
+                  onClick={() => {
+                    setCurrent(new Date(eDate.getFullYear(), eDate.getMonth(), 1));
+                    setSelectedDate(eDate);
+                  }}
+                  className="rounded-xl text-xs font-bold gap-1 !bg-amber-600 hover:!bg-amber-700 text-white shadow-xs"
+                >
+                  <CalendarRange size={13} />
+                  Jump to {eDate.toLocaleDateString(language === 'bn' ? 'bn-BD' : 'en', { month: 'short', year: 'numeric' })}
+                </Button>
+              );
+            })}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setViewMode('agenda')}
+              className="rounded-xl text-xs font-bold border-amber-300 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/30"
+            >
+              View Agenda
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Main Calendar View & Details Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left 2 Cols: Month / Week / Agenda View */}
@@ -548,6 +696,7 @@ export default function Calendar() {
                   }
 
                   const dayEv = eventsForDay(day);
+                  const dayAllEv = allEventsForDay(day);
                   const isToday = day === todayDay;
                   const isSelected = selectedDate.getFullYear() === year && selectedDate.getMonth() === month && selectedDate.getDate() === day;
 
@@ -582,7 +731,7 @@ export default function Calendar() {
                       </div>
 
                       {/* Event Count & Badges */}
-                      {dayEv.length > 0 && (
+                      {dayEv.length > 0 ? (
                         <div className="space-y-1">
                           <div className="flex flex-wrap gap-1">
                             {dayEv.slice(0, 3).map((e) => (
@@ -610,7 +759,23 @@ export default function Calendar() {
                             </span>
                           </div>
                         </div>
-                      )}
+                      ) : dayAllEv.length > 0 ? (
+                        <div className="space-y-1 opacity-45">
+                          <div className="flex flex-wrap gap-1">
+                            {dayAllEv.slice(0, 3).map((e) => (
+                              <span
+                                key={e.id}
+                                className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-slate-500"
+                              />
+                            ))}
+                          </div>
+                          <div className="hidden sm:block">
+                            <span className="text-[9px] font-medium block truncate px-1.5 py-0.5 rounded-md bg-slate-100/80 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400">
+                              {dayAllEv[0].title}
+                            </span>
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
                   );
                 })}
@@ -651,24 +816,36 @@ export default function Calendar() {
                       </div>
 
                       <div className="flex-1 space-y-2 overflow-y-auto">
-                        {dayEvents.map((ev) => (
-                          <div
-                            key={ev.id}
-                            className={cn(
-                              'p-2 rounded-xl text-left text-[11px] border',
-                              ev.completed
-                                ? 'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-300'
-                                : ev.type === 'assignment'
-                                ? 'bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950/30 dark:border-rose-800 dark:text-rose-300'
-                                : ev.type === 'quiz'
-                                ? 'bg-purple-50 border-purple-200 text-purple-800 dark:bg-purple-950/30 dark:border-purple-800 dark:text-purple-300'
-                                : 'bg-teal-50 border-teal-200 text-teal-800 dark:bg-teal-950/30 dark:border-teal-800 dark:text-teal-300'
-                            )}
-                          >
-                            <span className="font-bold block truncate">{ev.title}</span>
-                            <span className="text-[9px] text-slate-500 dark:text-slate-400 block mt-0.5">{ev.time || '11:59 PM'}</span>
-                          </div>
-                        ))}
+                        {dayEvents.length > 0 ? (
+                          dayEvents.map((ev) => (
+                            <div
+                              key={ev.id}
+                              className={cn(
+                                'p-2 rounded-xl text-left text-[11px] border',
+                                ev.completed
+                                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-300'
+                                  : ev.type === 'assignment'
+                                  ? 'bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950/30 dark:border-rose-800 dark:text-rose-300'
+                                  : ev.type === 'quiz'
+                                  ? 'bg-purple-50 border-purple-200 text-purple-800 dark:bg-purple-950/30 dark:border-purple-800 dark:text-purple-300'
+                                  : 'bg-teal-50 border-teal-200 text-teal-800 dark:bg-teal-950/30 dark:border-teal-800 dark:text-teal-300'
+                              )}
+                            >
+                              <span className="font-bold block truncate">{ev.title}</span>
+                              <span className="text-[9px] text-slate-500 dark:text-slate-400 block mt-0.5">{ev.time || '11:59 PM'}</span>
+                            </div>
+                          ))
+                        ) : getAllEventsForDateStr(ds).length > 0 ? (
+                          getAllEventsForDateStr(ds).map((ev) => (
+                            <div
+                              key={ev.id}
+                              className="p-2 rounded-xl text-left text-[11px] border border-slate-200/60 dark:border-slate-800/80 bg-slate-50/70 dark:bg-slate-800/40 text-slate-400 dark:text-slate-500 opacity-60"
+                            >
+                              <span className="font-semibold block truncate">{ev.title}</span>
+                              <span className="text-[9px] block mt-0.5 capitalize">{ev.type}</span>
+                            </div>
+                          ))
+                        ) : null}
                       </div>
                     </div>
                   );
@@ -781,69 +958,85 @@ export default function Calendar() {
 
             {/* List of Tasks on Selected Date */}
             <div className="space-y-3">
-              {selectedDayEvents.length > 0 ? (
-                selectedDayEvents.map((ev) => (
-                  <div
-                    key={ev.id}
-                    className={cn(
-                      'p-3.5 rounded-2xl border transition-all flex flex-col gap-2',
-                      ev.completed
-                        ? 'bg-slate-50 border-slate-200 dark:bg-slate-800/40 dark:border-slate-800 opacity-80'
-                        : ev.type === 'assignment'
-                        ? 'bg-rose-50/70 border-rose-200 dark:bg-rose-950/20 dark:border-rose-800/60'
-                        : ev.type === 'quiz'
-                        ? 'bg-purple-50/70 border-purple-200 dark:bg-purple-950/20 dark:border-purple-800/60'
-                        : 'bg-teal-50/70 border-teal-200 dark:bg-teal-950/20 dark:border-teal-800/60'
-                    )}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-start gap-2.5">
+              {displayDayEvents.length > 0 ? (
+                <>
+                  {filterType !== 'all' && selectedDayFilteredEvents.length === 0 && selectedDayAllEvents.length > 0 && (
+                    <div className="text-[11px] font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-xl px-3 py-2 flex items-center justify-between gap-2">
+                      <span>
+                        No {filterType === 'quiz' ? 'quizzes' : filterType === 'assignment' ? 'assignments' : filterType} on this day. Showing other task(s):
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setFilterType('all')}
+                        className="underline text-[10px] hover:text-amber-800 dark:hover:text-amber-200 font-extrabold shrink-0"
+                      >
+                        Reset Filter
+                      </button>
+                    </div>
+                  )}
+                  {displayDayEvents.map((ev) => (
+                    <div
+                      key={ev.id}
+                      className={cn(
+                        'p-3.5 rounded-2xl border transition-all flex flex-col gap-2',
+                        ev.completed
+                          ? 'bg-slate-50 border-slate-200 dark:bg-slate-800/40 dark:border-slate-800 opacity-80'
+                          : ev.type === 'assignment'
+                          ? 'bg-rose-50/70 border-rose-200 dark:bg-rose-950/20 dark:border-rose-800/60'
+                          : ev.type === 'quiz'
+                          ? 'bg-purple-50/70 border-purple-200 dark:bg-purple-950/20 dark:border-purple-800/60'
+                          : 'bg-teal-50/70 border-teal-200 dark:bg-teal-950/20 dark:border-teal-800/60'
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-start gap-2.5">
+                          {ev.is_custom && (
+                            <button
+                              type="button"
+                              onClick={() => handleToggleEvent(ev)}
+                              className={cn(
+                                'w-5 h-5 rounded-md border flex items-center justify-center mt-0.5 transition-colors',
+                                ev.completed
+                                  ? 'bg-emerald-500 border-emerald-500 text-white'
+                                  : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800'
+                              )}
+                            >
+                              {ev.completed && <Check size={12} className="stroke-[3]" />}
+                            </button>
+                          )}
+                          <div>
+                            <h4 className={cn('text-xs font-extrabold text-navy-900 dark:text-white', ev.completed && 'line-through')}>
+                              {ev.title}
+                            </h4>
+                            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium block">
+                              {ev.course_title || 'Self Study'}
+                            </span>
+                          </div>
+                        </div>
+
                         {ev.is_custom && (
                           <button
                             type="button"
-                            onClick={() => handleToggleEvent(ev)}
-                            className={cn(
-                              'w-5 h-5 rounded-md border flex items-center justify-center mt-0.5 transition-colors',
-                              ev.completed
-                                ? 'bg-emerald-500 border-emerald-500 text-white'
-                                : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800'
-                            )}
+                            onClick={() => handleDeleteEvent(ev)}
+                            className="text-slate-400 hover:text-red-500 transition-colors p-1"
+                            title="Delete task"
                           >
-                            {ev.completed && <Check size={12} className="stroke-[3]" />}
+                            <Trash2 size={13} />
                           </button>
                         )}
-                        <div>
-                          <h4 className={cn('text-xs font-extrabold text-navy-900 dark:text-white', ev.completed && 'line-through')}>
-                            {ev.title}
-                          </h4>
-                          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium block">
-                            {ev.course_title || 'Self Study'}
-                          </span>
-                        </div>
                       </div>
 
-                      {ev.is_custom && (
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteEvent(ev)}
-                          className="text-slate-400 hover:text-red-500 transition-colors p-1"
-                          title="Delete task"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      )}
+                      <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400 pt-1 border-t border-black/5 dark:border-white/5">
+                        <span className="flex items-center gap-1">
+                          <Clock size={11} /> {ev.time || '10:00 AM'}
+                        </span>
+                        <Badge variant={ev.type === 'assignment' ? 'danger' : ev.type === 'quiz' ? 'purple' : 'teal'}>
+                          {ev.type}
+                        </Badge>
+                      </div>
                     </div>
-
-                    <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400 pt-1 border-t border-black/5 dark:border-white/5">
-                      <span className="flex items-center gap-1">
-                        <Clock size={11} /> {ev.time || '10:00 AM'}
-                      </span>
-                      <Badge variant={ev.type === 'assignment' ? 'danger' : ev.type === 'quiz' ? 'purple' : 'teal'}>
-                        {ev.type}
-                      </Badge>
-                    </div>
-                  </div>
-                ))
+                  ))}
+                </>
               ) : (
                 <div className="text-center py-8 text-slate-400 dark:text-slate-500 space-y-2">
                   <CalIcon size={28} className="mx-auto text-slate-300 dark:text-slate-600" />

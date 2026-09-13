@@ -9,6 +9,7 @@ export interface NavItem {
   name: string;
   path: string;
   icon: LucideIcon;
+  badge?: number;
 }
 
 const defaultNavItems: NavItem[] = [];
@@ -34,6 +35,7 @@ export default function Sidebar({
   const keyMap: Record<string, string> = {
     'Dashboard': 'dashboard',
     'My Courses': 'myCourses',
+    'Announcements': 'announcements',
     'Calendar': 'calendar',
     'Resources': 'resources',
     'Assignments': 'assignments',
@@ -74,8 +76,14 @@ export default function Sidebar({
             >
               <Icon size={18} className={isActive ? 'text-teal-400 dark:text-white' : 'text-slate-400 dark:text-slate-400'} />
               <span>{displayName}</span>
-              {isActive && (
-                <span className="ml-auto w-1.5 h-1.5 rounded-full bg-teal-400 dark:bg-white animate-pulse" />
+              {item.badge !== undefined && item.badge > 0 ? (
+                <span className="ml-auto px-2 py-0.5 rounded-full bg-rose-500 text-white text-[11px] font-extrabold shadow-sm animate-pulse">
+                  {item.badge}
+                </span>
+              ) : (
+                isActive && (
+                  <span className="ml-auto w-1.5 h-1.5 rounded-full bg-teal-400 dark:bg-white animate-pulse" />
+                )
               )}
             </Link>
           );

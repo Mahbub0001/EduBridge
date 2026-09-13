@@ -1,11 +1,11 @@
 # Graph Report - MOOC_blended  (2026-09-13)
 
 ## Corpus Check
-- 159 files · ~88,399 words
+- 159 files · ~88,405 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 878 nodes · 2277 edges · 84 communities (63 shown, 21 thin omitted)
+- 878 nodes · 2278 edges · 85 communities (64 shown, 21 thin omitted)
 - Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 9 edges (avg confidence: 0.67)
 - Token cost: 0 input · 0 output
 
@@ -40,6 +40,7 @@
 - [[_COMMUNITY_seed_firestore.py|seed_firestore.py]]
 - [[_COMMUNITY_MyCourses.tsx|MyCourses.tsx]]
 - [[_COMMUNITY_dependencies.py|dependencies.py]]
+- [[_COMMUNITY_Button.tsx|Button.tsx]]
 - [[_COMMUNITY_Discussions.tsx|Discussions.tsx]]
 - [[_COMMUNITY_Calendar.tsx|Calendar.tsx]]
 - [[_COMMUNITY_Categories.tsx|Categories.tsx]]
@@ -92,15 +93,15 @@
   backend/app/scripts/seed_firestore.py → backend/app/core/firebase.py
 - `read_root()` --calls--> `success_response()`  [EXTRACTED]
   backend/app/main.py → backend/app/utils/response.py
-- `health_check()` --calls--> `success_response()`  [EXTRACTED]
-  backend/app/main.py → backend/app/utils/response.py
 - `get_analytics_root()` --calls--> `success_response()`  [EXTRACTED]
+  backend/app/routers/analytics.py → backend/app/utils/response.py
+- `get_instructor_analytics()` --calls--> `success_response()`  [EXTRACTED]
   backend/app/routers/analytics.py → backend/app/utils/response.py
 
 ## Import Cycles
 - None detected.
 
-## Communities (84 total, 21 thin omitted)
+## Communities (85 total, 21 thin omitted)
 
 ### Community 0 - "unwrap"
 Cohesion: 0.17
@@ -127,7 +128,7 @@ Cohesion: 0.24
 Nodes (16): CourseBuilder(), Step, STEPS, checkCoursePublish(), createInstructorLesson(), createInstructorModule(), createInstructorResource(), deleteInstructorLesson() (+8 more)
 
 ### Community 6 - "Topbar.tsx"
-Cohesion: 0.20
+Cohesion: 0.21
 Nodes (11): PageHeader(), ModuleFeedbackProps, Badge(), variants, Card(), CardProps, CATEGORY_COLORS, PLACEHOLDER_THREADS (+3 more)
 
 ### Community 7 - "Dashboard.tsx"
@@ -135,8 +136,8 @@ Cohesion: 0.20
 Nodes (17): InstructorCourses(), Dashboard(), Skeleton(), InstructorStudents(), archiveCourse(), publishCourse(), AtRiskStudent, CoursePerformance (+9 more)
 
 ### Community 8 - "App.tsx"
-Cohesion: 0.16
-Nodes (20): BreadcrumbItem, CourseLearning(), FlatItem, getCourseQuizzesList(), getVimeoEmbedUrl(), getYouTubeEmbedUrl(), resolveUrl(), CourseQuizzes() (+12 more)
+Cohesion: 0.15
+Nodes (21): BreadcrumbItem, ModuleFeedback(), CourseLearning(), FlatItem, getCourseQuizzesList(), getVimeoEmbedUrl(), getYouTubeEmbedUrl(), resolveUrl() (+13 more)
 
 ### Community 9 - "assignments.py"
 Cohesion: 0.06
@@ -151,8 +152,8 @@ Cohesion: 0.08
 Nodes (25): require_admin(), require_instructor(), get_db(), get_firestore_db(), init_firebase(), get_admin_analytics(), get_analytics_root(), get_course_analytics() (+17 more)
 
 ### Community 12 - "success_response"
-Cohesion: 0.08
-Nodes (30): NotificationDropdown(), footerLinks, StudentFooter(), StudentFooterProps, Accordion(), AccordionItem, AccordionProps, AssignmentCard() (+22 more)
+Cohesion: 0.09
+Nodes (25): footerLinks, StudentFooter(), StudentFooterProps, Accordion(), AccordionItem, AccordionProps, ConfirmDialog(), ConfirmDialogProps (+17 more)
 
 ### Community 13 - "compilerOptions"
 Cohesion: 0.05
@@ -191,8 +192,8 @@ Cohesion: 0.21
 Nodes (11): create_discussion(), create_module_comment(), create_reply(), delete_discussion(), DiscussionCreate, get_all_discussions(), get_course_discussions(), get_module_discussion() (+3 more)
 
 ### Community 22 - "seed_firestore.py"
-Cohesion: 0.18
-Nodes (14): AdminSettings(), AdminUsers(), createAnnouncement(), createDiscussion(), createReply(), deleteAnnouncement(), getAllUsers(), getAnnouncements() (+6 more)
+Cohesion: 0.16
+Nodes (13): AdminSettings(), AdminUsers(), createAnnouncement(), createDiscussion(), createReply(), deleteAnnouncement(), getAllUsers(), getAnnouncements() (+5 more)
 
 ### Community 23 - "MyCourses.tsx"
 Cohesion: 0.23
@@ -202,9 +203,13 @@ Nodes (12): AdminCourses(), CATEGORY_COLORS, MyCourses(), tabFromPath(), TabKey,
 Cohesion: 0.24
 Nodes (10): AssignmentCreate, create_assignment(), delete_assignment(), get_assignment(), get_assignment_submissions(), get_course_assignments(), get_my_submission(), grade_submission() (+2 more)
 
+### Community 25 - "Button.tsx"
+Cohesion: 0.24
+Nodes (6): Button(), ButtonProps, CertificateCardProps, CourseCard(), CourseCardProps, Course
+
 ### Community 26 - "Discussions.tsx"
-Cohesion: 0.33
-Nodes (12): ModuleFeedback(), InstructorDiscussions(), timeAgo(), deleteDiscussionThread(), getInstructorDiscussionDetail(), getInstructorDiscussions(), getModuleDiscussion(), hideDiscussionThread() (+4 more)
+Cohesion: 0.37
+Nodes (11): InstructorDiscussions(), timeAgo(), deleteDiscussionThread(), getInstructorDiscussionDetail(), getInstructorDiscussions(), getModuleDiscussion(), hideDiscussionThread(), pinDiscussionThread() (+3 more)
 
 ### Community 27 - "Calendar.tsx"
 Cohesion: 0.26
@@ -219,8 +224,8 @@ Cohesion: 0.07
 Nodes (24): BaseSettings, _build_cache_key(), CacheManager, CustomJSONEncoder, _execute_with_cache_async(), _execute_with_cache_sync(), _format_cached_response(), MemoryCache (+16 more)
 
 ### Community 30 - "CreateCourse.tsx"
-Cohesion: 0.17
-Nodes (10): Button(), ButtonProps, EmptyState(), EmptyStateProps, CATEGORIES, CourseFormData, CreateCourse(), INITIAL (+2 more)
+Cohesion: 0.33
+Nodes (6): CATEGORIES, CourseFormData, CreateCourse(), INITIAL, STEPS, createCourse()
 
 ### Community 32 - "get_current_user"
 Cohesion: 0.33
@@ -239,8 +244,8 @@ Cohesion: 0.60
 Nodes (4): Config, Progress, ProgressBase, ProgressCreate
 
 ### Community 37 - "mockData.ts"
-Cohesion: 0.11
-Nodes (21): NotificationDropdownProps, TopbarProps, AssignmentCardProps, statusStyles, CalendarCardProps, CourseCard(), CourseCardProps, ResourceCard() (+13 more)
+Cohesion: 0.10
+Nodes (25): NotificationDropdown(), NotificationDropdownProps, TopbarProps, AssignmentCard(), AssignmentCardProps, statusStyles, CalendarCard(), CalendarCardProps (+17 more)
 
 ### Community 38 - "utils.ts"
 Cohesion: 0.67

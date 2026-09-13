@@ -37,7 +37,7 @@ export function invalidateClientCache(pattern?: string) {
 
 const api = axios.create({
   baseURL: `${API_BASE}/api`,
-  timeout: 10000,
+  timeout: 30000,
 });
 
 api.interceptors.request.use(

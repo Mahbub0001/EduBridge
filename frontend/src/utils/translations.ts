@@ -4,6 +4,7 @@ export const translations = {
   en: {
     dashboard: "Dashboard",
     myCourses: "My Courses",
+    announcements: "Announcements",
     calendar: "Calendar",
     resources: "Resources",
     assignments: "Assignments",
@@ -149,6 +150,7 @@ export const translations = {
   bn: {
     dashboard: "ড্যাশবোর্ড",
     myCourses: "আমার কোর্স",
+    announcements: "ঘোষণা ও নোটিশ",
     calendar: "ক্যালেন্ডার",
     resources: "রিসোর্স",
     assignments: "অ্যাসাইনমেন্ট",
