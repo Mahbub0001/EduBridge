@@ -8,8 +8,10 @@ const D = 'div';
 
 const statusStyles = {
   pending: { border: 'border-l-rose-500', label: 'Pending Submission', icon: AlertCircle, color: 'text-rose-500 dark:text-rose-400' },
-  submitted: { border: 'border-l-amber-500', label: 'Submitted', icon: CheckCircle2, color: 'text-amber-600 dark:text-amber-400' },
+  submitted: { border: 'border-l-blue-500', label: 'Submitted', icon: CheckCircle2, color: 'text-blue-600 dark:text-blue-400' },
   graded: { border: 'border-l-emerald-500', label: 'Graded', icon: CheckCircle2, color: 'text-emerald-600 dark:text-emerald-400' },
+  revision: { border: 'border-l-amber-500', label: 'Returned for Revision', icon: AlertCircle, color: 'text-amber-600 dark:text-amber-400' },
+  returned: { border: 'border-l-amber-500', label: 'Returned for Revision', icon: AlertCircle, color: 'text-amber-600 dark:text-amber-400' },
 };
 
 export interface AssignmentCardProps {
@@ -20,7 +22,7 @@ export interface AssignmentCardProps {
 }
 
 export default function AssignmentCard({ assignment, onSubmit, onViewFeedback, className }: AssignmentCardProps) {
-  const style = statusStyles[assignment.status];
+  const style = statusStyles[assignment.status] || statusStyles.pending;
   const StatusIcon = style.icon;
 
   return (
@@ -50,6 +52,10 @@ export default function AssignmentCard({ assignment, onSubmit, onViewFeedback, c
         {assignment.status === 'graded' ? (
           <Button variant="outline" size="sm" onClick={() => onViewFeedback?.(assignment.id)}>
             View Feedback
+          </Button>
+        ) : (assignment.status === 'revision' || assignment.status === 'returned') ? (
+          <Button variant="outline" size="sm" className="border-amber-400 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-300" onClick={() => onSubmit?.(assignment.id)}>
+            Resubmit
           </Button>
         ) : assignment.status === 'pending' ? (
           <Button variant="primary" size="sm" onClick={() => onSubmit?.(assignment.id)}>

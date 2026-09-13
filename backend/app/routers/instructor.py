@@ -885,6 +885,51 @@ def get_instructor_assignment_submissions(
         submissions.append(sd)
     return success_response(data=submissions)
 
+def _notify_student_assignment_status(db: Client, sub_data: dict, assign_doc_data: dict, status: str, feedback: Optional[str], score: Optional[float]):
+    student_id = sub_data.get("user_id")
+    if not student_id:
+        return
+    course_id = assign_doc_data.get("course_id", "")
+    course_title = "Course"
+    if course_id:
+        c_doc = db.collection("courses").document(course_id).get()
+        if c_doc.exists:
+            course_title = c_doc.to_dict().get("title", "Course")
+    assign_title = assign_doc_data.get("title", "Assignment")
+    now = datetime.now(timezone.utc)
+
+    is_revision = status in ["revision", "returned"]
+    if is_revision:
+        notif_title = f"Assignment Returned: {assign_title}"
+        notif_msg = f"Your assignment '{assign_title}' in {course_title} was returned for revision by your instructor."
+        if feedback:
+            notif_msg += f" Feedback: \"{feedback}\""
+    else:
+        notif_title = f"Assignment Graded: {assign_title}"
+        total_m = assign_doc_data.get("total_marks", 100)
+        notif_msg = f"Your assignment '{assign_title}' in {course_title} has been graded: {score}/{total_m} marks."
+        if feedback:
+            notif_msg += f" Feedback: \"{feedback}\""
+
+    db.collection("notifications").add({
+        "user_id": student_id,
+        "title": notif_title,
+        "message": notif_msg,
+        "type": "assignment",
+        "course_id": course_id,
+        "assignment_id": sub_data.get("assignment_id"),
+        "link": f"/student/courses/{course_id}/learn?assignmentId={sub_data.get('assignment_id')}",
+        "read": False,
+        "is_read": False,
+        "created_at": now
+    })
+    invalidate_cache([
+        "edubridge:assignments*",
+        f"edubridge:student_progress:{student_id}*",
+        "edubridge:analytics*",
+        "edubridge:instructor*"
+    ])
+
 # 6. PATCH /instructor/submissions/{submission_id}/grade
 @router.patch("/submissions/{submission_id}/grade")
 def grade_instructor_submission(
@@ -902,7 +947,8 @@ def grade_instructor_submission(
     assign_doc = db.collection("assignments").document(sub_data.get("assignment_id")).get()
     if not assign_doc.exists:
         raise HTTPException(status_code=404, detail="Assignment not found")
-    check_course_permission(assign_doc.to_dict().get("course_id"), current_user, db)
+    assign_doc_data = assign_doc.to_dict()
+    check_course_permission(assign_doc_data.get("course_id"), current_user, db)
 
     now = datetime.now(timezone.utc)
     update_data = {
@@ -917,6 +963,15 @@ def grade_instructor_submission(
 
     sub_ref.update(update_data)
     
+    _notify_student_assignment_status(
+        db=db,
+        sub_data=sub_data,
+        assign_doc_data=assign_doc_data,
+        status=payload.status or "graded",
+        feedback=payload.feedback,
+        score=payload.score
+    )
+
     updated = sub_ref.get().to_dict()
     updated["id"] = submission_id
     return success_response(data=updated, message="Submission successfully graded!")
@@ -1077,12 +1132,22 @@ def return_instructor_submission_for_revision(
     check_course_permission(assign_doc.to_dict().get("course_id"), current_user, db)
 
     now = datetime.now(timezone.utc)
+    feedback_text = body.get("feedback", "Revision requested by instructor.")
     sub_ref.update({
         "status": "revision",
-        "feedback": body.get("feedback", "Revision requested by instructor."),
+        "feedback": feedback_text,
         "returned_at": now,
         "returned_by": current_user["id"]
     })
+
+    _notify_student_assignment_status(
+        db=db,
+        sub_data=sub_data,
+        assign_doc_data=assign_doc.to_dict(),
+        status="revision",
+        feedback=feedback_text,
+        score=None
+    )
 
     updated = sub_ref.get().to_dict()
     updated["id"] = submission_id

@@ -47,9 +47,22 @@ def submit_assignment(
         "status": "pending"
     }
     
-    _, doc_ref = db.collection("assignment_submissions").add(submission_data)
-    submission_data["id"] = doc_ref.id
-    invalidate_cache(["edubridge:analytics*", "edubridge:instructor*", "edubridge:assignments*"])
+    # Check if user already has a submission (e.g. resubmitting after revision)
+    existing_docs = list(
+        db.collection("assignment_submissions")
+        .where("assignment_id", "==", assignment_id)
+        .where("user_id", "==", current_user["id"])
+        .stream()
+    )
+    if existing_docs:
+        doc_ref = existing_docs[0].reference
+        doc_ref.update(submission_data)
+        submission_data["id"] = doc_ref.id
+    else:
+        _, doc_ref = db.collection("assignment_submissions").add(submission_data)
+        submission_data["id"] = doc_ref.id
+
+    invalidate_cache(["edubridge:analytics*", "edubridge:instructor*", "edubridge:assignments*", f"edubridge:student_progress:{current_user['id']}*"])
     
     return success_response(data=submission_data, message="Assignment submitted successfully")
 
@@ -65,13 +78,16 @@ def get_my_submission(
         db.collection("assignment_submissions")
         .where("assignment_id", "==", assignment_id)
         .where("user_id", "==", uid)
-        .limit(1)
-        .get()
+        .stream()
     )
+    all_subs = []
     for d in docs:
         sd = d.to_dict()
         sd["id"] = d.id
-        return success_response(data=sd)
+        all_subs.append(sd)
+    if all_subs:
+        all_subs.sort(key=lambda s: str(s.get("submitted_at") or ""), reverse=True)
+        return success_response(data=all_subs[0])
     return success_response(data=None)
 
 

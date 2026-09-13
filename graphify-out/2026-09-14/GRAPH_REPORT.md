@@ -1,7 +1,7 @@
 # Graph Report - MOOC_blended  (2026-09-14)
 
 ## Corpus Check
-- 159 files · ~91,727 words
+- 159 files · ~91,794 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -280,11 +280,11 @@ Nodes (10): AnnouncementCreate, create_announcement(), delete_announcement(), ge
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `success_response()` connect `dependencies` to `__init__.py`, `instructor.py`, `courses.py`, `utils.ts`, `announcements.py`, `AssignmentCard.tsx`, `adminService.ts`, `Sidebar.tsx`, `main.py`, `index.ts`, `TC011_Search_and_manage_a_user_account.py`, `dependencies.py`, `TC012_Submit_a_course_assignment_response.py`?**
-  _High betweenness centrality (0.066) - this node is a cross-community bridge._
+  _High betweenness centrality (0.058) - this node is a cross-community bridge._
 - **Why does `unwrap()` connect `seed_firestore.py` to `unwrap`, `Card.tsx`, `Topbar.tsx`, `Dashboard.tsx`, `App.tsx`, `assignments.py`, `exportEventsToICS`, `Dashboard.tsx`, `assignmentService.ts`, `MyCourses.tsx`, `CreateCourse.tsx`, `Calendar.tsx`, `Categories.tsx`, `CreateCourse.tsx`?**
   _High betweenness centrality (0.045) - this node is a cross-community bridge._
-- **Why does `init_firebase()` connect `adminService.ts` to `dependencies.py`, `Badge.tsx`, `compilerOptions`?**
-  _High betweenness centrality (0.043) - this node is a cross-community bridge._
+- **Why does `cn()` connect `success_response` to `cn`, `Topbar.tsx`, `assignments.py`, `Dashboard.tsx`, `exportEventsToICS`, `assignmentService.ts`, `CreateCourse.tsx`?**
+  _High betweenness centrality (0.034) - this node is a cross-community bridge._
 - **What connects `Zero-dependency persistent local cache that survives server reboots/reloads.`, `Multi-tier cache combining in-memory RAM (L1) and persistent SQLite (L2), plus R`, `Config` to the rest of the system?**
   _169 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `dependencies` be split into smaller, more focused modules?**

@@ -94,17 +94,35 @@ export default function Assignments() {
                   <td className="px-6 py-4">
                     <p className="font-bold text-navy-900 dark:text-white">{item.title}</p>
                     {item.subtitle && <p className="text-xs text-slate-500 dark:text-slate-400">{item.subtitle}</p>}
+                    {(item.status === 'revision' || item.status === 'returned') && item.feedback && (
+                      <div className="mt-1.5 text-xs text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/60 rounded-xl p-2 font-medium max-w-md">
+                        <span className="font-black text-amber-900 dark:text-amber-200">Instructor Feedback: </span>
+                        {item.feedback}
+                      </div>
+                    )}
                   </td>
                   <td className="px-6 py-4 text-slate-600 dark:text-slate-300 font-medium">{item.course_name}</td>
                   <td className="px-6 py-4 text-slate-600 dark:text-slate-400">{item.due_date ? new Date(item.due_date).toLocaleDateString() : 'N/A'}</td>
                   <td className="px-6 py-4">
-                    <Badge variant={item.status === 'pending' ? 'warning' : item.status === 'submitted' ? 'info' : 'success'}>
-                      {item.status === 'pending' ? t('pending') : item.status === 'submitted' ? t('submitted') : `${t('graded')} ${item.grade || ''}`}
-                    </Badge>
+                    {item.status === 'revision' || item.status === 'returned' ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
+                        Returned / Revision
+                      </span>
+                    ) : (
+                      <Badge variant={item.status === 'pending' ? 'warning' : item.status === 'submitted' ? 'info' : 'success'}>
+                        {item.status === 'pending' ? t('pending') : item.status === 'submitted' ? t('submitted') : `${t('graded')} ${item.grade || ''}`}
+                      </Badge>
+                    )}
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      {item.status === 'pending' ? (
+                      {item.status === 'revision' || item.status === 'returned' ? (
+                        <Link to={`/student/courses/${item.course_id}/learn?assignmentId=${item.id}`}>
+                          <Button variant="outline" size="sm" className="border-amber-400 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-300 font-bold">
+                            Review &amp; Resubmit
+                          </Button>
+                        </Link>
+                      ) : item.status === 'pending' ? (
                         <>
                           <Button variant="ghost" size="sm" onClick={() => openSubmit(item)}>{t('submitBtn')}</Button>
                           <Link to={`/student/courses/${item.course_id}/learn?assignmentId=${item.id}`}>

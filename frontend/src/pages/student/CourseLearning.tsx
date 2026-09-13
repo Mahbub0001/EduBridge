@@ -85,7 +85,6 @@ export default function CourseLearning() {
   const [courseQuizzes, setCourseQuizzes] = useState<any[]>([]);
   const [courseAssignments, setCourseAssignments] = useState<any[]>([]);
   const [assignmentSubmissions, setAssignmentSubmissions] = useState<Record<string, any>>({});
-  const [assignmentsBoxExpanded, setAssignmentsBoxExpanded] = useState<boolean>(true);
 
   const [activeItemId, setActiveItemId] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -521,6 +520,11 @@ export default function CourseLearning() {
                         <CheckCircle2 size={14} className="text-emerald-600 dark:text-emerald-400" />
                         Graded: {activeSubmission.score ?? activeSubmission.grade} / {activeAssignment.total_marks || 100}
                       </span>
+                    ) : (activeSubmission?.status === 'revision' || activeSubmission?.status === 'returned') ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-900 dark:bg-amber-950/70 dark:text-amber-200 border border-amber-300 dark:border-amber-700 shadow-xs">
+                        <RotateCcw size={14} className="text-amber-600 dark:text-amber-400" />
+                        Returned for Revision
+                      </span>
                     ) : activeSubmission ? (
                       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 dark:bg-blue-950/50 dark:text-blue-300 border border-blue-300 dark:border-blue-800">
                         <Clock size={14} className="text-blue-600 dark:text-blue-400" />
@@ -644,6 +648,68 @@ export default function CourseLearning() {
                   ) : (
                     <p className="text-xs text-slate-500 italic">No written feedback provided.</p>
                   )}
+                </Card>
+              )}
+
+              {/* Returned for Revision & Instructor Feedback Card */}
+              {(activeSubmission?.status === 'revision' || activeSubmission?.status === 'returned') && (
+                <Card className="border-2 border-amber-400 dark:border-amber-600 bg-gradient-to-br from-amber-50/90 to-orange-50/50 dark:from-amber-950/40 dark:to-orange-950/20 space-y-4 shadow-sm">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-amber-200 dark:border-amber-800/70 gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                        <RotateCcw size={18} />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-black text-amber-950 dark:text-amber-100">
+                          Assignment Returned for Revision
+                        </h3>
+                        <p className="text-xs text-amber-800 dark:text-amber-300 font-medium">
+                          Your instructor reviewed your work and returned it with feedback.
+                        </p>
+                      </div>
+                    </div>
+                    {activeSubmission.returned_at && (
+                      <span className="text-[11px] font-bold text-amber-700 dark:text-amber-300">
+                        Returned on {new Date(activeSubmission.returned_at).toLocaleString(undefined, {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </span>
+                    )}
+                  </div>
+
+                  {activeSubmission.feedback ? (
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-black text-amber-900 dark:text-amber-200 uppercase tracking-wider flex items-center gap-1.5">
+                        <MessageSquare size={14} className="text-amber-600 dark:text-amber-400" />
+                        Instructor Feedback &amp; Instructions:
+                      </p>
+                      <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700/80 text-sm font-semibold text-slate-800 dark:text-slate-100 leading-relaxed whitespace-pre-wrap shadow-xs">
+                        {activeSubmission.feedback}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-amber-700 dark:text-amber-400 italic">
+                      No written notes attached. Please review the assignment guidelines and submit again.
+                    </p>
+                  )}
+
+                  <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-amber-200/80 dark:border-amber-800/60">
+                    <span className="text-xs font-bold text-amber-900 dark:text-amber-200">
+                      Please revise your work and submit an updated response.
+                    </span>
+                    {!isEditingAssignment && (
+                      <Button
+                        size="sm"
+                        onClick={() => setIsEditingAssignment(true)}
+                        className="!bg-amber-600 hover:!bg-amber-700 text-white rounded-xl text-xs font-bold gap-1.5 shrink-0 shadow-xs"
+                      >
+                        <RotateCcw size={13} /> Update &amp; Resubmit
+                      </Button>
+                    )}
+                  </div>
                 </Card>
               )}
 
@@ -1296,11 +1362,11 @@ export default function CourseLearning() {
         <Card className="h-fit space-y-4">
           <h3 className="font-extrabold text-sm text-navy-900 dark:text-white uppercase tracking-wider">Curriculum</h3>
           <div className="space-y-3">
-            {modules.map((mod) => {
+            {modules.map((mod, idx) => {
               const locked = isModuleLocked(mod.id);
               const modStatus = getModStatus(mod.id);
               const modQuiz = courseQuizzes.find((q: any) => q.module_id === mod.id);
-              const modAssignments = courseAssignments.filter((a: any) => a.module_id === mod.id);
+              const modAssignments = courseAssignments.filter((a: any) => a.module_id === mod.id || (!a.module_id && idx === modules.length - 1));
 
               return (
                 <div
@@ -1406,7 +1472,8 @@ export default function CourseLearning() {
                         const isActive = assignItemId === activeItemId;
                         const sub = assignmentSubmissions[assign.id];
                         const isGraded = sub?.status === 'graded';
-                        const isSubmitted = sub && sub.status !== 'graded';
+                        const isRevision = sub?.status === 'revision' || sub?.status === 'returned';
+                        const isSubmitted = sub && !isGraded && !isRevision;
 
                         return (
                           <button
@@ -1418,24 +1485,33 @@ export default function CourseLearning() {
                                 ? 'bg-navy-900 text-white dark:bg-teal-600 border-navy-900 dark:border-teal-600'
                                 : isGraded
                                   ? 'border-emerald-200 dark:border-emerald-800/60 bg-emerald-50/40 dark:bg-emerald-950/20 hover:bg-emerald-50'
-                                  : isSubmitted
-                                    ? 'border-blue-200 dark:border-blue-800/60 bg-blue-50/40 dark:bg-blue-950/20 hover:bg-blue-50'
-                                    : 'border-transparent hover:bg-slate-50 dark:hover:bg-slate-900/60'
+                                  : isRevision
+                                    ? 'border-amber-300 dark:border-amber-700/80 bg-amber-50/70 dark:bg-amber-950/30 hover:bg-amber-100/60'
+                                    : isSubmitted
+                                      ? 'border-blue-200 dark:border-blue-800/60 bg-blue-50/40 dark:bg-blue-950/20 hover:bg-blue-50'
+                                      : 'border-transparent hover:bg-slate-50 dark:hover:bg-slate-900/60'
                             }`}
                           >
                             <div className="flex items-center gap-2 min-w-0 pr-2">
-                              <ClipboardList
-                                size={14}
-                                className={
-                                  isActive
-                                    ? 'text-teal-300'
-                                    : isGraded
-                                      ? 'text-emerald-600 dark:text-emerald-400'
-                                      : isSubmitted
-                                        ? 'text-blue-600 dark:text-blue-400'
-                                        : 'text-slate-500 dark:text-slate-400'
-                                }
-                              />
+                              {isRevision ? (
+                                <RotateCcw
+                                  size={14}
+                                  className={isActive ? 'text-amber-300' : 'text-amber-600 dark:text-amber-400'}
+                                />
+                              ) : (
+                                <ClipboardList
+                                  size={14}
+                                  className={
+                                    isActive
+                                      ? 'text-teal-300'
+                                      : isGraded
+                                        ? 'text-emerald-600 dark:text-emerald-400'
+                                        : isSubmitted
+                                          ? 'text-blue-600 dark:text-blue-400'
+                                          : 'text-slate-500 dark:text-slate-400'
+                                  }
+                                />
+                              )}
                               <span className="text-xs font-bold truncate">{assign.title}</span>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
@@ -1444,6 +1520,12 @@ export default function CourseLearning() {
                                   isActive ? 'bg-emerald-500/30 text-white' : 'text-emerald-700 dark:text-emerald-300'
                                 }`}>
                                   {sub.score ?? sub.grade ?? 'Graded'}
+                                </span>
+                              ) : isRevision ? (
+                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                  isActive ? 'bg-amber-500/40 text-white' : 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-300'
+                                }`}>
+                                  Revision
                                 </span>
                               ) : isSubmitted ? (
                                 <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
@@ -1457,6 +1539,7 @@ export default function CourseLearning() {
                                 </span>
                               )}
                               {isGraded && <CheckCircle2 size={14} className={isActive ? 'text-white' : 'text-emerald-500'} />}
+                              {isRevision && <AlertCircle size={14} className={isActive ? 'text-amber-300' : 'text-amber-500'} />}
                             </div>
                           </button>
                         );
@@ -1478,103 +1561,6 @@ export default function CourseLearning() {
                 </div>
               );
             })}
-
-            {/* Dedicated Assignment Box styled like a Module */}
-            <div className="border border-slate-100 dark:border-slate-800 rounded-2xl overflow-hidden transition-all shadow-xs">
-              <button
-                type="button"
-                onClick={() => setAssignmentsBoxExpanded((prev) => !prev)}
-                className="w-full flex items-center justify-between p-3 text-left transition-all bg-slate-50 dark:bg-slate-900/60 dark:hover:bg-slate-800/60"
-              >
-                <div className="flex items-center gap-2 truncate pr-2">
-                  <ClipboardList size={14} className="text-teal-600 dark:text-teal-400 shrink-0" />
-                  <span className="text-[11px] font-black text-navy-900 dark:text-slate-200 uppercase truncate">
-                    Assignments
-                  </span>
-                  {courseAssignments.length > 0 && (
-                    <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-teal-100 text-teal-800 dark:bg-teal-900/50 dark:text-teal-300">
-                      {courseAssignments.length}
-                    </span>
-                  )}
-                </div>
-                {assignmentsBoxExpanded ? (
-                  <ChevronUp size={16} className="shrink-0 dark:text-slate-400" />
-                ) : (
-                  <ChevronDown size={16} className="shrink-0 dark:text-slate-400" />
-                )}
-              </button>
-
-              {assignmentsBoxExpanded && (
-                <div className="p-2 space-y-1 bg-white dark:bg-slate-950">
-                  {courseAssignments.length === 0 ? (
-                    <div className="p-3 text-center text-xs text-slate-400 dark:text-slate-500 italic">
-                      No assignments for this course
-                    </div>
-                  ) : (
-                    courseAssignments.map((assign) => {
-                      const assignItemId = `assignment-${assign.id}`;
-                      const isActive = assignItemId === activeItemId;
-                      const sub = assignmentSubmissions[assign.id];
-                      const isGraded = sub?.status === 'graded';
-                      const isSubmitted = sub && sub.status !== 'graded';
-
-                      return (
-                        <button
-                          key={assign.id}
-                          type="button"
-                          onClick={() => setActiveItemId(assignItemId)}
-                          className={`w-full p-3 rounded-xl flex items-center justify-between text-left transition-all border ${
-                            isActive
-                              ? 'bg-navy-900 text-white dark:bg-teal-600 border-navy-900 dark:border-teal-600'
-                              : isGraded
-                                ? 'border-emerald-200 dark:border-emerald-800/60 bg-emerald-50/40 dark:bg-emerald-950/20 hover:bg-emerald-50'
-                                : isSubmitted
-                                  ? 'border-blue-200 dark:border-blue-800/60 bg-blue-50/40 dark:bg-blue-950/20 hover:bg-blue-50'
-                                  : 'border-transparent hover:bg-slate-50 dark:hover:bg-slate-900/60'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 min-w-0 pr-2">
-                            <ClipboardList
-                              size={14}
-                              className={
-                                isActive
-                                  ? 'text-teal-300'
-                                  : isGraded
-                                    ? 'text-emerald-600 dark:text-emerald-400'
-                                    : isSubmitted
-                                      ? 'text-blue-600 dark:text-blue-400'
-                                      : 'text-slate-500 dark:text-slate-400'
-                              }
-                            />
-                            <span className="text-xs font-bold truncate">{assign.title}</span>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            {isGraded ? (
-                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                                isActive ? 'bg-emerald-500/30 text-white' : 'text-emerald-700 dark:text-emerald-300'
-                              }`}>
-                                {sub.score ?? sub.grade ?? 'Graded'}
-                              </span>
-                            ) : isSubmitted ? (
-                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                                isActive ? 'bg-blue-500/30 text-white' : 'text-blue-700 dark:text-blue-300'
-                              }`}>
-                                Submitted
-                              </span>
-                            ) : (
-                              <span className={`text-[10px] ${isActive ? 'text-slate-300' : 'text-slate-400 dark:text-slate-500'}`}>
-                                {assign.total_marks || 100} pts
-                              </span>
-                            )}
-                            {isGraded && <CheckCircle2 size={14} className={isActive ? 'text-white' : 'text-emerald-500'} />}
-                          </div>
-                        </button>
-                      );
-                    })
-                  )}
-                </div>
-              )}
-            </div>
           </div>
 
           {courseId && (

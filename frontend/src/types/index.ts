@@ -48,10 +48,12 @@ export interface Assignment {
   course_id?: string;
   course_name: string;
   due_date: string;
-  status: 'pending' | 'submitted' | 'graded';
+  status: 'pending' | 'submitted' | 'graded' | 'revision' | 'returned';
   grade?: string;
   instructions?: string;
   total_marks?: number;
+  feedback?: string;
+  submission?: any;
   [key: string]: any;
 }
 
@@ -69,6 +71,8 @@ export interface Notification {
   title: string;
   message: string;
   read: boolean;
+  link?: string;
+  type?: string;
   created_at: string;
 }
 

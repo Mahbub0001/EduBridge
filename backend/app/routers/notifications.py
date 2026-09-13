@@ -28,7 +28,7 @@ def get_notifications(
         nd["is_read"] = is_read_flag
         results.append(nd)
 
-    results.sort(key=lambda n: n.get("created_at") or "", reverse=True)
+    results.sort(key=lambda n: str(n.get("created_at") or ""), reverse=True)
 
     return success_response(data=results[:30])
 

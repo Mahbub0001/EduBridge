@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Bell, Check } from 'lucide-react';
 import { cn, formatDate } from '../../lib/utils';
 import type { Notification } from '../../types';
@@ -23,6 +24,7 @@ export default function NotificationDropdown({
   className,
 }: NotificationDropdownProps) {
   const ref = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   useEffect(() => {
@@ -73,7 +75,13 @@ export default function NotificationDropdown({
             <button
               key={n.id}
               type="button"
-              onClick={() => onMarkRead?.(n.id)}
+              onClick={() => {
+                onMarkRead?.(n.id);
+                if (n.link) {
+                  onClose();
+                  navigate(n.link);
+                }
+              }}
               className={cn(
                 'w-full text-left px-4 py-3 border-b border-slate-100 last:border-0 hover:bg-slate-50 dark:border-slate-800/60 dark:hover:bg-slate-800 transition-colors',
                 !n.read && 'bg-navy-50/30 dark:bg-teal-950/20'

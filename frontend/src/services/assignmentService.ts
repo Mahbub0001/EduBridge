@@ -23,8 +23,10 @@ export async function getAllAssignments(): Promise<Assignment[]> {
     for (const a of items) {
       const sub = await getMySubmission(a.id).catch(() => null);
       if (sub) {
-        a.status = sub.status === 'graded' ? 'graded' : 'submitted';
-        a.grade = sub.grade ? `${sub.score || sub.grade}` : undefined;
+        a.status = sub.status === 'graded' ? 'graded' : (sub.status === 'revision' || sub.status === 'returned') ? 'revision' : 'submitted';
+        a.grade = sub.grade ? `${sub.score || sub.grade}` : (sub.score !== undefined && sub.score !== null ? `${sub.score}` : undefined);
+        a.feedback = sub.feedback;
+        a.submission = sub;
       }
       a.course_id = c.id;
       a.course_name = c.title;
