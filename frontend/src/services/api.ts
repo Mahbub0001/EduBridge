@@ -1,7 +1,7 @@
 import axios, { type InternalAxiosRequestConfig, type AxiosRequestConfig, type AxiosResponse } from 'axios';
 import { auth } from './firebase';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
 
 interface CacheEntry {
   data: any;
@@ -246,7 +246,7 @@ api.get = (async <T = any, R = AxiosResponse<T>, D = any>(url: string, config?: 
   try {
     sessionStorage.setItem(cacheKey, JSON.stringify(entry));
   } catch {}
-  return response;
+  return response as unknown as R;
 }) as any;
 
 export function unwrap<T>(response: { data: { success?: boolean; data: T } }): T {
