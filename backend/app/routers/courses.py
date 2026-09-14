@@ -90,6 +90,19 @@ def get_course(course_id: str, db: Client = Depends(get_db)):
         
     return success_response(data=data)
 
+import random
+
+DEFAULT_COURSE_LOGOS = [
+    "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800&auto=format&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1544383835-bda2bc66a55d?w=800&auto=format&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=800&auto=format&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&auto=format&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&auto=format&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1501504905252-473c47e087f8?w=800&auto=format&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1580894732413-a75151b96f01?w=800&auto=format&fit=crop&q=80",
+]
+
 @router.post("/")
 def create_course(
     course: CourseCreate,
@@ -98,6 +111,10 @@ def create_course(
 ):
     now = datetime.now(timezone.utc)
     course_data = course.model_dump()
+
+    if not course_data.get("thumbnail_url") and not course_data.get("image") and not course_data.get("thumbnail"):
+        course_data["thumbnail_url"] = random.choice(DEFAULT_COURSE_LOGOS)
+
     course_data.update({
         "instructor_id": current_user["id"],
         "rating_avg": 0.0,

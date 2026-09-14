@@ -1,7 +1,7 @@
 # Graph Report - MOOC_blended  (2026-09-15)
 
 ## Corpus Check
-- 164 files · ~97,985 words
+- 164 files · ~98,006 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -293,11 +293,11 @@ Nodes (12): PageHeader(), AdminCategories(), Resources(), TYPE_COLORS, TYPE_FILT
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `success_response()` connect `dependencies` to `instructor.py`, `auth.py`, `courses.py`, `Topbar.tsx`, `utils.ts`, `announcements.py`, `AssignmentCard.tsx`, `Sidebar.tsx`, `main.py`, `TC011_Search_and_manage_a_user_account.py`, `Categories.tsx`, `firebase.py`?**
-  _High betweenness centrality (0.058) - this node is a cross-community bridge._
+  _High betweenness centrality (0.065) - this node is a cross-community bridge._
 - **Why does `unwrap()` connect `Card.tsx` to `__init__.py`, `unwrap`, `CommunityZone.tsx`, `Dashboard.tsx`, `App.tsx`, `assignments.py`, `Categories.tsx`, `Dashboard.tsx`, `adminService.ts`, `assignmentService.ts`, `index.ts`, `seed_firestore.py`, `TC012_Submit_a_course_assignment_response.py`, `Calendar.tsx`, `CreateCourse.tsx`?**
   _High betweenness centrality (0.047) - this node is a cross-community bridge._
-- **Why does `cn()` connect `success_response` to `cn`, `mockData.ts`, `Card.tsx`, `Dashboard.tsx`, `index.ts`, `seed_firestore.py`, `CreateCourse.tsx`?**
-  _High betweenness centrality (0.033) - this node is a cross-community bridge._
+- **Why does `init_firebase()` connect `TC011_Search_and_manage_a_user_account.py` to `Badge.tsx`, `compilerOptions`?**
+  _High betweenness centrality (0.042) - this node is a cross-community bridge._
 - **What connects `Zero-dependency persistent local cache that survives server reboots/reloads.`, `Multi-tier cache combining in-memory RAM (L1) and persistent SQLite (L2), plus R`, `Ultra-lightweight ASGI middleware for setting contextvar without BaseHTTPMiddlew` to the rest of the system?**
   _175 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `dependencies` be split into smaller, more focused modules?**

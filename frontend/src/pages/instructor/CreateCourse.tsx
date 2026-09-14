@@ -3,12 +3,12 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, ArrowRight, Check, Plus, Trash2, Save,
-  BookOpen, Image, Target, Eye,
+  BookOpen, Image, Target, Eye, Upload, Sparkles, Loader2,
 } from 'lucide-react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
-import { createCourse } from '../../services/courseService';
+import { createCourse, uploadInstructorFile } from '../../services/courseService';
 import { cn } from '../../lib/utils';
 
 /* ── Types ── */
@@ -60,6 +60,17 @@ const CATEGORIES = [
   'DevOps', 'UI/UX Design', 'Business', 'Other',
 ];
 
+export const DEFAULT_COURSE_LOGOS = [
+  'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1544383835-bda2bc66a55d?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1501504905252-473c47e087f8?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1580894732413-a75151b96f01?w=800&auto=format&fit=crop&q=80',
+];
+
 /* ── helpers ── */
 const fieldCls = 'w-full border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900/10 transition-all bg-white placeholder-slate-400';
 const labelCls = 'text-xs font-bold text-slate-500 uppercase tracking-wider';
@@ -72,9 +83,25 @@ export default function CreateCourse() {
   const [form, setForm] = useState<CourseFormData>({ ...INITIAL });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [toast, setToast] = useState('');
 
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(''), 3500); };
+
+  const handleLogoFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingLogo(true);
+    try {
+      const url = await uploadInstructorFile(file);
+      setForm((p) => ({ ...p, thumbnail_url: url }));
+      showToast('Course logo uploaded successfully!');
+    } catch (err: any) {
+      showToast(err?.response?.data?.message || 'Failed to upload logo');
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
 
   /* ── field updater ── */
   const set = <K extends keyof CourseFormData>(key: K, val: CourseFormData[K]) =>
@@ -119,8 +146,10 @@ export default function CreateCourse() {
     if (!validate(0)) { setStep(0); return; }
     setSaving(true);
     try {
+      const finalThumbnail = form.thumbnail_url.trim() || DEFAULT_COURSE_LOGOS[Math.floor(Math.random() * DEFAULT_COURSE_LOGOS.length)];
       const payload = {
         ...form,
+        thumbnail_url: finalThumbnail,
         status: asDraft ? 'draft' : 'published',
         learning_outcomes: form.learning_outcomes.filter((o) => o.trim()),
         prerequisites: form.prerequisites.filter((p) => p.trim()),
@@ -296,27 +325,101 @@ export default function CreateCourse() {
         {/* ── STEP 2 : Media & Settings ── */}
         {step === 2 && (
           <>
-            <h2 className="text-base font-extrabold text-slate-900">Media</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className={labelCls}>Thumbnail URL</label>
-                <input value={form.thumbnail_url} onChange={(e) => set('thumbnail_url', e.target.value)} className={fieldCls} placeholder="https://..." />
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-base font-extrabold text-slate-900 dark:text-white">Course Thumbnail & Media</h2>
+                  <p className="text-xs text-slate-500">Upload a custom course logo/thumbnail, or choose from defaults.</p>
+                </div>
+                <Badge variant="info" className="gap-1 text-[11px] font-bold">
+                  <Sparkles size={12} /> Auto-Assign If Blank
+                </Badge>
               </div>
-              <div className="space-y-1.5">
-                <label className={labelCls}>Preview Video URL</label>
-                <input value={form.preview_video_url} onChange={(e) => set('preview_video_url', e.target.value)} className={fieldCls} placeholder="https://youtube.com/..." />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <label className={labelCls}>Banner Image URL (optional)</label>
-              <input value={form.banner_image_url} onChange={(e) => set('banner_image_url', e.target.value)} className={fieldCls} placeholder="https://..." />
-            </div>
 
-            {form.thumbnail_url && (
-              <div className="w-32 h-20 rounded-xl overflow-hidden border border-slate-200">
-                <img src={form.thumbnail_url} alt="thumb" className="w-full h-full object-cover" onError={(e) => (e.currentTarget.style.display = 'none')} />
+              {/* Upload or URL input */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className={labelCls}>Upload Logo / Thumbnail Image</label>
+                  <label className="flex items-center justify-center gap-2 px-4 py-3 bg-white dark:bg-slate-900 border border-dashed border-slate-300 dark:border-slate-700 rounded-xl cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                    {uploadingLogo ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin text-teal-600" />
+                        <span className="text-xs font-bold text-slate-600">Uploading Logo...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload size={16} className="text-slate-500" />
+                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Choose Image File</span>
+                      </>
+                    )}
+                    <input type="file" accept="image/*" className="hidden" onChange={handleLogoFileUpload} disabled={uploadingLogo} />
+                  </label>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className={labelCls}>Or Thumbnail URL</label>
+                  <input value={form.thumbnail_url} onChange={(e) => set('thumbnail_url', e.target.value)} className={fieldCls} placeholder="https://..." />
+                </div>
               </div>
-            )}
+
+              {/* Preset Default Logos Selection Grid */}
+              <div className="space-y-2 pt-2">
+                <label className={labelCls}>Or Pick from Preset Logos</label>
+                <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
+                  {DEFAULT_COURSE_LOGOS.map((logoUrl, idx) => (
+                    <button
+                      type="button"
+                      key={idx}
+                      onClick={() => set('thumbnail_url', logoUrl)}
+                      className={cn(
+                        'relative aspect-video rounded-lg overflow-hidden border-2 transition-all hover:scale-105',
+                        form.thumbnail_url === logoUrl
+                          ? 'border-teal-600 shadow-md ring-2 ring-teal-600/30'
+                          : 'border-slate-200 opacity-75 hover:opacity-100'
+                      )}
+                    >
+                      <img src={logoUrl} alt={`Preset ${idx + 1}`} className="w-full h-full object-cover" />
+                      {form.thumbnail_url === logoUrl && (
+                        <div className="absolute inset-0 bg-teal-900/40 flex items-center justify-center text-white">
+                          <Check size={14} className="stroke-[3]" />
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Selected Preview */}
+              {form.thumbnail_url ? (
+                <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
+                  <div className="w-20 h-12 rounded-lg overflow-hidden border border-slate-200 shrink-0">
+                    <img src={form.thumbnail_url} alt="thumb" className="w-full h-full object-cover" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Selected Thumbnail</p>
+                    <p className="text-[11px] text-slate-500 truncate">{form.thumbnail_url}</p>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => set('thumbnail_url', '')} className="text-xs text-red-600 border-red-200 hover:bg-red-50">
+                    Remove
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-xs text-amber-600 font-semibold bg-amber-50 dark:bg-amber-950/30 p-3 rounded-xl border border-amber-200 dark:border-amber-900/50">
+                  💡 No logo selected: A random course logo will be automatically assigned when saved!
+                </p>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                <div className="space-y-1.5">
+                  <label className={labelCls}>Preview Video URL</label>
+                  <input value={form.preview_video_url} onChange={(e) => set('preview_video_url', e.target.value)} className={fieldCls} placeholder="https://youtube.com/..." />
+                </div>
+                <div className="space-y-1.5">
+                  <label className={labelCls}>Banner Image URL (optional)</label>
+                  <input value={form.banner_image_url} onChange={(e) => set('banner_image_url', e.target.value)} className={fieldCls} placeholder="https://..." />
+                </div>
+              </div>
+            </div>
 
             <hr className="border-slate-100" />
 
