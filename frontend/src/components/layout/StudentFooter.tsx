@@ -9,7 +9,6 @@ const footerLinks = {
     { label: 'Dashboard', to: '/student/dashboard' },
     { label: 'My Courses', to: '/student/courses' },
     { label: 'Calendar', to: '/student/calendar' },
-    { label: 'Resources', to: '/student/resources' },
   ],
   Support: [
     { label: 'Contact', to: '/contact' },

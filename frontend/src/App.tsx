@@ -21,12 +21,13 @@ import MyCourses from './pages/student/MyCourses';
 import CourseDetail from './pages/student/CourseDetail';
 import CourseLearning from './pages/student/CourseLearning';
 import Calendar from './pages/student/Calendar';
-import Resources from './pages/student/Resources';
 import Assignments from './pages/student/Assignments';
 import Settings from './pages/student/Settings';
 import Discussions from './pages/student/Discussions';
 import Certificates from './pages/student/Certificates';
 import StudentAnnouncements from './pages/student/Announcements';
+import CommunityZone from './pages/CommunityZone';
+
 
 import InstructorDashboard from './pages/instructor/Dashboard';
 import InstructorCourses from './pages/instructor/Courses';
@@ -131,9 +132,9 @@ function App() {
             <Route path="courses/:courseId/learn" element={<CourseLearning />} />
             <Route path="learning/:courseId" element={<CourseLearning />} />
             <Route path="calendar" element={<Calendar />} />
-            <Route path="resources" element={<Resources />} />
             <Route path="announcements" element={<StudentAnnouncements />} />
             <Route path="assignments" element={<Assignments />} />
+            <Route path="community" element={<CommunityZone />} />
             <Route path="discussions" element={<Discussions />} />
             <Route path="certificates" element={<Certificates />} />
             <Route path="settings" element={<Settings />} />
@@ -154,7 +155,9 @@ function App() {
           >
             <Route path="dashboard" element={<InstructorDashboard />} />
             <Route path="courses" element={<InstructorCourses />} />
+            <Route path="community" element={<CommunityZone />} />
             <Route path="create-course" element={<CreateCourse />} />
+
             <Route path="course-builder" element={<CourseBuilder />} />
             <Route path="quizzes" element={<InstructorQuizzes />} />
             <Route path="assignments" element={<InstructorAssignments />} />

@@ -35,10 +35,20 @@ export default function Sidebar({
   const keyMap: Record<string, string> = {
     'Dashboard': 'dashboard',
     'My Courses': 'myCourses',
+    'Courses': 'myCourses',
+    'Community Zone': 'communityZone',
+    'Community': 'community',
     'Announcements': 'announcements',
     'Calendar': 'calendar',
     'Resources': 'resources',
     'Assignments': 'assignments',
+    'Create Course': 'createCourse',
+    'Course Builder': 'courseBuilder',
+    'Quizzes': 'quizzes',
+    'Submissions': 'submissions',
+    'Discussions': 'discussions',
+    'Analytics': 'analytics',
+    'Students': 'students',
     'Settings': 'settings',
   };
 

@@ -10,7 +10,7 @@ import logging
 # Initialize Firebase on application startup
 init_firebase()
 
-from .routers import auth, users, courses, enrollments, progress, quizzes, assignments, certificates, notifications, discussions, announcements, analytics, resources, categories, instructor
+from .routers import auth, users, courses, enrollments, progress, quizzes, assignments, certificates, notifications, discussions, announcements, analytics, resources, categories, instructor, community
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +58,8 @@ app.include_router(resources.router, prefix="/api", tags=["Resources"])
 app.include_router(analytics.router, prefix="/api/analytics", tags=["Analytics"])
 app.include_router(categories.router, prefix="/api/categories", tags=["Categories"])
 app.include_router(instructor.router, prefix="/api/instructor", tags=["Instructor Curriculum"])
+app.include_router(community.router, prefix="/api/community", tags=["Community Zone"])
+
 
 # Global Exception Handlers
 @app.exception_handler(StarletteHTTPException)

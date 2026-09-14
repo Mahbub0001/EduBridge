@@ -24,6 +24,7 @@ interface CourseFormData {
   thumbnail_url: string;
   preview_video_url: string;
   banner_image_url: string;
+  instructor_signature_url: string;
   learning_outcomes: string[];
   prerequisites: string[];
   target_learners: string;
@@ -38,12 +39,13 @@ interface CourseFormData {
 const INITIAL: CourseFormData = {
   title: '', short_description: '', description: '', category: '',
   level: 'Beginner', language: 'English', estimated_hours: 0, status: 'draft',
-  thumbnail_url: '', preview_video_url: '', banner_image_url: '',
+  thumbnail_url: '', preview_video_url: '', banner_image_url: '', instructor_signature_url: '',
   learning_outcomes: [''], prerequisites: [''],
   target_learners: '', requirements: '',
-  price_type: 'free', price: 0, certificate_available: false,
+  price_type: 'free', price: 0, certificate_available: true,
   enrollment_open: true, allow_discussion: true,
 };
+
 
 const STEPS = [
   { id: 0, label: 'Basic Info', icon: BookOpen },

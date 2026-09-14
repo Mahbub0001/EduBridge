@@ -18,6 +18,7 @@ import { cn } from '../lib/utils';
 const navItems = [
   { name: 'Dashboard', path: '/instructor/dashboard', icon: Home },
   { name: 'Courses', path: '/instructor/courses', icon: BookOpen },
+  { name: 'Community Zone', path: '/instructor/community', icon: Users },
   { name: 'Create Course', path: '/instructor/create-course', icon: PlusCircle },
   { name: 'Course Builder', path: '/instructor/course-builder', icon: BookOpen },
   { name: 'Quizzes', path: '/instructor/quizzes', icon: BookOpen },
@@ -29,6 +30,7 @@ const navItems = [
   { name: 'Students', path: '/instructor/students', icon: Users },
   { name: 'Settings', path: '/instructor/settings', icon: Settings },
 ];
+
 
 
 export default function InstructorLayout() {

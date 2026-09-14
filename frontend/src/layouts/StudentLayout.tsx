@@ -4,10 +4,10 @@ import {
   Home,
   BookOpen,
   Calendar,
-  Folder,
   ClipboardList,
   Settings,
   Megaphone,
+  Users,
 } from 'lucide-react';
 import Sidebar, { type NavItem } from '../components/layout/Sidebar';
 import Topbar from '../components/layout/Topbar';
@@ -74,6 +74,7 @@ export default function StudentLayout() {
   const navItems: NavItem[] = [
     { name: 'Dashboard', path: '/student/dashboard', icon: Home },
     { name: 'My Courses', path: '/student/my-courses', icon: BookOpen },
+    { name: 'Community Zone', path: '/student/community', icon: Users },
     {
       name: 'Announcements',
       path: '/student/announcements',
@@ -81,27 +82,8 @@ export default function StudentLayout() {
       badge: unreadAnnouncements,
     },
     { name: 'Calendar', path: '/student/calendar', icon: Calendar },
-    { name: 'Resources', path: '/student/resources', icon: Folder },
     { name: 'Assignments', path: '/student/assignments', icon: ClipboardList },
     { name: 'Settings', path: '/student/settings', icon: Settings },
-  ];
-
-  const centerLinks = [
-    {
-      label: 'Dashboard',
-      to: '/student/dashboard',
-      active: location.pathname.includes('/student/dashboard'),
-    },
-    {
-      label: 'Courses',
-      to: '/student/my-courses',
-      active: location.pathname.includes('/student/my-courses') || location.pathname.includes('/student/courses'),
-    },
-    {
-      label: 'Announcements',
-      to: '/student/announcements',
-      active: location.pathname.includes('/student/announcements'),
-    },
   ];
 
   const closeDrawer = () => setDrawerOpen(false);
@@ -135,7 +117,6 @@ export default function StudentLayout() {
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <Topbar
           onMenuClick={() => setDrawerOpen(true)}
-          centerLinks={centerLinks}
           settingsPath="/student/settings"
           notifications={notifications}
           onMarkNotificationRead={handleMarkNotifRead}

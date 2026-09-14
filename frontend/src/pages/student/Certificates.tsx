@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Award, Download, ExternalLink, Calendar } from 'lucide-react';
+import { Award, ExternalLink, Calendar, Eye } from 'lucide-react';
+
+
 import { getMyCertificates, type Certificate } from '../../services/certificateService';
 import Card from '../../components/ui/Card';
 import PageHeader from '../../components/layout/PageHeader';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
+import CertificateModal from '../../components/ui/CertificateModal';
 import { useTranslation } from '../../utils/translations';
 
 export default function Certificates() {
@@ -12,6 +15,8 @@ export default function Certificates() {
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [selectedCert, setSelectedCert] = useState<Certificate | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     getMyCertificates()
@@ -20,8 +25,13 @@ export default function Certificates() {
       .finally(() => setLoading(false));
   }, []);
 
-  const handleDownload = (cert: Certificate) => {
-    window.open(cert.certificate_url, '_blank');
+  const handleOpenModal = (cert: Certificate) => {
+    setSelectedCert(cert);
+    setIsModalOpen(true);
+  };
+
+  const handleVerifyLink = (cert: Certificate) => {
+    window.open(`/verify-certificate/${cert.id}`, '_blank');
   };
 
   if (loading) return <div className="text-slate-500 text-sm">Loading certificates...</div>;
@@ -65,15 +75,15 @@ export default function Certificates() {
                 </div>
                 <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                   <Calendar size={14} />
-                  {t('issuedLabel')} {new Date(cert.issued_at).toLocaleDateString()}
+                  {t('issuedLabel')} {new Date(cert.issued_at || Date.now()).toLocaleDateString()}
                 </div>
                 <p className="text-[10px] text-slate-400 dark:text-slate-500 font-mono truncate">ID: {cert.id}</p>
                 <div className="flex gap-2 pt-2">
-                  <Button variant="primary" size="sm" className="flex-1 !bg-navy-900 dark:!bg-teal-600 dark:!text-white" onClick={() => handleDownload(cert)}>
-                    <Download size={14} /> {t('downloadBtn')}
+                  <Button variant="primary" size="sm" className="flex-1 !bg-navy-900 dark:!bg-teal-600 dark:!text-white" onClick={() => handleOpenModal(cert)}>
+                    <Eye size={14} /> View / Print PDF
                   </Button>
-                  <Button variant="outline" size="sm" className="flex-1">
-                    <ExternalLink size={14} /> {t('shareBtn')}
+                  <Button variant="outline" size="sm" className="flex-1" onClick={() => handleVerifyLink(cert)}>
+                    <ExternalLink size={14} /> Verify Link
                   </Button>
                 </div>
               </div>
@@ -89,6 +99,13 @@ export default function Certificates() {
           </a>
         </Card>
       )}
+
+      {/* Certificate Viewer Modal */}
+      <CertificateModal
+        isOpen={isModalOpen}
+        certificate={selectedCert}
+        onClose={() => setIsModalOpen(false)}
+      />
     </div>
   );
 }

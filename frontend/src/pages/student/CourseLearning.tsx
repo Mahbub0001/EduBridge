@@ -14,10 +14,14 @@ import {
   type ModuleUnlockStatus,
 } from '../../services/quizService';
 import { getModuleDiscussion, postModuleComment } from '../../services/discussionService';
+import { generateCertificate, getMyCertificates } from '../../services/certificateService';
 import api, { unwrap } from '../../services/api';
 import Breadcrumbs from '../../components/layout/Breadcrumbs';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
+import CertificateModal, { type CertificateData } from '../../components/ui/CertificateModal';
+import CourseCompletionModal from '../../components/ui/CourseCompletionModal';
+
 
 function getYouTubeEmbedUrl(url: string): string | null {
   if (!url) return null;
@@ -113,6 +117,12 @@ export default function CourseLearning() {
   const [discussionLoading, setDiscussionLoading] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [commentPosting, setCommentPosting] = useState(false);
+
+  // Certificate & Completion state
+  const [isCompletionModalOpen, setIsCompletionModalOpen] = useState(false);
+  const [isCertificateModalOpen, setIsCertificateModalOpen] = useState(false);
+  const [certificateData, setCertificateData] = useState<CertificateData | null>(null);
+
 
   useEffect(() => {
     if (!courseId) return;
@@ -414,22 +424,67 @@ export default function CourseLearning() {
     return resourcesList;
   }, [activeModule, activeLesson]);
 
+  const handleOpenCertificate = async () => {
+    if (certificateData) {
+      setIsCertificateModalOpen(true);
+      return;
+    }
+    try {
+      const myCerts = await getMyCertificates();
+      const match = myCerts.find((c) => c.course_id === courseId);
+      if (match) {
+        setCertificateData(match);
+        setIsCertificateModalOpen(true);
+        return;
+      }
+      const generated = await generateCertificate(courseId!);
+      setCertificateData(generated);
+      setIsCertificateModalOpen(true);
+    } catch (err) {
+      console.error('Failed to load certificate', err);
+      setCertificateData({
+        id: `cert-${courseId}`,
+        student_name: 'Student',
+        course_title: course?.title || 'Course',
+        issued_at: new Date().toISOString(),
+      });
+      setIsCertificateModalOpen(true);
+    }
+  };
+
   const handleMarkComplete = async () => {
     if (!courseId || !activeLesson) return;
     setMarking(true);
     try {
       const result = await markLessonComplete(activeLesson.id, courseId);
+      const newPct = result.progress_percent || 0;
       setProgress((prev: any) => ({
         ...prev,
-        progress_percent: result.progress_percent,
+        progress_percent: newPct,
         completed_lessons: [...(prev?.completed_lessons || []), activeLesson.id],
       }));
+
+      if (result.is_course_completed || newPct >= 100) {
+        try {
+          const cert = await generateCertificate(courseId);
+          setCertificateData(cert);
+        } catch {
+          setCertificateData({
+            id: result.certificate_id || `cert-${courseId}`,
+            student_name: 'Student',
+            course_title: course?.title || 'Course',
+            issued_at: new Date().toISOString(),
+          });
+        }
+        setIsCompletionModalOpen(true);
+      }
     } catch (err) {
       console.error(err);
     } finally {
       setMarking(false);
     }
   };
+
 
   const toggleModule = (id: string) => {
     setExpandedModules((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -467,31 +522,45 @@ export default function CourseLearning() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
-          <div>
-            <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
-              {activeItem?.moduleTitle || 'Module'}
-              {activeItem?.kind === 'quiz' && (
-                <span className="ml-2 text-amber-600 dark:text-amber-400">· Module Quiz</span>
-              )}
-              {activeItem?.kind === 'assignment' && (
-                <span className="ml-2 text-teal-600 dark:text-teal-400">· Course Assignment</span>
-              )}
-            </p>
-            <h1 className="text-xl font-extrabold text-navy-900 dark:text-white">
-              {activeItem?.kind === 'quiz'
-                ? activeItem.quiz.title
-                : activeItem?.kind === 'assignment'
-                ? activeItem.assignment.title
-                : (activeLesson?.title || 'Select a lesson')}
-            </h1>
-            <div className="flex items-center gap-3 mt-1 text-xs text-slate-500 dark:text-slate-400">
-              <span className="flex items-center gap-1"><Award size={14} /> {Math.round(progressPct)}% complete</span>
-              <span className="flex items-center gap-1"><Clock size={14} /> {flatItems.filter(i => i.kind === 'lesson').length} lessons</span>
-              {courseAssignments.length > 0 && (
-                <span className="flex items-center gap-1"><ClipboardList size={14} /> {courseAssignments.length} assignments</span>
-              )}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                {activeItem?.moduleTitle || 'Module'}
+                {activeItem?.kind === 'quiz' && (
+                  <span className="ml-2 text-amber-600 dark:text-amber-400">· Module Quiz</span>
+                )}
+                {activeItem?.kind === 'assignment' && (
+                  <span className="ml-2 text-teal-600 dark:text-teal-400">· Course Assignment</span>
+                )}
+              </p>
+              <h1 className="text-xl font-extrabold text-navy-900 dark:text-white">
+                {activeItem?.kind === 'quiz'
+                  ? activeItem.quiz.title
+                  : activeItem?.kind === 'assignment'
+                  ? activeItem.assignment.title
+                  : (activeLesson?.title || 'Select a lesson')}
+              </h1>
+              <div className="flex items-center gap-3 mt-1 text-xs text-slate-500 dark:text-slate-400">
+                <span className="flex items-center gap-1"><Award size={14} /> {Math.round(progressPct)}% complete</span>
+                <span className="flex items-center gap-1"><Clock size={14} /> {flatItems.filter(i => i.kind === 'lesson').length} lessons</span>
+                {courseAssignments.length > 0 && (
+                  <span className="flex items-center gap-1"><ClipboardList size={14} /> {courseAssignments.length} assignments</span>
+                )}
+              </div>
             </div>
+
+            {progressPct >= 100 && (
+              <Button
+                variant="primary"
+                size="sm"
+                className="!bg-teal-600 hover:!bg-teal-700 dark:!bg-teal-500 text-white gap-1.5 font-bold shadow-md self-start sm:self-center"
+                onClick={handleOpenCertificate}
+              >
+                <Award size={16} /> View Certificate
+              </Button>
+            )}
           </div>
+
 
           {/* Render Assignment UI if active item is an assignment */}
           {activeItem?.kind === 'assignment' && activeAssignment && (
@@ -1599,6 +1668,22 @@ export default function CourseLearning() {
           )}
         </Card>
       </div>
+
+      {/* Course Completion Celebration Modal */}
+      <CourseCompletionModal
+        isOpen={isCompletionModalOpen}
+        courseTitle={course?.title || 'Course'}
+        onClose={() => setIsCompletionModalOpen(false)}
+        onViewCertificate={handleOpenCertificate}
+      />
+
+      {/* Official Certificate Modal */}
+      <CertificateModal
+        isOpen={isCertificateModalOpen}
+        certificate={certificateData}
+        onClose={() => setIsCertificateModalOpen(false)}
+      />
     </div>
   );
 }
+

@@ -70,7 +70,6 @@ export default function Register() {
     <div className="flex min-h-screen">
       <AuthBranding
         headline="Start your journey with EduBridge today."
-        subheadline="Create your account and unlock structured learning paths, expert mentors, and certifications."
       />
 
       <div className="flex w-full flex-col justify-center bg-white px-6 py-12 dark:bg-slate-900 sm:px-12 lg:w-1/2 lg:px-16">
