@@ -94,6 +94,28 @@ export default function CourseQuizzes() {
     return stat ? stat.locked : false;
   };
 
+  const getLockReason = (moduleId: string): string => {
+    const modIdx = modules.findIndex((m) => m.id === moduleId);
+    if (modIdx <= 0) return 'Prerequisites not met';
+
+    for (let i = 0; i < modIdx; i++) {
+      const prevMod = modules[i];
+      const prevStat = moduleStatus.find((x) => x.module_id === prevMod.id);
+      if (!prevStat || prevStat.locked || !prevStat.passed) {
+        const hasQuiz = prevStat?.has_quiz ?? quizzes.some((q) => q.module_id === prevMod.id);
+        if (hasQuiz) {
+          if (prevStat?.lessons_completed) {
+            return `Pass the quiz in "${prevMod.title}" to unlock`;
+          }
+          return `Complete all lessons and pass the quiz in "${prevMod.title}" to unlock`;
+        } else {
+          return `Complete all lessons in "${prevMod.title}" to unlock`;
+        }
+      }
+    }
+    return 'Complete previous content to unlock';
+  };
+
   const grouped = useMemo(() => {
     const map: Record<string, any[]> = {};
     quizzes.forEach((q) => {
@@ -111,7 +133,7 @@ export default function CourseQuizzes() {
 
   const startQuiz = async (quiz: any) => {
     if (quiz.module_id && isModuleLocked(quiz.module_id)) {
-      alert('This quiz is locked. Please complete all lessons and quizzes in previous modules first.');
+      alert(getLockReason(quiz.module_id) || 'This quiz is locked.');
       return;
     }
     setActiveQuiz(quiz);
@@ -240,7 +262,7 @@ export default function CourseQuizzes() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-black text-navy-900 dark:text-white">Course Quizzes</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Pass each module quiz to unlock the next module.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Complete each module's lessons and quizzes sequentially to progress.</p>
         </div>
         <Link to={`/student/courses/${courseId}/learn`}>
           <Button variant="outline" size="sm"><ChevronLeft size={14} /> Back to Learning</Button>
@@ -290,7 +312,7 @@ export default function CourseQuizzes() {
                           </div>
                         )}
                         {!isLocked && <Button size="sm" className="w-full" disabled={attemptsLeft <= 0} onClick={() => startQuiz(quiz)}>{hasPassed ? 'Retake' : quizAttempts.length > 0 ? 'Try Again' : 'Start Quiz'}</Button>}
-                        {isLocked && <div className="flex items-center gap-2 text-[11px] text-amber-700 dark:text-amber-400 font-bold"><Lock size={12} /> Complete all lessons and quizzes in previous modules to unlock</div>}
+                        {isLocked && <div className="flex items-center gap-2 text-[11px] text-amber-700 dark:text-amber-400 font-bold"><Lock size={12} /> {getLockReason(moduleId)}</div>}
                       </Card>
                     );
                   })}

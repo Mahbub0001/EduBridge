@@ -262,7 +262,12 @@ export default function Dashboard() {
                       <div className="text-lg font-black text-navy-900 dark:text-white">{d.getDate()}</div>
                     </div>
                     <div>
-                      <h4 className="text-xs font-extrabold text-navy-900 dark:text-white line-clamp-1">{task.title}</h4>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <h4 className="text-xs font-extrabold text-navy-900 dark:text-white line-clamp-1">{task.title}</h4>
+                        {task.due_days ? (
+                          <span className="text-[9px] font-bold text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950 px-1.5 py-0.5 rounded">+{task.due_days}d</span>
+                        ) : null}
+                      </div>
                       <p className="text-[10px] text-slate-500 dark:text-slate-400">{task.course_name}</p>
                     </div>
                   </div>

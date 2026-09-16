@@ -40,10 +40,15 @@ export default function AssignmentCard({ assignment, onSubmit, onViewFeedback, c
         </D>
         <h3 className="font-extrabold text-slate-900 text-base leading-snug dark:text-white">{assignment.title}</h3>
         {assignment.subtitle && <p className="text-xs text-slate-500 dark:text-slate-400">{assignment.subtitle}</p>}
-        <D className="flex items-center gap-4 text-xs text-slate-500 pt-2 dark:text-slate-400">
+        <D className="flex items-center gap-4 text-xs text-slate-500 pt-2 dark:text-slate-400 flex-wrap">
           <span className="flex items-center gap-1">
             <Calendar size={14} />
             Due: {formatDate(assignment.due_date)}
+            {assignment.due_days ? (
+              <span className="ml-1 text-[10px] font-bold text-teal-600 dark:text-teal-400">
+                ({assignment.due_days}d from enrollment)
+              </span>
+            ) : null}
           </span>
           {assignment.grade && <span className="font-bold text-slate-700 dark:text-slate-300">{assignment.grade}</span>}
         </D>

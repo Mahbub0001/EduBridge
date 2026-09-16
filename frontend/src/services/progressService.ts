@@ -6,6 +6,7 @@ export interface CourseProgress {
   completed_lessons: string[];
   last_lesson_id: string | null;
   total_lessons: number;
+  enrolled_at?: string;
 }
 
 export interface MarkLessonCompleteResponse {

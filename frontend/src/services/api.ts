@@ -92,6 +92,8 @@ api.interceptors.response.use(
         // Selective invalidation by domain
         if (url.includes('/quizzes')) {
           invalidateClientCache('/quizzes');
+          invalidateClientCache('/courses');
+          invalidateClientCache('/progress');
           invalidateClientCache('/instructor');
           invalidateClientCache('/analytics');
         } else if (url.includes('/assignments')) {
@@ -110,6 +112,7 @@ api.interceptors.response.use(
           invalidateClientCache('/calendar');
         } else if (url.includes('/progress')) {
           invalidateClientCache('/progress');
+          invalidateClientCache('/courses');
           invalidateClientCache('/instructor');
           invalidateClientCache('/analytics');
         } else {

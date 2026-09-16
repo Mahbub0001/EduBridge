@@ -26,6 +26,7 @@ class ReplyCreate(BaseModel):
 
 class ModuleCommentCreate(BaseModel):
     content: str
+    student_id: Optional[str] = None
 
 
 @router.get("/courses/{course_id}")
@@ -225,6 +226,20 @@ def get_module_discussion(
         thread_data["id"] = ref.id
 
     replies_raw = list(db.collection("discussion_replies").where("thread_id", "==", thread_data["id"]).stream())
+    
+    # Privacy guard: Students only see their own questions & instructor answers addressed to them
+    if user_role not in ["instructor", "admin", "super_admin"]:
+        filtered = []
+        for r in replies_raw:
+            rd = r.to_dict()
+            s_id = rd.get("student_id")
+            a_id = rd.get("author_id")
+            if s_id and s_id == user_id:
+                filtered.append(r)
+            elif not s_id and not rd.get("is_instructor") and a_id == user_id:
+                filtered.append(r)
+        replies_raw = filtered
+
     replies_raw.sort(key=lambda r: r.to_dict().get("created_at") or datetime.min.replace(tzinfo=timezone.utc))
     
     needed_uids = {r.to_dict().get("author_id") for r in replies_raw if r.to_dict().get("author_id")}
@@ -244,6 +259,7 @@ def get_module_discussion(
         rd["author_name"] = author.get("name", "Unknown")
         rd["author_photo"] = author.get("photo_url", "")
         rd["author_role"] = author.get("role", "")
+        rd["student_id"] = rd.get("student_id", "")
         reply_list.append(rd)
 
     return success_response(data={"thread": thread_data, "replies": reply_list})
@@ -276,7 +292,7 @@ def create_module_comment(
         _, ref = db.collection("discussions").add({
             "course_id": course_id,
             "module_id": module_id,
-            "title": f"Module: {module_data.get('title', 'Untitled')} \u2014 Feedback & Questions",
+            "title": f"Module: {module_data.get('title', 'Untitled')} — Feedback & Questions",
             "content": "Ask questions or share feedback about this module.",
             "author_id": "system",
             "is_module_feedback": True,
@@ -289,9 +305,11 @@ def create_module_comment(
 
     now = datetime.now(timezone.utc)
     is_instructor = user_role in ["instructor", "admin", "super_admin"]
+    target_student_id = comment.student_id if (is_instructor and comment.student_id) else (user_id if not is_instructor else "")
     data = {
         "thread_id": thread_id,
         "author_id": user_id,
+        "student_id": target_student_id,
         "content": comment.content,
         "is_instructor": is_instructor,
         "created_at": now

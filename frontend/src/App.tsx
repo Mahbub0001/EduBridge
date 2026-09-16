@@ -47,6 +47,8 @@ import AdminCourses from './pages/admin/Courses';
 import AdminCategories from './pages/admin/Categories';
 import AdminAnalytics from './pages/admin/Analytics';
 import AdminSettings from './pages/admin/Settings';
+import AdminEnrollments from './pages/admin/Enrollments';
+import AdminCertificates from './pages/admin/Certificates';
 import VerifyCertificate from './pages/VerifyCertificate';
 
 function App() {
@@ -180,7 +182,10 @@ function App() {
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="users" element={<AdminUsers />} />
             <Route path="courses" element={<AdminCourses />} />
+            <Route path="enrollments" element={<AdminEnrollments />} />
+            <Route path="certificates" element={<AdminCertificates />} />
             <Route path="categories" element={<AdminCategories />} />
+            <Route path="community" element={<CommunityZone />} />
             <Route path="analytics" element={<AdminAnalytics />} />
             <Route path="settings" element={<AdminSettings />} />
           </Route>

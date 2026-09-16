@@ -3,7 +3,7 @@ from google.cloud.firestore_v1.client import Client
 from google.cloud.firestore_v1 import Increment
 from typing import List, Optional
 from pydantic import BaseModel
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from ..core.dependencies import get_current_user
 from ..core.firebase import get_db
 from ..core.cache import cache_response, invalidate_cache
@@ -255,7 +255,27 @@ def my_calendar(
         .where("user_id", "==", uid)
         .stream()
     )
-    course_ids = [e.to_dict().get("course_id") for e in enrollments if e.to_dict().get("course_id")]
+    enrollments_map = {}
+    course_ids = []
+    for e in enrollments:
+        ed = e.to_dict()
+        cid = ed.get("course_id")
+        if cid:
+            course_ids.append(cid)
+            enrollments_map[cid] = ed
+
+    def parse_dt(val):
+        if not val:
+            return None
+        if isinstance(val, datetime):
+            return val if val.tzinfo else val.replace(tzinfo=timezone.utc)
+        if isinstance(val, str):
+            try:
+                dt = datetime.fromisoformat(val.replace("Z", "+00:00"))
+                return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+            except Exception:
+                return None
+        return None
     
     courses_map = {}
     if course_ids:
@@ -270,11 +290,28 @@ def my_calendar(
     # 1. Course Quizzes
     for cid in course_ids:
         c_info = courses_map.get(cid, {})
+        enr_info = enrollments_map.get(cid, {})
+        enrolled_at = parse_dt(enr_info.get("enrolled_at") or enr_info.get("created_at"))
         quizzes = db.collection("quizzes").where("course_id", "==", cid).stream()
         for q in quizzes:
             qd = q.to_dict()
-            due = qd.get("due_date") or qd.get("created_at")
-            date_str = due.isoformat() if hasattr(due, "isoformat") else str(due) if due else ""
+            due_days = qd.get("due_days")
+            is_relative = False
+            effective_date = None
+
+            if due_days is not None and enrolled_at:
+                try:
+                    effective_date = enrolled_at + timedelta(days=int(due_days))
+                    is_relative = True
+                except Exception:
+                    pass
+
+            if not effective_date:
+                raw_due = qd.get("available_until") or qd.get("due_date") or qd.get("created_at")
+                effective_date = parse_dt(raw_due)
+
+            date_str = effective_date.strftime("%Y-%m-%d") if effective_date else ""
+
             events.append({
                 "id": f"quiz-{q.id}",
                 "raw_id": q.id,
@@ -288,16 +325,35 @@ def my_calendar(
                 "priority": "high",
                 "completed": False,
                 "questions_count": len(qd.get("questions", [])),
+                "due_days": due_days,
+                "is_relative_deadline": is_relative,
             })
 
     # 2. Course Assignments
     for cid in course_ids:
         c_info = courses_map.get(cid, {})
+        enr_info = enrollments_map.get(cid, {})
+        enrolled_at = parse_dt(enr_info.get("enrolled_at") or enr_info.get("created_at"))
         assignments = db.collection("assignments").where("course_id", "==", cid).stream()
         for a in assignments:
             ad = a.to_dict()
-            due = ad.get("due_date") or ad.get("created_at")
-            date_str = due.isoformat() if hasattr(due, "isoformat") else str(due) if due else ""
+            due_days = ad.get("due_days")
+            is_relative = False
+            effective_date = None
+
+            if due_days is not None and enrolled_at:
+                try:
+                    effective_date = enrolled_at + timedelta(days=int(due_days))
+                    is_relative = True
+                except Exception:
+                    pass
+
+            if not effective_date:
+                raw_due = ad.get("due_date") or ad.get("created_at")
+                effective_date = parse_dt(raw_due)
+
+            date_str = effective_date.strftime("%Y-%m-%d") if effective_date else ""
+
             sub_exists = len(list(db.collection("assignment_submissions").where("assignment_id", "==", a.id).where("user_id", "==", uid).limit(1).stream())) > 0
             events.append({
                 "id": f"asg-{a.id}",
@@ -312,6 +368,10 @@ def my_calendar(
                 "priority": "high",
                 "completed": sub_exists,
                 "total_marks": ad.get("total_marks", 100),
+                "due_days": due_days,
+                "is_relative_deadline": is_relative,
+                "late_penalty": ad.get("late_penalty", 0.0),
+                "allow_late": ad.get("allow_late", False),
             })
 
     # 3. Personal Custom Study Events

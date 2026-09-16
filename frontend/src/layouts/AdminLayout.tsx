@@ -4,9 +4,13 @@ import {
   Home,
   Users,
   BookOpen,
+  GraduationCap,
+  Award,
+  Tags,
+  MessageSquare,
   BarChart3,
   Settings,
-  Shield,
+  ShieldCheck,
 } from 'lucide-react';
 import Sidebar from '../components/layout/Sidebar';
 import Topbar from '../components/layout/Topbar';
@@ -17,7 +21,10 @@ const navItems = [
   { name: 'Dashboard', path: '/admin/dashboard', icon: Home },
   { name: 'Users', path: '/admin/users', icon: Users },
   { name: 'Courses', path: '/admin/courses', icon: BookOpen },
-  { name: 'Categories', path: '/admin/categories', icon: Shield },
+  { name: 'Enrollments', path: '/admin/enrollments', icon: GraduationCap },
+  { name: 'Certificates', path: '/admin/certificates', icon: Award },
+  { name: 'Categories', path: '/admin/categories', icon: Tags },
+  { name: 'Community Zone', path: '/admin/community', icon: MessageSquare },
   { name: 'Analytics', path: '/admin/analytics', icon: BarChart3 },
   { name: 'Settings', path: '/admin/settings', icon: Settings },
 ];
@@ -68,9 +75,11 @@ export default function AdminLayout() {
         />
         <main className="flex-1 overflow-y-auto p-6 md:p-8">
           <div className="mx-auto max-w-7xl">
-            <div className="mb-6 flex items-center gap-2 text-sm text-slate-500">
-              <Shield size={16} className="text-red-600" />
-              <span>Administration Panel</span>
+            <div className="mb-6 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-900 px-3 py-1.5 rounded-full w-fit">
+                <ShieldCheck size={16} className="text-teal-600 dark:text-teal-400" />
+                <span>EduBridge Admin Command Center</span>
+              </div>
             </div>
             <Outlet />
           </div>

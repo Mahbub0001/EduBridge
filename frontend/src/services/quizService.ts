@@ -49,6 +49,10 @@ export interface ModuleUnlockStatus {
   order?: number;
   has_quiz?: boolean;
   quiz_id?: string | null;
+  quizzes_completed?: boolean;
+  lessons_completed?: boolean;
+  total_lessons?: number;
+  completed_lessons?: number;
 }
 
 /* ── STUDENT APIs ── */
@@ -115,6 +119,9 @@ export async function previewQuiz(quizId: string): Promise<any> {
 }
 
 export async function getModuleUnlockStatus(courseId: string): Promise<ModuleUnlockStatus[]> {
-  const res = await api.get(`/courses/${courseId}/modules/unlock-status`);
+  const res = await api.get(`/courses/${courseId}/modules/unlock-status`, {
+    headers: { 'x-force-refresh': 'true' },
+    forceRefresh: true,
+  } as any);
   return unwrap<ModuleUnlockStatus[]>(res);
 }

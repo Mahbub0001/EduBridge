@@ -101,8 +101,21 @@ export default function Assignments() {
                       </div>
                     )}
                   </td>
-                  <td className="px-6 py-4 text-slate-600 dark:text-slate-300 font-medium">{item.course_name}</td>
-                  <td className="px-6 py-4 text-slate-600 dark:text-slate-400">{item.due_date ? new Date(item.due_date).toLocaleDateString() : 'N/A'}</td>
+                  <td className="px-6 py-4 text-slate-600 dark:text-slate-400">
+                    <div className="flex flex-col">
+                      <span className="font-semibold">{item.due_date ? new Date(item.due_date).toLocaleDateString() : 'N/A'}</span>
+                      {item.due_days ? (
+                        <span className="text-[10px] text-teal-600 dark:text-teal-400 font-bold">
+                          {item.due_days}d from enrollment
+                        </span>
+                      ) : null}
+                      {item.allow_late && item.late_penalty ? (
+                        <span className="text-[9px] text-amber-600 dark:text-amber-400 font-semibold">
+                          Late allowed (-{item.late_penalty}%)
+                        </span>
+                      ) : null}
+                    </div>
+                  </td>
                   <td className="px-6 py-4">
                     {item.status === 'revision' || item.status === 'returned' ? (
                       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
@@ -169,6 +182,12 @@ export default function Assignments() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <Card className="w-full max-w-lg space-y-4">
             <h3 className="text-lg font-extrabold text-navy-900 dark:text-white">{t('submitModalTitle').replace('{title}', selectedAssignment.title)}</h3>
+            {selectedAssignment.due_date && new Date() > new Date(selectedAssignment.due_date) && (
+              <div className="rounded-xl px-4 py-2.5 text-xs font-bold bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800 flex items-center gap-2">
+                <AlertCircle size={14} className="flex-shrink-0 text-amber-600 dark:text-amber-400" />
+                <span>Notice: Deadline passed on {new Date(selectedAssignment.due_date).toLocaleDateString()}. {selectedAssignment.allow_late ? `Late submission allowed (${selectedAssignment.late_penalty || 10}% penalty applies).` : 'Late submissions may be penalized.'}</span>
+              </div>
+            )}
             {submitMsg && (
               <div className={`rounded-xl px-4 py-3 text-sm ${submitMsg.includes('success') ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400' : 'bg-red-50 text-red-700 dark:bg-rose-950/30 dark:text-rose-450'}`}>
                 {submitMsg}

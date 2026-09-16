@@ -482,10 +482,14 @@ def get_module_unlock_status(
         db.collection("progress")
         .where("user_id", "==", uid)
         .where("course_id", "==", course_id)
-        .where("completed", "==", True)
         .stream()
     )
-    completed_lesson_ids = {p.to_dict().get("lesson_id") for p in progress_docs if p.to_dict().get("lesson_id")}
+    completed_lesson_ids = set()
+    for p in progress_docs:
+        pd = p.to_dict()
+        lid = pd.get("lesson_id")
+        if lid and pd.get("completed", True) is not False:
+            completed_lesson_ids.add(lid)
 
     # 3. Fetch all lessons for the course to determine module completeness
     lesson_docs = db.collection("lessons").where("course_id", "==", course_id).stream()
@@ -503,6 +507,10 @@ def get_module_unlock_status(
     for q in quiz_docs:
         qd = q.to_dict()
         qd["id"] = q.id
+        status = qd.get("status")
+        # Only published or unspecified/legacy quizzes count toward module requirements
+        if status and status != "published":
+            continue
         mid = qd.get("module_id")
         if mid:
             quizzes_by_module.setdefault(mid, []).append(qd)
@@ -566,10 +574,13 @@ def get_module_unlock_status(
             lessons_completed = all(l["id"] in completed_lesson_ids for l in mod_lessons)
         
         mod_quizzes = quizzes_by_module.get(mid, [])
+        has_quiz = len(mod_quizzes) > 0
         quizzes_completed = True
-        if mod_quizzes:
+        if has_quiz:
             quizzes_completed = all(q["id"] in passed_quiz_ids for q in mod_quizzes)
 
+        # If module has a quiz: both lessons and quiz must be done.
+        # If module has no quiz: completing all required lessons immediately completes the module!
         module_completed = lessons_completed and quizzes_completed
 
         if locked:
@@ -580,7 +591,12 @@ def get_module_unlock_status(
         result.append({
             "module_id": mid,
             "locked": locked,
-            "passed": module_completed
+            "passed": module_completed,
+            "has_quiz": has_quiz,
+            "quizzes_completed": quizzes_completed,
+            "lessons_completed": lessons_completed,
+            "total_lessons": len(mod_lessons),
+            "completed_lessons": sum(1 for l in mod_lessons if l["id"] in completed_lesson_ids),
         })
 
     return success_response(data=result)

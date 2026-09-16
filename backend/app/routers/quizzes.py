@@ -146,6 +146,7 @@ class QuizCreate(BaseModel):
     instructions: Optional[str] = ""
     passing_score: Optional[int] = 60
     max_attempts: Optional[int] = 3
+    due_days: Optional[int] = None
 
 
 class QuestionCreate(BaseModel):

@@ -271,7 +271,7 @@ def delete_community_post(
         raise HTTPException(status_code=404, detail="Post not found")
 
     pd = post_doc.to_dict()
-    if pd.get("author_id") != current_user["id"] and current_user.get("role") != "admin":
+    if pd.get("author_id") != current_user["id"] and current_user.get("role") not in ["admin", "super_admin"]:
         raise HTTPException(status_code=403, detail="Not authorized to delete this post")
 
     post_ref.delete()

@@ -58,6 +58,10 @@ interface CalendarEventItem {
   is_custom?: boolean;
   total_marks?: number;
   questions_count?: number;
+  is_relative_deadline?: boolean;
+  due_days?: number;
+  late_penalty?: number;
+  allow_late?: boolean;
 }
 
 type ViewMode = 'month' | 'week' | 'agenda';
@@ -844,7 +848,12 @@ export default function Calendar() {
                               )}
                             >
                               <span className="font-bold block truncate">{ev.title}</span>
-                              <span className="text-[9px] text-slate-500 dark:text-slate-400 block mt-0.5">{ev.time || '11:59 PM'}</span>
+                              <div className="flex items-center justify-between text-[9px] text-slate-500 dark:text-slate-400 mt-0.5">
+                                <span>{ev.time || '11:59 PM'}</span>
+                                {ev.is_relative_deadline && ev.due_days ? (
+                                  <span className="font-extrabold text-teal-700 dark:text-teal-400">+{ev.due_days}d</span>
+                                ) : null}
+                              </div>
                             </div>
                           ))
                         ) : getAllEventsForDateStr(ds).length > 0 ? (
@@ -890,11 +899,19 @@ export default function Calendar() {
                           {ev.type === 'assignment' ? <AlertCircle size={18} /> : ev.type === 'quiz' ? <Target size={18} /> : <BookOpen size={18} />}
                         </div>
                         <div>
-                          <h4 className={cn('text-sm font-bold text-navy-900 dark:text-white', ev.completed && 'line-through opacity-70')}>
-                            {ev.title}
-                          </h4>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className={cn('text-sm font-bold text-navy-900 dark:text-white', ev.completed && 'line-through opacity-70')}>
+                              {ev.title}
+                            </h4>
+                            {ev.is_relative_deadline && ev.due_days ? (
+                              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-teal-100 text-teal-800 dark:bg-teal-950/60 dark:text-teal-300 border border-teal-300 dark:border-teal-700">
+                                {ev.due_days}d from enrollment
+                              </span>
+                            ) : null}
+                          </div>
                           <p className="text-xs text-slate-500 dark:text-slate-400">
                             {ev.course_title || 'General'} • {ev.date} at {ev.time || '11:59 PM'}
+                            {ev.allow_late && ev.late_penalty ? ` • Late allowed (-${ev.late_penalty}%)` : ''}
                           </p>
                         </div>
                       </div>
@@ -1024,11 +1041,19 @@ export default function Calendar() {
                             </button>
                           )}
                           <div>
-                            <h4 className={cn('text-xs font-extrabold text-navy-900 dark:text-white', ev.completed && 'line-through')}>
-                              {ev.title}
-                            </h4>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <h4 className={cn('text-xs font-extrabold text-navy-900 dark:text-white', ev.completed && 'line-through')}>
+                                {ev.title}
+                              </h4>
+                              {ev.is_relative_deadline && ev.due_days ? (
+                                <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300">
+                                  {ev.due_days}d from enrollment
+                                </span>
+                              ) : null}
+                            </div>
                             <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium block">
                               {ev.course_title || 'Self Study'}
+                              {ev.allow_late && ev.late_penalty ? ` (Late allowed: -${ev.late_penalty}%)` : ''}
                             </span>
                           </div>
                         </div>

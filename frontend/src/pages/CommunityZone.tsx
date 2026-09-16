@@ -147,7 +147,8 @@ export default function CommunityZone() {
   };
 
   const handleShare = async (postId: string) => {
-    const shareUrl = `${window.location.origin}/student/community#post-${postId}`;
+    const basePath = user?.role === 'admin' || user?.role === 'super_admin' ? '/admin/community' : user?.role === 'instructor' ? '/instructor/community' : '/student/community';
+    const shareUrl = `${window.location.origin}${basePath}#post-${postId}`;
     navigator.clipboard.writeText(shareUrl);
     setCopiedPostId(postId);
     setTimeout(() => setCopiedPostId(null), 3000);
@@ -326,8 +327,9 @@ export default function CommunityZone() {
       {!loading && filteredPosts.length > 0 && (
         <div className="space-y-6">
           {filteredPosts.map((post) => {
-            const isAuthor = user?.uid === post.author_id || user?.role === 'admin';
+            const isAuthor = user?.uid === post.author_id || user?.role === 'admin' || user?.role === 'super_admin';
             const isInstructor = post.author_role === 'instructor' || post.author_role === 'teacher';
+            const isAdmin = post.author_role === 'admin' || post.author_role === 'super_admin';
             const isCommentsOpen = openComments[post.id];
             const commentsList = postComments[post.id] || [];
 
@@ -348,11 +350,13 @@ export default function CommunityZone() {
                           {post.author_name}
                         </h4>
                         <Badge className={`!text-[9px] uppercase font-bold px-2 py-0.5 ${
-                          isInstructor
-                            ? '!bg-amber-100 !text-amber-800 border !border-amber-300 dark:!bg-amber-950/60 dark:!text-amber-300'
-                            : '!bg-slate-100 !text-slate-700 dark:!bg-slate-800 dark:!text-slate-300'
+                          isAdmin
+                            ? '!bg-teal-100 !text-teal-800 border !border-teal-300 dark:!bg-teal-950/60 dark:!text-teal-300'
+                            : isInstructor
+                              ? '!bg-amber-100 !text-amber-800 border !border-amber-300 dark:!bg-amber-950/60 dark:!text-amber-300'
+                              : '!bg-slate-100 !text-slate-700 dark:!bg-slate-800 dark:!text-slate-300'
                         }`}>
-                          {isInstructor ? '⚡ Teacher' : 'Student'}
+                          {isAdmin ? '🛡️ Admin' : isInstructor ? '⚡ Teacher' : 'Student'}
                         </Badge>
                       </div>
                       <p className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">
@@ -451,6 +455,7 @@ export default function CommunityZone() {
                       <div className="space-y-3 divide-y divide-slate-100 dark:divide-slate-800/60">
                         {commentsList.map((c) => {
                           const isCInstructor = c.author_role === 'instructor' || c.author_role === 'teacher';
+                          const isCAdmin = c.author_role === 'admin' || c.author_role === 'super_admin';
                           return (
                             <div key={c.id} className="pt-3 first:pt-0 flex items-start gap-2.5">
                               <UserAvatar
@@ -463,9 +468,11 @@ export default function CommunityZone() {
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center gap-2">
                                     <span className="text-xs font-bold text-navy-950 dark:text-white">{c.author_name}</span>
-                                    {isCInstructor && (
+                                    {isCAdmin ? (
+                                      <span className="text-[9px] font-bold text-teal-700 dark:text-teal-400 bg-teal-100 dark:bg-teal-950/60 px-1.5 py-0.5 rounded">Admin</span>
+                                    ) : isCInstructor ? (
                                       <span className="text-[9px] font-bold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-950/60 px-1.5 py-0.5 rounded">Teacher</span>
-                                    )}
+                                    ) : null}
                                   </div>
                                   <span className="text-[9px] text-slate-400 font-mono">
                                     {new Date(c.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

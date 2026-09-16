@@ -46,7 +46,7 @@ export default function InstructorAssignments() {
   const [activeAssignment, setActiveAssignment] = useState<any | null>(null);
   const [rubrics, setRubrics] = useState<RubricCriterion[]>([]);
   const [assignmentForm, setAssignmentForm] = useState({
-    title: '', instructions: '', module_id: '', due_date: '', total_marks: 100,
+    title: '', instructions: '', module_id: '', due_date: '', due_days: 10, deadline_type: 'days' as 'days' | 'date', total_marks: 100,
     submission_type: 'both', allow_late: false, late_penalty: 10, allow_resubmission: true,
     accepted_file_types: '.pdf,.zip,.doc,.docx', max_file_size: '50MB', require_student_comment: false,
     status: 'draft'
@@ -150,11 +150,14 @@ export default function InstructorAssignments() {
     if (assign) {
       setActiveAssignment(assign);
       setRubrics(assign.rubrics || []);
+      const isDays = (assign.due_days !== undefined && assign.due_days !== null) || !assign.due_date;
       setAssignmentForm({
         title: assign.title || '',
         instructions: assign.instructions || '',
         module_id: assign.module_id || '',
         due_date: assign.due_date ? assign.due_date.slice(0, 16) : '',
+        due_days: assign.due_days !== undefined && assign.due_days !== null ? assign.due_days : 10,
+        deadline_type: isDays ? 'days' : 'date',
         total_marks: assign.total_marks || 100,
         submission_type: assign.submission_type || 'both',
         allow_late: assign.allow_late || false,
@@ -169,7 +172,7 @@ export default function InstructorAssignments() {
       setActiveAssignment({ id: 'new' });
       setRubrics([]);
       setAssignmentForm({
-        title: '', instructions: '', module_id: '', due_date: '', total_marks: 100,
+        title: '', instructions: '', module_id: '', due_date: '', due_days: 10, deadline_type: 'days', total_marks: 100,
         submission_type: 'both', allow_late: false, late_penalty: 10, allow_resubmission: true,
         accepted_file_types: '.pdf,.zip,.doc,.docx', max_file_size: '50MB', require_student_comment: false,
         status: 'draft'
@@ -187,7 +190,12 @@ export default function InstructorAssignments() {
     }
 
     try {
-      const payload = { ...assignmentForm, rubrics };
+      const payload = {
+        ...assignmentForm,
+        due_days: assignmentForm.deadline_type === 'days' ? Number(assignmentForm.due_days || 10) : null,
+        due_date: assignmentForm.deadline_type === 'date' ? assignmentForm.due_date : null,
+        rubrics
+      };
       if (activeAssignment && activeAssignment.id !== 'new') {
         await updateAssignment(activeAssignment.id, payload);
         showToast('Assignment updated successfully!');
@@ -440,6 +448,20 @@ export default function InstructorAssignments() {
                           <h4 className="text-sm font-black text-slate-900 line-clamp-1">{a.title}</h4>
                           <p className="text-xs text-slate-500 line-clamp-2">{a.instructions || 'No instructions provided.'}</p>
 
+                          <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500">
+                            <Clock size={12} className="text-teal-600" />
+                            {a.due_days !== undefined && a.due_days !== null ? (
+                              <span className="text-teal-700 dark:text-teal-400">{a.due_days} days after enrollment</span>
+                            ) : a.due_date ? (
+                              <span>Due: {new Date(a.due_date).toLocaleDateString()}</span>
+                            ) : (
+                              <span>No deadline</span>
+                            )}
+                            {a.allow_late && (
+                              <span className="text-[10px] text-amber-600 font-semibold">(Late -{a.late_penalty || 0}%)</span>
+                            )}
+                          </div>
+
                           <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100 text-[10px] font-extrabold text-slate-500 uppercase tracking-wide">
                             <div className="flex flex-col">
                               <span className="text-slate-400">Total Marks</span>
@@ -500,7 +522,7 @@ export default function InstructorAssignments() {
               <div className="space-y-2">
                 {gradingSubmissions.map((sub) => {
                   const active = selectedSubmission?.id === sub.id;
-                  const isLate = sub.submitted_at && activeAssignment.due_date && new Date(sub.submitted_at) > new Date(activeAssignment.due_date);
+                  const isLate = sub.is_late ?? (sub.submitted_at && activeAssignment.due_date && new Date(sub.submitted_at) > new Date(activeAssignment.due_date));
                   return (
                     <button
                       key={sub.id}
@@ -532,7 +554,7 @@ export default function InstructorAssignments() {
                         </span>
                         {isLate && (
                           <span className="text-red-500 font-extrabold flex items-center gap-0.5">
-                            <Clock size={10} /> Late
+                            <Clock size={10} /> Late {sub.penalty_percent ? `(-${sub.penalty_percent}%)` : ''}
                           </span>
                         )}
                       </div>
@@ -569,9 +591,9 @@ export default function InstructorAssignments() {
                           <RotateCcw size={10} /> Resubmitted: {new Date(selectedSubmission.resubmitted_at).toLocaleString()}
                         </span>
                       )}
-                      {selectedSubmission.submitted_at && activeAssignment.due_date && new Date(selectedSubmission.submitted_at) > new Date(activeAssignment.due_date) && (
+                      {(selectedSubmission.is_late || (selectedSubmission.submitted_at && activeAssignment.due_date && new Date(selectedSubmission.submitted_at) > new Date(activeAssignment.due_date))) && (
                         <span className="text-red-500 font-extrabold flex items-center gap-1 mt-1">
-                          <AlertTriangle size={12} /> Late Submission (Penalty eligible)
+                          <AlertTriangle size={12} /> Late Submission {selectedSubmission.penalty_percent ? `(${selectedSubmission.penalty_percent}% penalty applies)` : '(Penalty eligible)'}
                         </span>
                       )}
                     </div>
@@ -768,17 +790,68 @@ export default function InstructorAssignments() {
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-500">Due Date and Time *</label>
-                <input
-                  type="datetime-local"
-                  value={assignmentForm.due_date}
-                  onChange={(e) => setAssignmentForm({ ...assignmentForm, due_date: e.target.value })}
-                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus:border-slate-900 text-slate-700"
-                />
+            {/* Deadline Configuration */}
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                  <Clock size={14} className="text-teal-600" /> Assignment Deadline Type *
+                </label>
+                <div className="flex items-center gap-1 bg-white border border-slate-200 p-1 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => setAssignmentForm({ ...assignmentForm, deadline_type: 'days' })}
+                    className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
+                      assignmentForm.deadline_type === 'days'
+                        ? 'bg-slate-900 text-white shadow-sm'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    Days after Enrollment (MOOC)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAssignmentForm({ ...assignmentForm, deadline_type: 'date' })}
+                    className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
+                      assignmentForm.deadline_type === 'date'
+                        ? 'bg-slate-900 text-white shadow-sm'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    Fixed Calendar Date
+                  </button>
+                </div>
               </div>
 
+              {assignmentForm.deadline_type === 'days' ? (
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-36">
+                      <input
+                        type="number"
+                        min="1"
+                        max="365"
+                        value={assignmentForm.due_days || ''}
+                        onChange={(e) => setAssignmentForm({ ...assignmentForm, due_days: Number(e.target.value) })}
+                        placeholder="e.g. 10"
+                        className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-black outline-none focus:border-slate-900 text-slate-800 bg-white"
+                      />
+                    </div>
+                    <span className="text-xs font-bold text-slate-600">days from student enrollment date</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <input
+                    type="datetime-local"
+                    value={assignmentForm.due_date}
+                    onChange={(e) => setAssignmentForm({ ...assignmentForm, due_date: e.target.value })}
+                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-semibold outline-none focus:border-slate-900 text-slate-700 bg-white"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-500">Total Score (Marks)</label>
                 <input

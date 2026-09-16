@@ -11,8 +11,8 @@ export async function getInstructorDiscussionDetail(discussionId: string): Promi
   return unwrap<any>(res);
 }
 
-export async function replyToDiscussionAsInstructor(discussionId: string, content: string): Promise<any> {
-  const res = await api.post(`/instructor/discussions/${discussionId}/reply`, { content });
+export async function replyToDiscussionAsInstructor(discussionId: string, content: string, studentId?: string): Promise<any> {
+  const res = await api.post(`/instructor/discussions/${discussionId}/reply`, { content, student_id: studentId });
   return unwrap<any>(res);
 }
 

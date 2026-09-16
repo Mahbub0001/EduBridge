@@ -94,7 +94,11 @@ export default function CourseBuilder() {
   const [editingAssignment, setEditingAssignment] = useState<any | null>(null);
   const [assignmentForm, setAssignmentForm] = useState({
     title: '', instructions: '', due_date: '', total_marks: 100,
-    submission_type: 'both', accepted_file_types: '', status: 'draft'
+    submission_type: 'both', accepted_file_types: '', status: 'draft',
+    deadline_type: 'days' as 'days' | 'date',
+    due_days: 10,
+    allow_late: false,
+    late_penalty: 10
   });
 
   // Delete confirmations
@@ -388,17 +392,25 @@ export default function CourseBuilder() {
       setAssignmentForm({
         title: a.title || '',
         instructions: a.instructions || '',
-        due_date: a.due_date || '',
+        due_date: a.due_date ? a.due_date.slice(0, 10) : '',
         total_marks: a.total_marks || 100,
         submission_type: a.submission_type || 'both',
         accepted_file_types: a.accepted_file_types || '',
-        status: a.status || 'draft'
+        status: a.status || 'draft',
+        deadline_type: a.deadline_type || (a.due_days ? 'days' : (a.due_date ? 'date' : 'days')),
+        due_days: a.due_days !== undefined ? a.due_days : 10,
+        allow_late: a.allow_late ?? false,
+        late_penalty: a.late_penalty ?? 10
       });
     } else {
       setEditingAssignment(null);
       setAssignmentForm({
         title: '', instructions: '', due_date: '', total_marks: 100,
-        submission_type: 'both', accepted_file_types: '', status: 'draft'
+        submission_type: 'both', accepted_file_types: '', status: 'draft',
+        deadline_type: 'days',
+        due_days: 10,
+        allow_late: false,
+        late_penalty: 10
       });
     }
   };
@@ -862,12 +874,17 @@ export default function CourseBuilder() {
                                             <span className="text-[9px] uppercase font-bold text-indigo-600">Assignment</span>
                                             <span className="text-[9px] font-bold text-slate-400">•</span>
                                             <span className="text-[9px] font-bold text-slate-500">{a.total_marks || 100} Marks</span>
-                                            {a.due_date && (
+                                            {a.due_days ? (
+                                              <>
+                                                <span className="text-[9px] font-bold text-slate-400">•</span>
+                                                <span className="text-[9px] font-bold text-indigo-700 bg-indigo-100/80 px-1.5 py-0.5 rounded">Due: {a.due_days}d from enrollment</span>
+                                              </>
+                                            ) : a.due_date ? (
                                               <>
                                                 <span className="text-[9px] font-bold text-slate-400">•</span>
                                                 <span className="text-[9px] font-bold text-slate-500">Due: {a.due_date}</span>
                                               </>
-                                            )}
+                                            ) : null}
                                             <span className="text-[9px] font-bold text-slate-400">•</span>
                                             <span className={`text-[9px] px-1.5 py-0.5 rounded font-extrabold uppercase ${a.status === 'published' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'}`}>
                                               {a.status || 'draft'}
@@ -1433,52 +1450,145 @@ export default function CourseBuilder() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-500">Due Date</label>
-                <input
-                  type="date"
-                  value={assignmentForm.due_date}
-                  onChange={(e) => setAssignmentForm({ ...assignmentForm, due_date: e.target.value })}
-                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus:border-slate-900"
-                />
+            {/* Deadline Configuration */}
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Submission Deadline Schedule *
+                </label>
+                <div className="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 p-0.5 bg-white dark:bg-slate-800 text-[11px] font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setAssignmentForm({ ...assignmentForm, deadline_type: 'days' })}
+                    className={`px-2.5 py-1 rounded-md transition-all ${
+                      assignmentForm.deadline_type === 'days'
+                        ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                    }`}
+                  >
+                    Days after Enrollment (MOOC)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAssignmentForm({ ...assignmentForm, deadline_type: 'date' })}
+                    className={`px-2.5 py-1 rounded-md transition-all ${
+                      assignmentForm.deadline_type === 'date'
+                        ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                    }`}
+                  >
+                    Fixed Date
+                  </button>
+                </div>
               </div>
+
+              {assignmentForm.deadline_type === 'days' ? (
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="1"
+                      max="365"
+                      value={assignmentForm.due_days || ''}
+                      onChange={(e) => setAssignmentForm({ ...assignmentForm, due_days: Number(e.target.value) })}
+                      placeholder="10"
+                      className="w-28 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-black outline-none focus:border-slate-900 dark:bg-slate-800"
+                    />
+                    <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">days after student's enrollment</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <input
+                    type="date"
+                    value={assignmentForm.due_date}
+                    onChange={(e) => setAssignmentForm({ ...assignmentForm, due_date: e.target.value })}
+                    className="w-full border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-slate-900 dark:bg-slate-800"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-500">Total Marks</label>
                 <input
                   type="number"
                   value={assignmentForm.total_marks}
                   onChange={(e) => setAssignmentForm({ ...assignmentForm, total_marks: Number(e.target.value) })}
-                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus:border-slate-900"
+                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-semibold outline-none focus:border-slate-900"
                 />
               </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-500">Submission Type</label>
                 <select
                   value={assignmentForm.submission_type}
                   onChange={(e) => setAssignmentForm({ ...assignmentForm, submission_type: e.target.value })}
-                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus:border-slate-900"
+                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-semibold outline-none focus:border-slate-900"
                 >
                   <option value="both">Both File & Text</option>
                   <option value="file">File Upload Only</option>
                   <option value="text">Online Text Only</option>
                 </select>
               </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-500">Late Submission Policy</label>
+                <div className="flex items-center gap-2 pt-2">
+                  <input
+                    type="checkbox"
+                    id="cb_allow_late"
+                    checked={assignmentForm.allow_late}
+                    onChange={(e) => setAssignmentForm({ ...assignmentForm, allow_late: e.target.checked })}
+                    className="w-4 h-4 rounded border-slate-350 text-slate-900 focus:ring-slate-900"
+                  />
+                  <label htmlFor="cb_allow_late" className="text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer">
+                    Allow late submission
+                  </label>
+                </div>
+              </div>
+              {assignmentForm.allow_late ? (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-500">Late Penalty (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={assignmentForm.late_penalty}
+                    onChange={(e) => setAssignmentForm({ ...assignmentForm, late_penalty: Number(e.target.value) })}
+                    className="w-full border border-slate-200 rounded-xl px-4 py-2 text-xs font-semibold outline-none focus:border-slate-900"
+                  />
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-500">Status</label>
+                  <select
+                    value={assignmentForm.status}
+                    onChange={(e) => setAssignmentForm({ ...assignmentForm, status: e.target.value })}
+                    className="w-full border border-slate-200 rounded-xl px-4 py-2 text-xs font-semibold outline-none focus:border-slate-900"
+                  >
+                    <option value="draft">Draft</option>
+                    <option value="published">Published</option>
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {assignmentForm.allow_late && (
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-500">Status</label>
                 <select
                   value={assignmentForm.status}
                   onChange={(e) => setAssignmentForm({ ...assignmentForm, status: e.target.value })}
-                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus:border-slate-900"
+                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-semibold outline-none focus:border-slate-900"
                 >
                   <option value="draft">Draft</option>
                   <option value="published">Published</option>
                 </select>
               </div>
-            </div>
+            )}
 
             <div className="flex gap-2 justify-end pt-2">
               <Button variant="ghost" onClick={() => setShowAssignmentModal(null)}>Cancel</Button>

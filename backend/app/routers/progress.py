@@ -38,12 +38,28 @@ def get_course_progress(
     # find last completed lesson
     last_lesson_id = completed_lessons[-1] if completed_lessons else None
 
+    # find enrollment date
+    enr_docs = list(
+        db.collection("enrollments")
+        .where("user_id", "==", uid)
+        .where("course_id", "==", course_id)
+        .limit(1)
+        .stream()
+    )
+    enrolled_at = None
+    if enr_docs:
+        ed = enr_docs[0].to_dict()
+        ea = ed.get("enrolled_at")
+        if ea:
+            enrolled_at = ea.isoformat() if hasattr(ea, "isoformat") else str(ea)
+
     return success_response(data={
         "course_id": course_id,
         "progress_percent": progress_percent,
         "completed_lessons": completed_lessons,
         "last_lesson_id": last_lesson_id,
         "total_lessons": total_lessons,
+        "enrolled_at": enrolled_at,
     })
 
 

@@ -470,6 +470,7 @@ class QuizCreateUpdate(BaseModel):
     show_correct_answers: Optional[bool] = True
     available_from: Optional[str] = ""
     available_until: Optional[str] = ""
+    due_days: Optional[int] = None
     status: Optional[str] = "draft"
 
 class QuestionCreateUpdate(BaseModel):
@@ -733,6 +734,8 @@ class AssignmentCreateUpdate(BaseModel):
     instructions: Optional[str] = ""
     module_id: Optional[str] = None
     due_date: Optional[str] = None
+    due_days: Optional[int] = None
+    deadline_type: Optional[str] = "days"
     total_marks: Optional[int] = 100
     submission_type: Optional[str] = "both"  # text, file, both
     allow_late: Optional[bool] = False
@@ -1838,6 +1841,7 @@ def publish_instructor_announcement_endpoint(
 # ── INSTRUCTOR DISCUSSION SCHEMAS ──
 class InstructorReplyCreate(BaseModel):
     content: str
+    student_id: Optional[str] = None
 
 
 # ── INSTRUCTOR DISCUSSION MODERATION ENDPOINTS ──
@@ -2007,10 +2011,23 @@ def reply_to_discussion_as_instructor(
     thread_data = thread_doc.to_dict()
     check_course_permission(thread_data.get("course_id"), current_user, db)
 
+    target_student_id = payload.student_id
+    if not target_student_id:
+        if thread_data.get("author_id") and thread_data.get("author_id") != "system":
+            target_student_id = thread_data.get("author_id")
+        else:
+            recent_replies = list(db.collection("discussion_replies").where("thread_id", "==", discussion_id).stream())
+            for rep in reversed(sorted(recent_replies, key=lambda x: x.to_dict().get("created_at") or datetime.min.replace(tzinfo=timezone.utc))):
+                rd = rep.to_dict()
+                if not rd.get("is_instructor") and rd.get("author_id"):
+                    target_student_id = rd.get("student_id") or rd.get("author_id")
+                    break
+
     now = datetime.now(timezone.utc)
     data = {
         "thread_id": discussion_id,
         "author_id": current_user["id"],
+        "student_id": target_student_id or "",
         "content": payload.content,
         "created_at": now,
         "is_instructor": True
@@ -2020,7 +2037,17 @@ def reply_to_discussion_as_instructor(
     data["id"] = ref.id
 
     # Auto-mark the discussion as answered!
-    thread_ref.update({"is_answered": True})
+    thread_ref.update({"is_answered": True, "updated_at": now})
+
+    if target_student_id:
+        db.collection("notifications").add({
+            "user_id": target_student_id,
+            "type": "discussion_reply",
+            "thread_id": discussion_id,
+            "message": f"Instructor replied to your question: '{payload.content[:60]}...'",
+            "is_read": False,
+            "created_at": now
+        })
 
     return success_response(data=data, message="Reply added successfully!")
 

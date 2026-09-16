@@ -98,6 +98,8 @@ export default function InstructorDiscussions() {
       .finally(() => setThreadLoading(false));
   }, [selectedModuleId]);
 
+  const [targetStudent, setTargetStudent] = useState<{ id: string; name: string } | null>(null);
+
   // Scroll to latest reply when thread updates
   useEffect(() => {
     repliesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -107,8 +109,9 @@ export default function InstructorDiscussions() {
     if (!replyText.trim() || !moduleThread?.thread?.id) return;
     setReplyLoading(true);
     try {
-      await replyToDiscussionAsInstructor(moduleThread.thread.id, replyText.trim());
+      await replyToDiscussionAsInstructor(moduleThread.thread.id, replyText.trim(), targetStudent?.id);
       setReplyText('');
+      setTargetStudent(null);
       showToast('Reply posted!');
       // Refresh thread
       const updated = await getModuleDiscussion(selectedModuleId);
@@ -348,6 +351,15 @@ export default function InstructorDiscussions() {
                               <span className="text-[10px] text-slate-400 ml-auto">{timeAgo(reply.created_at)}</span>
                             </div>
                             <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{reply.content}</p>
+                            {!isInstructor && (
+                              <button
+                                type="button"
+                                onClick={() => setTargetStudent({ id: reply.student_id || reply.author_id, name: reply.author_name || 'Student' })}
+                                className="text-[10px] font-bold text-teal-600 hover:text-teal-700 dark:text-teal-400 hover:underline mt-1.5 inline-block"
+                              >
+                                ↳ Reply to this student
+                              </button>
+                            )}
                           </div>
                         </div>
                       );
@@ -357,27 +369,41 @@ export default function InstructorDiscussions() {
                 )}
 
                 {/* Reply input */}
-                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex gap-3">
-                  <div className="w-8 h-8 rounded-full bg-teal-100 dark:bg-teal-900/40 flex items-center justify-center flex-shrink-0">
-                    <User size={14} className="text-teal-600" />
-                  </div>
-                  <div className="flex-1 flex gap-2">
-                    <textarea
-                      rows={2}
-                      value={replyText}
-                      onChange={(e) => setReplyText(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleReply(); } }}
-                      placeholder="Reply to students in this module... (Enter to send)"
-                      className="flex-1 resize-none border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs outline-none focus:border-teal-400 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 placeholder-slate-400"
-                    />
-                    <button
-                      type="button"
-                      disabled={!replyText.trim() || replyLoading}
-                      onClick={handleReply}
-                      className="self-end px-3 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 disabled:opacity-40 text-white transition-all flex-shrink-0"
-                    >
-                      {replyLoading ? <RefreshCw size={14} className="animate-spin" /> : <Send size={14} />}
-                    </button>
+                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                  {targetStudent && (
+                    <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800 text-[11px] font-bold text-teal-800 dark:text-teal-300">
+                      <span>Replying directly to: <strong>{targetStudent.name}</strong></span>
+                      <button
+                        type="button"
+                        onClick={() => setTargetStudent(null)}
+                        className="text-slate-400 hover:text-slate-600 dark:hover:text-white"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+                  <div className="flex gap-3">
+                    <div className="w-8 h-8 rounded-full bg-teal-100 dark:bg-teal-900/40 flex items-center justify-center flex-shrink-0">
+                      <User size={14} className="text-teal-600" />
+                    </div>
+                    <div className="flex-1 flex gap-2">
+                      <textarea
+                        rows={2}
+                        value={replyText}
+                        onChange={(e) => setReplyText(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleReply(); } }}
+                        placeholder={targetStudent ? `Reply to ${targetStudent.name}... (Enter to send)` : "Reply to students in this module... (Enter to send)"}
+                        className="flex-1 resize-none border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs outline-none focus:border-teal-400 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 placeholder-slate-400"
+                      />
+                      <button
+                        type="button"
+                        disabled={!replyText.trim() || replyLoading}
+                        onClick={handleReply}
+                        className="self-end px-3 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 disabled:opacity-40 text-white transition-all flex-shrink-0"
+                      >
+                        {replyLoading ? <RefreshCw size={14} className="animate-spin" /> : <Send size={14} />}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </Card>

@@ -10,7 +10,7 @@ import logging
 # Initialize Firebase on application startup
 init_firebase()
 
-from .routers import auth, users, courses, enrollments, progress, quizzes, assignments, certificates, notifications, discussions, announcements, analytics, resources, categories, instructor, community
+from .routers import auth, users, courses, enrollments, progress, quizzes, assignments, certificates, notifications, discussions, announcements, analytics, resources, categories, instructor, community, admin
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +45,7 @@ app.add_middleware(
 # Register Routers
 app.include_router(auth.router, prefix="/api/auth", tags=["Auth"])
 app.include_router(users.router, prefix="/api/users", tags=["Users"])
+app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 app.include_router(courses.router, prefix="/api/courses", tags=["Courses"])
 app.include_router(enrollments.router, prefix="/api", tags=["Enrollments"])
 app.include_router(progress.router, prefix="/api/progress", tags=["Progress"])

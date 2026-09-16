@@ -57,6 +57,12 @@ export interface Assignment {
   course_id?: string;
   course_name: string;
   due_date: string;
+  due_days?: number;
+  deadline_type?: 'days' | 'date';
+  allow_late?: boolean;
+  late_penalty?: number;
+  effective_due_date?: string;
+  is_late?: boolean;
   status: 'pending' | 'submitted' | 'graded' | 'revision' | 'returned';
   grade?: string;
   instructions?: string;

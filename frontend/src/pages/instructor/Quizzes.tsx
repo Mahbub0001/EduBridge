@@ -54,7 +54,8 @@ export default function InstructorQuizzes() {
     title: '', instructions: '', module_id: '', passing_score: 60,
     total_marks: 100, time_limit: 30, max_attempts: 3,
     shuffle_questions: false, shuffle_options: false, show_correct_answers: true,
-    available_from: '', available_until: '', status: 'draft'
+    available_from: '', available_until: '', status: 'draft',
+    due_days: undefined as number | undefined
   });
 
   // Question Form fields
@@ -146,7 +147,8 @@ export default function InstructorQuizzes() {
         show_correct_answers: quiz.show_correct_answers !== undefined ? quiz.show_correct_answers : true,
         available_from: quiz.available_from || '',
         available_until: quiz.available_until || '',
-        status: quiz.status || 'draft'
+        status: quiz.status || 'draft',
+        due_days: quiz.due_days !== undefined ? quiz.due_days : undefined
       });
       setActiveTab('settings');
       loadPreview(quiz.id);
@@ -156,7 +158,8 @@ export default function InstructorQuizzes() {
         title: '', instructions: '', module_id: '', passing_score: 60,
         total_marks: 100, time_limit: 30, max_attempts: 3,
         shuffle_questions: false, shuffle_options: false, show_correct_answers: true,
-        available_from: '', available_until: '', status: 'draft'
+        available_from: '', available_until: '', status: 'draft',
+        due_days: undefined
       });
       setActiveTab('settings');
       setPreviewData(null);
@@ -455,6 +458,16 @@ export default function InstructorQuizzes() {
                           <h4 className="text-sm font-black text-slate-900 line-clamp-1">{q.title}</h4>
                           <p className="text-xs text-slate-500 line-clamp-2">{q.instructions || 'No instructions provided.'}</p>
                           
+                          {q.due_days ? (
+                            <div className="flex items-center gap-1.5 text-[11px] font-bold text-teal-700 bg-teal-50 px-2.5 py-1 rounded-lg w-fit">
+                              <Clock size={12} /> Due: {q.due_days} days from enrollment
+                            </div>
+                          ) : q.available_until ? (
+                            <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-lg w-fit">
+                              <Clock size={12} /> Due: {new Date(q.available_until).toLocaleDateString()}
+                            </div>
+                          ) : null}
+                          
                           <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100 text-[10px] font-extrabold text-slate-500 uppercase tracking-wide">
                             <div className="flex flex-col">
                               <span className="text-slate-400">Questions</span>
@@ -609,24 +622,50 @@ export default function InstructorQuizzes() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-500">Available From</label>
-                      <input
-                        type="datetime-local"
-                        value={quizForm.available_from}
-                        onChange={(e) => setQuizForm({ ...quizForm, available_from: e.target.value })}
-                        className="w-full border border-slate-200 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus:border-slate-900 text-slate-700"
-                      />
+                  <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                        Deadline & Availability Schedule
+                      </label>
+                      <span className="text-[11px] text-teal-700 dark:text-teal-400 font-semibold">
+                        ⚡ Self-Paced MOOC Support
+                      </span>
                     </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-500">Available Until (Deadline)</label>
-                      <input
-                        type="datetime-local"
-                        value={quizForm.available_until}
-                        onChange={(e) => setQuizForm({ ...quizForm, available_until: e.target.value })}
-                        className="w-full border border-slate-200 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus:border-slate-900 text-slate-700"
-                      />
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-500">Days from Enrollment</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="365"
+                          value={quizForm.due_days || ''}
+                          onChange={(e) => setQuizForm({ ...quizForm, due_days: e.target.value ? Number(e.target.value) : undefined })}
+                          placeholder="e.g. 10 (Recommended)"
+                          className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold outline-none focus:border-slate-900 text-slate-800 bg-white"
+                        />
+                        <p className="text-[10px] text-teal-700 dark:text-teal-400 font-medium">Relative to each student's enrollment date</p>
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-500">Fixed Available From</label>
+                        <input
+                          type="datetime-local"
+                          value={quizForm.available_from}
+                          onChange={(e) => setQuizForm({ ...quizForm, available_from: e.target.value })}
+                          className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-semibold outline-none focus:border-slate-900 text-slate-700 bg-white"
+                        />
+                        <p className="text-[10px] text-slate-400">Optional cohort start</p>
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-500">Fixed Deadline Until</label>
+                        <input
+                          type="datetime-local"
+                          value={quizForm.available_until}
+                          onChange={(e) => setQuizForm({ ...quizForm, available_until: e.target.value })}
+                          className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-semibold outline-none focus:border-slate-900 text-slate-700 bg-white"
+                        />
+                        <p className="text-[10px] text-slate-400">Optional cohort end</p>
+                      </div>
                     </div>
                   </div>
 

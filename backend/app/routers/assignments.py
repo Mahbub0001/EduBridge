@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from google.cloud.firestore_v1.client import Client
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 from pydantic import BaseModel
 from ..core.dependencies import get_current_user, require_instructor
@@ -37,6 +37,57 @@ def submit_assignment(
     assignment_data = assignment_doc.to_dict()
     course_id = assignment_data.get("course_id", "")
     now = datetime.now(timezone.utc)
+
+    # Calculate personalized deadline (relative due_days or fixed due_date)
+    due_days = assignment_data.get("due_days")
+    due_date_str = assignment_data.get("due_date")
+    allow_late = assignment_data.get("allow_late", False)
+    late_penalty = float(assignment_data.get("late_penalty") or 0.0)
+
+    effective_due_date = None
+    if due_days is not None:
+        enr_docs = list(
+            db.collection("enrollments")
+            .where("user_id", "==", current_user["id"])
+            .where("course_id", "==", course_id)
+            .limit(1)
+            .stream()
+        )
+        if enr_docs:
+            ed = enr_docs[0].to_dict()
+            enrolled_at = ed.get("enrolled_at")
+            if enrolled_at:
+                if isinstance(enrolled_at, str):
+                    try:
+                        enrolled_dt = datetime.fromisoformat(enrolled_at.replace("Z", "+00:00"))
+                    except Exception:
+                        enrolled_dt = now
+                elif hasattr(enrolled_at, "tzinfo") and enrolled_at.tzinfo is None:
+                    enrolled_dt = enrolled_at.replace(tzinfo=timezone.utc)
+                else:
+                    enrolled_dt = enrolled_at
+                try:
+                    effective_due_date = enrolled_dt + timedelta(days=int(due_days))
+                except Exception:
+                    effective_due_date = None
+
+    if not effective_due_date and due_date_str:
+        try:
+            if isinstance(due_date_str, str):
+                effective_due_date = datetime.fromisoformat(due_date_str.replace("Z", "+00:00"))
+                if effective_due_date.tzinfo is None:
+                    effective_due_date = effective_due_date.replace(tzinfo=timezone.utc)
+            elif hasattr(due_date_str, "tzinfo"):
+                effective_due_date = due_date_str if due_date_str.tzinfo else due_date_str.replace(tzinfo=timezone.utc)
+        except Exception:
+            effective_due_date = None
+
+    is_late = False
+    late_days = 0.0
+    if effective_due_date and now > effective_due_date:
+        is_late = True
+        late_days = round((now - effective_due_date).total_seconds() / 86400, 1)
+
     submission_data = {
         "assignment_id": assignment_id,
         "course_id": course_id,
@@ -44,7 +95,11 @@ def submit_assignment(
         "submission_text": submission.submission_text,
         "file_url": submission.file_url,
         "submitted_at": now,
-        "status": "pending"
+        "status": "pending",
+        "is_late": is_late,
+        "late_days": late_days,
+        "penalty_percent": late_penalty if is_late else 0.0,
+        "effective_due_date": effective_due_date.isoformat() if effective_due_date else None,
     }
     
     # Check if user already has a submission (e.g. resubmitting after revision)
@@ -160,6 +215,10 @@ class AssignmentCreate(BaseModel):
     course_id: str
     instructions: Optional[str] = ""
     due_date: Optional[str] = None
+    due_days: Optional[int] = None
+    deadline_type: Optional[str] = "days"
+    allow_late: Optional[bool] = False
+    late_penalty: Optional[float] = 0.0
     total_marks: Optional[int] = 100
 
 

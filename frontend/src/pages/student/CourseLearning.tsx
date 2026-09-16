@@ -15,7 +15,7 @@ import {
 } from '../../services/quizService';
 import { getModuleDiscussion, postModuleComment } from '../../services/discussionService';
 import { generateCertificate, getMyCertificates } from '../../services/certificateService';
-import api, { unwrap } from '../../services/api';
+import api, { unwrap, invalidateClientCache } from '../../services/api';
 import Breadcrumbs from '../../components/layout/Breadcrumbs';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -224,12 +224,20 @@ export default function CourseLearning() {
     })();
   }, [courseId, assignmentIdParam]);
 
-  const refreshUnlockStatus = () => {
+  const refreshUnlockStatus = async () => {
     if (courseId) {
-      getModuleUnlockStatus(courseId)
-        .then(setModuleUnlockStatus)
-        .catch((err: any) => console.error('Failed to refresh unlock status', err));
+      try {
+        invalidateClientCache('/courses');
+        invalidateClientCache('/progress');
+        const updated = await getModuleUnlockStatus(courseId);
+        setModuleUnlockStatus(updated);
+        getCourseProgress(courseId).then(setProgress).catch(() => {});
+        return updated;
+      } catch (err: any) {
+        console.error('Failed to refresh unlock status', err);
+      }
     }
+    return [];
   };
 
   const isModuleLocked = (moduleId?: string) => {
@@ -264,6 +272,28 @@ export default function CourseLearning() {
 
   const getModStatus = (moduleId: string) => {
     return moduleUnlockStatus.find((s) => s.module_id === moduleId);
+  };
+
+  const getLockReason = (moduleId: string): string => {
+    const modIdx = modules.findIndex((m) => m.id === moduleId);
+    if (modIdx <= 0) return 'Prerequisites not met';
+
+    for (let i = 0; i < modIdx; i++) {
+      const prevMod = modules[i];
+      const prevStat = moduleUnlockStatus.find((x) => x.module_id === prevMod.id);
+      if (!prevStat || prevStat.locked || !prevStat.passed) {
+        const hasQuiz = prevStat?.has_quiz ?? courseQuizzes.some((q: any) => q.module_id === prevMod.id);
+        if (hasQuiz) {
+          if (prevStat?.lessons_completed) {
+            return `Pass the quiz in "${prevMod.title}" to unlock`;
+          }
+          return `Complete all lessons and pass the quiz in "${prevMod.title}" to unlock`;
+        } else {
+          return `Complete all lessons in "${prevMod.title}" to unlock`;
+        }
+      }
+    }
+    return 'Complete previous content to unlock';
   };
 
   const flatItems = useMemo<FlatItem[]>(() => {
@@ -408,7 +438,13 @@ export default function CourseLearning() {
       setQuizResult(res);
       setQuizAttempts((prev) => [res, ...prev]);
       if (res.passed) {
-        refreshUnlockStatus();
+        await refreshUnlockStatus();
+        // Auto-expand next module
+        const currentModIdx = modules.findIndex((m) => m.id === activeItem.moduleId);
+        if (currentModIdx >= 0 && currentModIdx < modules.length - 1) {
+          const nextMod = modules[currentModIdx + 1];
+          setExpandedModules((prev) => ({ ...prev, [nextMod.id]: true }));
+        }
       }
     } catch (err: any) {
       alert(err?.response?.data?.detail || 'Failed to submit quiz.');
@@ -464,6 +500,31 @@ export default function CourseLearning() {
 
   const activeAssignment = activeItem?.kind === 'assignment' ? activeItem.assignment : null;
   const activeSubmission = activeAssignment ? assignmentSubmissions[activeAssignment.id] : null;
+
+  const effectiveAssignmentDueDate = useMemo(() => {
+    if (!activeAssignment) return null;
+    if (activeAssignment.due_days && progress?.enrolled_at) {
+      const enrollDate = new Date(progress.enrolled_at);
+      return new Date(enrollDate.getTime() + activeAssignment.due_days * 86400000);
+    }
+    if (activeAssignment.due_date) {
+      return new Date(activeAssignment.due_date);
+    }
+    return null;
+  }, [activeAssignment, progress?.enrolled_at]);
+
+  const effectiveQuizDueDate = useMemo(() => {
+    if (activeItem?.kind !== 'quiz') return null;
+    const q = activeItem.quiz;
+    if (q.due_days && progress?.enrolled_at) {
+      const enrollDate = new Date(progress.enrolled_at);
+      return new Date(enrollDate.getTime() + q.due_days * 86400000);
+    }
+    if (q.available_until) {
+      return new Date(q.available_until);
+    }
+    return null;
+  }, [activeItem, progress?.enrolled_at]);
 
   const activeLesson = activeItem?.kind === 'lesson' ? activeItem : null;
   const lessonType = activeLesson?.type || activeLesson?.content_type || 'video';
@@ -532,6 +593,19 @@ export default function CourseLearning() {
         progress_percent: newPct,
         completed_lessons: [...(prev?.completed_lessons || []), activeLesson.id],
       }));
+
+      // Immediately refresh unlock status
+      const updatedUnlock = await refreshUnlockStatus();
+
+      // Auto-expand next module if unlocked
+      const currentModIdx = modules.findIndex((m) => m.id === activeLesson.moduleId);
+      if (currentModIdx >= 0 && currentModIdx < modules.length - 1) {
+        const nextMod = modules[currentModIdx + 1];
+        const nextModStat = (updatedUnlock || []).find((u: any) => u.module_id === nextMod.id);
+        if (nextModStat && !nextModStat.locked) {
+          setExpandedModules((prev) => ({ ...prev, [nextMod.id]: true }));
+        }
+      }
 
       if (result.is_course_completed || newPct >= 100) {
         try {
@@ -640,7 +714,7 @@ export default function CourseLearning() {
               <div>
                 <h2 className="text-xl font-black text-navy-900 dark:text-white">This Module is Locked</h2>
                 <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto mt-2">
-                  You must complete all lessons and pass the quizzes in previous modules before unlocking this module.
+                  {getLockReason(activeItem.moduleId)}
                 </p>
               </div>
             </Card>
@@ -704,16 +778,21 @@ export default function CourseLearning() {
 
                 {/* Due Date & Submission Policy Details */}
                 <div className="flex flex-wrap gap-4 text-xs text-slate-500 dark:text-slate-400 pt-1">
-                  {activeAssignment.due_date && (
+                  {effectiveAssignmentDueDate && (
                     <div className="flex items-center gap-1.5">
                       <Calendar size={14} className="text-slate-400" />
                       <span>Due: </span>
                       <span className="font-bold text-navy-900 dark:text-slate-200">
-                        {new Date(activeAssignment.due_date).toLocaleString(undefined, {
+                        {effectiveAssignmentDueDate.toLocaleString(undefined, {
                           dateStyle: 'medium',
                           timeStyle: 'short',
                         })}
                       </span>
+                      {activeAssignment.due_days && (
+                        <span className="text-[10px] text-teal-700 dark:text-teal-400 font-bold bg-teal-50 dark:bg-teal-950/40 px-2 py-0.5 rounded-md">
+                          ({activeAssignment.due_days} days from enrollment)
+                        </span>
+                      )}
                     </div>
                   )}
                   {activeAssignment.submission_type && (
@@ -726,7 +805,7 @@ export default function CourseLearning() {
                     </div>
                   )}
                   {activeAssignment.allow_late && (
-                    <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                    <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 font-semibold">
                       <span>Late Submissions Allowed ({activeAssignment.late_penalty || 0}% penalty)</span>
                     </div>
                   )}
@@ -963,6 +1042,13 @@ export default function CourseLearning() {
                     )}
                   </div>
 
+                  {effectiveAssignmentDueDate && new Date() > effectiveAssignmentDueDate && (
+                    <div className="p-3 rounded-xl bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-xs font-semibold flex items-center gap-2">
+                      <AlertCircle size={16} className="text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                      <span>Deadline passed ({effectiveAssignmentDueDate.toLocaleDateString()}). {activeAssignment.allow_late ? `Late submission allowed (${activeAssignment.late_penalty || 10}% penalty applies).` : 'Late submission penalty may apply.'}</span>
+                    </div>
+                  )}
+
                   {assignmentSuccessMsg && (
                     <div className="p-3 rounded-xl bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-semibold flex items-center gap-2">
                       <CheckCircle2 size={16} />
@@ -1046,6 +1132,7 @@ export default function CourseLearning() {
                     type="button"
                     onClick={() => !isModuleLocked(nextItem.moduleId) && navigateTo(nextItem)}
                     disabled={isModuleLocked(nextItem.moduleId)}
+                    title={isModuleLocked(nextItem.moduleId) ? getLockReason(nextItem.moduleId) : undefined}
                     className={`flex items-center gap-2 text-sm font-bold transition-all ${
                       isModuleLocked(nextItem.moduleId)
                         ? 'text-amber-500 cursor-not-allowed'
@@ -1053,7 +1140,7 @@ export default function CourseLearning() {
                     }`}
                   >
                     {isModuleLocked(nextItem.moduleId) ? (
-                      <><Lock size={14} /> Pass quiz to unlock next module</>
+                      <><Lock size={14} /> {getLockReason(nextItem.moduleId)}</>
                     ) : (
                       <>Next: {nextItem.kind === 'quiz' ? nextItem.quiz.title : nextItem.kind === 'assignment' ? nextItem.assignment.title : nextItem.title} <ChevronRight size={18} /></>
                     )}
@@ -1102,9 +1189,21 @@ export default function CourseLearning() {
                   </div>
 
                   {quizResult.passed ? (
-                    <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
-                      Congratulations! The next module has been unlocked.
-                    </p>
+                    <div className="space-y-4 pt-2">
+                      <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                        Congratulations! The next module has been unlocked.
+                      </p>
+                      {nextItem && !isModuleLocked(nextItem.moduleId) && (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={() => setActiveItemId(nextItem.id)}
+                          className="mx-auto gap-2 !bg-teal-600 hover:!bg-teal-500 text-white font-extrabold shadow-md shadow-teal-600/20"
+                        >
+                          Continue to Next: {nextItem.kind === 'quiz' ? nextItem.quiz.title : nextItem.kind === 'assignment' ? nextItem.assignment.title : nextItem.title} <ChevronRight size={16} />
+                        </Button>
+                      )}
+                    </div>
                   ) : (
                     <div className="space-y-2">
                       <p className="text-sm font-bold text-rose-600 dark:text-rose-400">
@@ -1136,6 +1235,18 @@ export default function CourseLearning() {
                 </div>
               ) : (
                 <div className="space-y-6">
+                  {effectiveQuizDueDate && (
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/60 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700">
+                      <Clock size={14} className="text-teal-600 dark:text-teal-400" />
+                      <span>Quiz Deadline: {effectiveQuizDueDate.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</span>
+                      {activeItem.quiz.due_days && (
+                        <span className="text-[10px] text-teal-700 dark:text-teal-400 bg-teal-100 dark:bg-teal-950/60 px-2 py-0.5 rounded-full font-extrabold">
+                          ({activeItem.quiz.due_days} days from enrollment)
+                        </span>
+                      )}
+                    </div>
+                  )}
+
                   {activeItem.quiz.instructions && (
                     <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3 text-xs text-amber-800 dark:text-amber-300 font-semibold">
                       {activeItem.quiz.instructions}
@@ -1399,15 +1510,18 @@ export default function CourseLearning() {
                     {nextItem && (
                       <button
                         type="button"
-                        onClick={() => navigateTo(nextItem)}
+                        onClick={() => !isModuleLocked(nextItem.moduleId) && navigateTo(nextItem)}
                         disabled={isModuleLocked(nextItem.moduleId)}
+                        title={isModuleLocked(nextItem.moduleId) ? getLockReason(nextItem.moduleId) : undefined}
                         className={`flex items-center gap-2 text-sm font-bold transition-all ${
                           isModuleLocked(nextItem.moduleId)
-                            ? 'text-slate-400 cursor-not-allowed'
+                            ? 'text-amber-600/70 dark:text-amber-400/70 cursor-not-allowed'
                             : 'text-navy-900 hover:text-navy-800 dark:text-teal-400 dark:hover:text-teal-300'
                         }`}
                       >
-                        {nextItem.kind === 'quiz' ? (
+                        {isModuleLocked(nextItem.moduleId) ? (
+                          <><Lock size={15} /> Locked</>
+                        ) : nextItem.kind === 'quiz' ? (
                           <><HelpCircle size={16} /> Take Quiz</>
                         ) : (
                           <>Next <ChevronRight size={18} /></>
@@ -1429,6 +1543,9 @@ export default function CourseLearning() {
                   Module Discussion &amp; Q&amp;A
                 </h3>
                 <span className="text-xs text-slate-400 font-medium">— {activeItem.moduleTitle}</span>
+                <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-50 dark:bg-teal-950/30 text-teal-700 dark:text-teal-300 border border-teal-200/60 dark:border-teal-800/40 hidden sm:inline-block">
+                  Private 1-on-1 Q&amp;A
+                </span>
               </div>
 
               {/* Reply list */}
@@ -1438,8 +1555,9 @@ export default function CourseLearning() {
                 </div>
               ) : (moduleDiscussion?.replies || []).length === 0 ? (
                 <div className="text-center py-6 text-slate-400">
-                  <MessageSquare size={28} className="mx-auto mb-2 opacity-40" />
-                  <p className="text-xs font-semibold">No questions yet. Be the first to ask!</p>
+                  <MessageSquare size={28} className="mx-auto mb-2 opacity-40 text-teal-500" />
+                  <p className="text-xs font-semibold">No questions yet. Ask your instructor any question about this module!</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Your questions and teacher responses are private to you.</p>
                 </div>
               ) : (
                 <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
@@ -1488,7 +1606,7 @@ export default function CourseLearning() {
                     value={commentText}
                     onChange={(e) => setCommentText(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handlePostComment(); } }}
-                    placeholder="Ask a question or share feedback about this module..."
+                    placeholder="Ask a question or share feedback with your instructor about this module..."
                     className="flex-1 resize-none border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs outline-none focus:border-teal-400 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 placeholder-slate-400"
                   />
                   <button
@@ -1521,6 +1639,7 @@ export default function CourseLearning() {
                   type="button"
                   onClick={() => !isModuleLocked(nextItem.moduleId) && navigateTo(nextItem)}
                   disabled={isModuleLocked(nextItem.moduleId)}
+                  title={isModuleLocked(nextItem.moduleId) ? getLockReason(nextItem.moduleId) : undefined}
                   className={`flex items-center gap-2 text-sm font-bold transition-all ${
                     isModuleLocked(nextItem.moduleId)
                       ? 'text-amber-500 cursor-not-allowed'
@@ -1528,7 +1647,7 @@ export default function CourseLearning() {
                   }`}
                 >
                   {isModuleLocked(nextItem.moduleId) ? (
-                    <><Lock size={14} /> Pass quiz to unlock next module</>
+                    <><Lock size={14} /> {getLockReason(nextItem.moduleId)}</>
                   ) : (
                     <>Next Module <ChevronRight size={18} /></>
                   )}
@@ -1737,7 +1856,7 @@ export default function CourseLearning() {
 
                   {locked && (
                     <div className="px-3 py-2 text-[11px] text-amber-700 dark:text-amber-400 font-semibold bg-amber-50/60 dark:bg-amber-950/20">
-                      Pass the previous quiz to unlock
+                      {getLockReason(mod.id)}
                     </div>
                   )}
                 </div>

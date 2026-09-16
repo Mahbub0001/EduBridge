@@ -374,17 +374,31 @@ def _format_cached_response(cached_entry, request, ttl, is_user_scoped):
 
 def _execute_with_cache_sync(func, args, kwargs, ttl, prefix, is_user_scoped):
     cache_key, request = _build_cache_key(func, args, kwargs, prefix, is_user_scoped)
-    cached_val = cache.get(cache_key)
-    if cached_val is not None:
-        return _format_cached_response(cached_val, request, ttl, is_user_scoped)
+    force_refresh = False
+    if request:
+        h = request.headers
+        if h.get("x-force-refresh") == "true" or "no-cache" in h.get("cache-control", "") or h.get("pragma") == "no-cache":
+            force_refresh = True
+
+    if not force_refresh:
+        cached_val = cache.get(cache_key)
+        if cached_val is not None:
+            return _format_cached_response(cached_val, request, ttl, is_user_scoped)
     result = func(*args, **kwargs)
     return _process_and_cache_result(result, cache_key, request, ttl, is_user_scoped)
 
 async def _execute_with_cache_async(func, args, kwargs, ttl, prefix, is_user_scoped):
     cache_key, request = _build_cache_key(func, args, kwargs, prefix, is_user_scoped)
-    cached_val = cache.get(cache_key)
-    if cached_val is not None:
-        return _format_cached_response(cached_val, request, ttl, is_user_scoped)
+    force_refresh = False
+    if request:
+        h = request.headers
+        if h.get("x-force-refresh") == "true" or "no-cache" in h.get("cache-control", "") or h.get("pragma") == "no-cache":
+            force_refresh = True
+
+    if not force_refresh:
+        cached_val = cache.get(cache_key)
+        if cached_val is not None:
+            return _format_cached_response(cached_val, request, ttl, is_user_scoped)
     result = await func(*args, **kwargs)
     return _process_and_cache_result(result, cache_key, request, ttl, is_user_scoped)
 
