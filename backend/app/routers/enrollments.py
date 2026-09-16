@@ -330,6 +330,9 @@ def my_calendar(
             })
 
     # 2. Course Assignments
+    user_submissions_stream = db.collection("assignment_submissions").where("user_id", "==", uid).stream()
+    user_submitted_assignment_ids = {s.to_dict().get("assignment_id") for s in user_submissions_stream if s.to_dict().get("assignment_id")}
+
     for cid in course_ids:
         c_info = courses_map.get(cid, {})
         enr_info = enrollments_map.get(cid, {})
@@ -354,7 +357,7 @@ def my_calendar(
 
             date_str = effective_date.strftime("%Y-%m-%d") if effective_date else ""
 
-            sub_exists = len(list(db.collection("assignment_submissions").where("assignment_id", "==", a.id).where("user_id", "==", uid).limit(1).stream())) > 0
+            sub_exists = a.id in user_submitted_assignment_ids
             events.append({
                 "id": f"asg-{a.id}",
                 "raw_id": a.id,

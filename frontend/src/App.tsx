@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from './services/firebase';
@@ -12,6 +12,7 @@ import StudentLayout from './layouts/StudentLayout';
 import InstructorLayout from './layouts/InstructorLayout';
 import AdminLayout from './layouts/AdminLayout';
 
+// Critical direct public routes
 import Landing from './pages/Landing';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
@@ -19,37 +20,50 @@ import ForgotPassword from './pages/auth/ForgotPassword';
 import Dashboard from './pages/student/Dashboard';
 import MyCourses from './pages/student/MyCourses';
 import CourseDetail from './pages/student/CourseDetail';
-import CourseLearning from './pages/student/CourseLearning';
-import Calendar from './pages/student/Calendar';
-import Assignments from './pages/student/Assignments';
-import Settings from './pages/student/Settings';
-import Discussions from './pages/student/Discussions';
-import Certificates from './pages/student/Certificates';
-import StudentAnnouncements from './pages/student/Announcements';
-import CommunityZone from './pages/CommunityZone';
 
+// Code-split student routes
+const CourseLearning = lazy(() => import('./pages/student/CourseLearning'));
+const Calendar = lazy(() => import('./pages/student/Calendar'));
+const Assignments = lazy(() => import('./pages/student/Assignments'));
+const Settings = lazy(() => import('./pages/student/Settings'));
+const Discussions = lazy(() => import('./pages/student/Discussions'));
+const Certificates = lazy(() => import('./pages/student/Certificates'));
+const StudentAnnouncements = lazy(() => import('./pages/student/Announcements'));
+const CommunityZone = lazy(() => import('./pages/CommunityZone'));
+const VerifyCertificate = lazy(() => import('./pages/VerifyCertificate'));
 
-import InstructorDashboard from './pages/instructor/Dashboard';
-import InstructorCourses from './pages/instructor/Courses';
-import CourseBuilder from './pages/instructor/CourseBuilder';
-import InstructorQuizzes from './pages/instructor/Quizzes';
-import InstructorAssignments from './pages/instructor/Assignments';
-import InstructorSubmissions from './pages/instructor/Submissions';
-import InstructorAnalytics from './pages/instructor/Analytics';
-import InstructorAnnouncements from './pages/instructor/Announcements';
-import InstructorDiscussions from './pages/instructor/Discussions';
-import InstructorSettings from './pages/instructor/Settings';
-import InstructorHelpCenter from './pages/instructor/HelpCenter';
-import CreateCourse from './pages/instructor/CreateCourse';
-import AdminDashboard from './pages/admin/Dashboard';
-import AdminUsers from './pages/admin/Users';
-import AdminCourses from './pages/admin/Courses';
-import AdminCategories from './pages/admin/Categories';
-import AdminAnalytics from './pages/admin/Analytics';
-import AdminSettings from './pages/admin/Settings';
-import AdminEnrollments from './pages/admin/Enrollments';
-import AdminCertificates from './pages/admin/Certificates';
-import VerifyCertificate from './pages/VerifyCertificate';
+// Code-split instructor routes
+const InstructorDashboard = lazy(() => import('./pages/instructor/Dashboard'));
+const InstructorCourses = lazy(() => import('./pages/instructor/Courses'));
+const CourseBuilder = lazy(() => import('./pages/instructor/CourseBuilder'));
+const InstructorQuizzes = lazy(() => import('./pages/instructor/Quizzes'));
+const InstructorAssignments = lazy(() => import('./pages/instructor/Assignments'));
+const InstructorSubmissions = lazy(() => import('./pages/instructor/Submissions'));
+const InstructorAnalytics = lazy(() => import('./pages/instructor/Analytics'));
+const InstructorAnnouncements = lazy(() => import('./pages/instructor/Announcements'));
+const InstructorDiscussions = lazy(() => import('./pages/instructor/Discussions'));
+const InstructorSettings = lazy(() => import('./pages/instructor/Settings'));
+const InstructorHelpCenter = lazy(() => import('./pages/instructor/HelpCenter'));
+const CreateCourse = lazy(() => import('./pages/instructor/CreateCourse'));
+
+// Code-split admin routes
+const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
+const AdminUsers = lazy(() => import('./pages/admin/Users'));
+const AdminCourses = lazy(() => import('./pages/admin/Courses'));
+const AdminCategories = lazy(() => import('./pages/admin/Categories'));
+const AdminAnalytics = lazy(() => import('./pages/admin/Analytics'));
+const AdminSettings = lazy(() => import('./pages/admin/Settings'));
+const AdminEnrollments = lazy(() => import('./pages/admin/Enrollments'));
+const AdminCertificates = lazy(() => import('./pages/admin/Certificates'));
+
+const PageFallback = () => (
+  <div className="flex min-h-[400px] w-full items-center justify-center">
+    <div className="flex items-center gap-2 text-xs font-bold text-slate-400 dark:text-slate-500">
+      <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-800 dark:border-slate-700 dark:border-t-teal-400" />
+      <span>Loading...</span>
+    </div>
+  </div>
+);
 
 function App() {
   const { setUser, setLoading, isLoading } = useAuthStore();
@@ -95,7 +109,8 @@ function App() {
   return (
     <ThemeProvider>
       <Router>
-        <Routes>
+        <Suspense fallback={<PageFallback />}>
+          <Routes>
           <Route element={<PublicLayout />}>
             <Route path="/" element={<Landing />} />
           </Route>
@@ -190,8 +205,9 @@ function App() {
             <Route path="settings" element={<AdminSettings />} />
           </Route>
         </Routes>
-      </Router>
-    </ThemeProvider>
+      </Suspense>
+    </Router>
+  </ThemeProvider>
   );
 }
 

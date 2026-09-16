@@ -2,14 +2,15 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Plus, Edit2, Trash2, ChevronDown, ChevronRight, Search, Check,
+  Plus, Edit2, Edit3, Trash2, ChevronDown, ChevronRight, Search, Check,
   BookOpen, Layers, Award, Eye, FileText, Video, Link as LinkIcon,
   HelpCircle, Calendar, ShieldAlert, Sparkles, CheckCircle2, Clock,
-  Upload, Loader2
+  Upload, Loader2, Image, Target, Save, X
 } from 'lucide-react';
 import {
   getMyInstructorCourses,
   getCourseBuilderData,
+  updateCourse,
   createInstructorModule,
   updateInstructorModule,
   deleteInstructorModule,
@@ -30,6 +31,32 @@ import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 
+const CATEGORIES = [
+  'Technology',
+  'Programming',
+  'Web Development',
+  'Data Science',
+  'Cloud Engineering',
+  'Mobile Development',
+  'Cybersecurity',
+  'AI & Machine Learning',
+  'DevOps',
+  'UI/UX Design',
+  'Education',
+  'Business',
+  'Other',
+];
+
+export const DEFAULT_COURSE_LOGOS = [
+  'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1544383835-bda2bc66a55d?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1501504905252-473c47e087f8?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1580894732413-a75151b96f01?w=800&auto=format&fit=crop&q=80',
+];
 
 interface Step {
   id: number;
@@ -117,6 +144,157 @@ export default function CourseBuilder() {
     setTimeout(() => setToastMsg(''), 3000);
   };
 
+  // Course Info & Settings Form State
+  const [courseInfoForm, setCourseInfoForm] = useState({
+    title: '',
+    short_description: '',
+    description: '',
+    category: 'Technology',
+    level: 'Beginner',
+    language: 'English',
+    estimated_hours: 0,
+    thumbnail_url: '',
+    preview_video_url: '',
+    learning_outcomes: [''] as string[],
+    prerequisites: [''] as string[],
+    price_type: 'free',
+    price: 0,
+    certificate_available: true,
+    enrollment_open: true,
+    allow_discussion: true,
+  });
+  const [savingCourseInfo, setSavingCourseInfo] = useState(false);
+  const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
+
+  const syncCourseInfoForm = (data: any) => {
+    setCourseInfoForm({
+      title: data.title || '',
+      short_description: data.short_description || '',
+      description: data.description || '',
+      category: data.category || 'Technology',
+      level: data.level || 'Beginner',
+      language: data.language || 'English',
+      estimated_hours: data.estimated_hours || 0,
+      thumbnail_url: data.thumbnail_url || '',
+      preview_video_url: data.preview_video_url || '',
+      learning_outcomes: Array.isArray(data.learning_outcomes) && data.learning_outcomes.length > 0 ? [...data.learning_outcomes] : [''],
+      prerequisites: Array.isArray(data.prerequisites) && data.prerequisites.length > 0 ? [...data.prerequisites] : [''],
+      price_type: data.price_type || 'free',
+      price: data.price || 0,
+      certificate_available: data.certificate_available ?? true,
+      enrollment_open: data.enrollment_open ?? true,
+      allow_discussion: data.allow_discussion ?? true,
+    });
+  };
+
+  const addOutcome = () => {
+    setCourseInfoForm((prev) => ({
+      ...prev,
+      learning_outcomes: [...prev.learning_outcomes, '']
+    }));
+  };
+
+  const updateOutcome = (index: number, val: string) => {
+    setCourseInfoForm((prev) => {
+      const copy = [...prev.learning_outcomes];
+      copy[index] = val;
+      return { ...prev, learning_outcomes: copy };
+    });
+  };
+
+  const removeOutcome = (index: number) => {
+    setCourseInfoForm((prev) => {
+      const copy = [...prev.learning_outcomes];
+      copy.splice(index, 1);
+      return { ...prev, learning_outcomes: copy.length === 0 ? [''] : copy };
+    });
+  };
+
+  const addPrerequisite = () => {
+    setCourseInfoForm((prev) => ({
+      ...prev,
+      prerequisites: [...prev.prerequisites, '']
+    }));
+  };
+
+  const updatePrerequisite = (index: number, val: string) => {
+    setCourseInfoForm((prev) => {
+      const copy = [...prev.prerequisites];
+      copy[index] = val;
+      return { ...prev, prerequisites: copy };
+    });
+  };
+
+  const removePrerequisite = (index: number) => {
+    setCourseInfoForm((prev) => {
+      const copy = [...prev.prerequisites];
+      copy.splice(index, 1);
+      return { ...prev, prerequisites: copy.length === 0 ? [''] : copy };
+    });
+  };
+
+  const handleThumbnailUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingThumbnail(true);
+    try {
+      const url = await uploadInstructorFile(file);
+      setCourseInfoForm((prev) => ({ ...prev, thumbnail_url: url }));
+      showToast('Course thumbnail uploaded successfully!');
+    } catch (err: any) {
+      showToast(err?.response?.data?.message || 'Failed to upload thumbnail');
+    } finally {
+      setUploadingThumbnail(false);
+    }
+  };
+
+  const handleSaveCourseInfo = async () => {
+    if (!selectedCourseId) return;
+    if (!courseInfoForm.title.trim()) {
+      showToast('Course title is required.');
+      return;
+    }
+
+    setSavingCourseInfo(true);
+    try {
+      const filteredOutcomes = courseInfoForm.learning_outcomes.map(o => o.trim()).filter(Boolean);
+      const filteredPrereqs = courseInfoForm.prerequisites.map(p => p.trim()).filter(Boolean);
+
+      const payload = {
+        title: courseInfoForm.title.trim(),
+        short_description: courseInfoForm.short_description.trim(),
+        description: courseInfoForm.description.trim(),
+        category: courseInfoForm.category,
+        level: courseInfoForm.level,
+        language: courseInfoForm.language,
+        estimated_hours: Number(courseInfoForm.estimated_hours) || 0,
+        thumbnail_url: courseInfoForm.thumbnail_url.trim() || null,
+        preview_video_url: courseInfoForm.preview_video_url.trim() || null,
+        learning_outcomes: filteredOutcomes,
+        prerequisites: filteredPrereqs,
+        price_type: courseInfoForm.price_type,
+        price: Number(courseInfoForm.price) || 0,
+        certificate_available: courseInfoForm.certificate_available,
+        enrollment_open: courseInfoForm.enrollment_open,
+        allow_discussion: courseInfoForm.allow_discussion,
+      };
+
+      await updateCourse(selectedCourseId, payload);
+      setCourse((prev: any) => ({
+        ...prev,
+        ...payload,
+      }));
+      setCourses((prev) =>
+        prev.map((c) => (c.id === selectedCourseId ? { ...c, ...payload } : c))
+      );
+      showToast('Course details & thumbnail saved successfully!');
+    } catch (err: any) {
+      showToast(err?.response?.data?.message || 'Failed to update course information.');
+    } finally {
+      setSavingCourseInfo(false);
+    }
+  };
+
   // Load all instructor courses
   const loadCourses = async (selectFirst = true) => {
     setLoadingCourses(true);
@@ -143,6 +321,7 @@ export default function CourseBuilder() {
     try {
       const data = await getCourseBuilderData(courseId);
       setCourse(data);
+      syncCourseInfoForm(data);
       // Auto expand first module
       if (data.modules && data.modules.length > 0) {
         setExpandedModules(new Set([data.modules[0].id]));
@@ -471,8 +650,8 @@ export default function CourseBuilder() {
       setPublishChecklist(res.checklist || []);
       setCanPublish(res.is_valid || false);
       setShowPublishModal(true);
-    } catch {
-      showToast('Failed to run publication checks.');
+    } catch (err: any) {
+      showToast(err?.response?.data?.message || err?.response?.data?.detail || 'Failed to run publication checks.');
     }
   };
 
@@ -507,8 +686,13 @@ export default function CourseBuilder() {
     if (course.description) score += 20;
     if (course.thumbnail_url) score += 20;
     if (course.learning_outcomes && course.learning_outcomes.length > 0) score += 20;
-    if (course.modules && course.modules.length > 0) score += 20;
-    return score;
+    if (course.modules && course.modules.length > 0) {
+      const allModulesHaveContent = course.modules.every((m: any) => 
+        (m.lessons?.length || 0) + (m.resources?.length || 0) + (m.quizzes?.length || 0) + (m.assignments?.length || 0) > 0
+      );
+      score += allModulesHaveContent ? 20 : 10;
+    }
+    return Math.min(score, 100);
   };
 
   // Filter courses
@@ -649,20 +833,40 @@ export default function CourseBuilder() {
                   <Sparkles size={160} />
                 </div>
                 
-                <div className="space-y-2 relative z-10">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="info" className="bg-blue-900/40 text-blue-200 border-none font-bold text-[10px] uppercase">
-                      {course.category}
-                    </Badge>
-                    <Badge variant="default" className="bg-slate-800 text-slate-300 border-none font-bold text-[10px] uppercase">
-                      {course.level}
-                    </Badge>
+                <div className="flex items-center gap-4 relative z-10">
+                  {course.thumbnail_url ? (
+                    <img
+                      src={course.thumbnail_url}
+                      alt={course.title}
+                      className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover border-2 border-slate-700/60 shadow-md flex-shrink-0"
+                    />
+                  ) : (
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-slate-800/80 border border-slate-700 flex flex-col items-center justify-center text-slate-400 flex-shrink-0">
+                      <Image size={24} className="opacity-60" />
+                      <span className="text-[9px] font-bold mt-1 text-slate-500">No Image</span>
+                    </div>
+                  )}
+
+                  <div className="space-y-1.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="info" className="bg-blue-900/40 text-blue-200 border-none font-bold text-[10px] uppercase">
+                        {course.category}
+                      </Badge>
+                      <Badge variant="default" className="bg-slate-800 text-slate-300 border-none font-bold text-[10px] uppercase">
+                        {course.level}
+                      </Badge>
+                      {course.learning_outcomes && course.learning_outcomes.length > 0 && (
+                        <Badge variant="success" className="bg-emerald-950/60 text-emerald-300 border-none font-bold text-[10px]">
+                          {course.learning_outcomes.length} Objectives
+                        </Badge>
+                      )}
+                    </div>
+                    <h2 className="text-xl font-black">{course.title}</h2>
+                    <p className="text-xs text-slate-400 max-w-xl line-clamp-1">{course.short_description || course.description}</p>
                   </div>
-                  <h2 className="text-xl font-black">{course.title}</h2>
-                  <p className="text-xs text-slate-400 max-w-xl line-clamp-1">{course.short_description || course.description}</p>
                 </div>
 
-                <div className="flex flex-col items-end gap-1.5 relative z-10 w-full md:w-auto">
+                <div className="flex flex-col items-end gap-2 relative z-10 w-full md:w-auto">
                   <div className="flex items-center justify-between w-full md:w-auto gap-4">
                     <span className="text-xs text-slate-400 font-bold">Building Progress</span>
                     <span className="text-xs font-black text-blue-400">{getBuildProgress()}%</span>
@@ -670,6 +874,14 @@ export default function CourseBuilder() {
                   <div className="w-full md:w-44 bg-slate-800 h-2 rounded-full overflow-hidden">
                     <div className="bg-blue-500 h-2 rounded-full transition-all" style={{ width: `${getBuildProgress()}%` }} />
                   </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setActiveStep(0)}
+                    className="mt-1 !bg-white/10 !border-white/20 !text-white hover:!bg-white/20 text-xs flex items-center gap-1.5"
+                  >
+                    <Edit3 size={13} /> Edit Course Info & Thumbnail
+                  </Button>
                 </div>
               </div>
 
@@ -698,11 +910,12 @@ export default function CourseBuilder() {
                     <div className="space-y-4">
                       {course.modules.map((m: any, mIdx: number) => {
                         const isExpanded = expandedModules.has(m.id);
+                        const totalModuleItems = (m.lessons?.length || 0) + (m.resources?.length || 0) + (m.quizzes?.length || 0) + (m.assignments?.length || 0);
                         return (
-                          <Card key={m.id} padding="none" className="overflow-hidden border border-slate-200">
+                          <Card key={m.id} padding="none" className={`overflow-hidden border ${totalModuleItems === 0 ? 'border-amber-200' : 'border-slate-200'}`}>
                             
                             {/* Module Header Row */}
-                            <div className="p-4 flex items-center justify-between bg-slate-50/50 hover:bg-slate-50 transition-colors">
+                            <div className={`p-4 flex items-center justify-between ${totalModuleItems === 0 ? 'bg-amber-50/30 hover:bg-amber-50/50' : 'bg-slate-50/50 hover:bg-slate-50'} transition-colors`}>
                               <div className="flex items-center gap-3 min-w-0">
                                 <button onClick={() => toggleModule(m.id)} className="p-1 rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-800 transition-all">
                                   {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
@@ -714,6 +927,11 @@ export default function CourseBuilder() {
                                     </span>
                                     {m.required_for_certificate && (
                                       <Badge variant="info" className="text-[8px] px-1 py-0 border-none font-bold">Required</Badge>
+                                    )}
+                                    {totalModuleItems === 0 && (
+                                      <Badge variant="warning" className="text-[9px] px-1.5 py-0.5 font-bold">
+                                        Empty (Needs Content)
+                                      </Badge>
                                     )}
                                   </div>
                                   <h4 className="font-extrabold text-sm text-slate-900 truncate mt-0.5">{m.title}</h4>
@@ -921,12 +1139,492 @@ export default function CourseBuilder() {
                 </div>
               )}
 
-              {/* Steps other than Curriculum (Placeholders for now) */}
-              {activeStep !== 1 && (
-                <Card className="text-center py-16">
-                  <Sparkles className="mx-auto text-slate-400 animate-bounce" size={40} />
-                  <h4 className="text-sm font-black text-slate-900 mt-4 uppercase tracking-wider">{STEPS[activeStep].label} Portal</h4>
-                  <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">This section is fully configured in the MOOC dashboard. Use the main Curriculum step to manage modules, lessons, and resources.</p>
+              {/* Step 0: Course Info, Thumbnail, Learning Outcomes & Settings Editor */}
+              {activeStep === 0 && (
+                <div className="space-y-6">
+                  {/* Top Bar */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200">
+                    <div>
+                      <h3 className="font-black text-slate-900 text-lg flex items-center gap-2">
+                        <BookOpen className="text-blue-600" size={20} /> Course Information & Media Settings
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Customize your course branding, thumbnail poster, learning objectives, category, and prerequisites.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setActiveStep(1)}
+                      >
+                        Curriculum <ChevronRight size={14} className="ml-1" />
+                      </Button>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        className="!bg-slate-900"
+                        onClick={handleSaveCourseInfo}
+                        disabled={savingCourseInfo}
+                      >
+                        {savingCourseInfo ? (
+                          <>
+                            <Loader2 size={14} className="animate-spin mr-1.5" /> Saving...
+                          </>
+                        ) : (
+                          <>
+                            <Save size={14} className="mr-1.5" /> Save Changes
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Section 1: Thumbnail & Media */}
+                  <Card className="p-6 space-y-5 border border-slate-200">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                      <div className="flex items-center gap-2">
+                        <Image className="text-blue-500" size={18} />
+                        <h4 className="font-extrabold text-sm text-slate-900">Course Thumbnail & Cover Image</h4>
+                      </div>
+                      {courseInfoForm.thumbnail_url ? (
+                        <Badge variant="success" className="text-[10px] px-2 py-0.5 font-bold">Thumbnail Set</Badge>
+                      ) : (
+                        <Badge variant="warning" className="text-[10px] px-2 py-0.5 font-bold">Required for Publishing</Badge>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+                      {/* Preview */}
+                      <div className="md:col-span-5">
+                        <label className="text-xs font-bold text-slate-600 mb-1.5 block">Thumbnail Preview</label>
+                        <div className="relative w-full aspect-video rounded-2xl overflow-hidden border-2 border-slate-200 bg-slate-100 flex items-center justify-center shadow-inner group">
+                          {courseInfoForm.thumbnail_url ? (
+                            <>
+                              <img
+                                src={courseInfoForm.thumbnail_url}
+                                alt={courseInfoForm.title || "Course thumbnail"}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  (e.target as HTMLElement).style.display = 'none';
+                                }}
+                              />
+                              <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setCourseInfoForm(prev => ({ ...prev, thumbnail_url: '' }))}
+                                  className="p-2 rounded-xl bg-red-600 text-white hover:bg-red-700 transition-all text-xs font-bold flex items-center gap-1 shadow-lg"
+                                >
+                                  <Trash2 size={13} /> Remove
+                                </button>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="text-center p-6">
+                              <Image className="mx-auto text-slate-300 mb-2" size={36} />
+                              <p className="text-xs font-bold text-slate-400">No thumbnail selected</p>
+                              <p className="text-[10px] text-slate-400 mt-1">Recommended size: 1280 × 720 (16:9)</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Upload or URL controls */}
+                      <div className="md:col-span-7 space-y-4">
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-bold text-slate-700">Upload Image File</label>
+                          <div className="flex items-center gap-3">
+                            <label className="relative flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold cursor-pointer transition-colors border border-slate-200">
+                              {uploadingThumbnail ? (
+                                <>
+                                  <Loader2 size={14} className="animate-spin text-slate-600" />
+                                  <span>Uploading...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Upload size={14} />
+                                  <span>Choose Image from Device</span>
+                                </>
+                              )}
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={handleThumbnailUpload}
+                                disabled={uploadingThumbnail}
+                                className="hidden"
+                              />
+                            </label>
+                            <span className="text-[11px] text-slate-400 font-medium">PNG, JPG, JPEG, or WEBP up to 5MB</span>
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-bold text-slate-700">Or Paste Image URL</label>
+                          <input
+                            type="text"
+                            value={courseInfoForm.thumbnail_url}
+                            onChange={(e) => setCourseInfoForm({ ...courseInfoForm, thumbnail_url: e.target.value })}
+                            placeholder="https://example.com/images/course-poster.jpg"
+                            className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-semibold outline-none focus:border-slate-900 bg-slate-50/50 focus:bg-white transition-all"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-slate-700">Or Pick from Preset MOOC Covers</label>
+                          <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
+                            {DEFAULT_COURSE_LOGOS.map((imgUrl, i) => {
+                              const isSelected = courseInfoForm.thumbnail_url === imgUrl;
+                              return (
+                                <button
+                                  key={i}
+                                  type="button"
+                                  onClick={() => setCourseInfoForm({ ...courseInfoForm, thumbnail_url: imgUrl })}
+                                  className={`relative aspect-video rounded-lg overflow-hidden border-2 transition-all ${
+                                    isSelected ? 'border-blue-600 ring-2 ring-blue-600/30 scale-105' : 'border-slate-200 hover:border-slate-400 opacity-80 hover:opacity-100'
+                                  }`}
+                                >
+                                  <img src={imgUrl} alt={`Preset ${i + 1}`} className="w-full h-full object-cover" />
+                                  {isSelected && (
+                                    <div className="absolute inset-0 bg-blue-600/40 flex items-center justify-center">
+                                      <Check size={12} className="text-white drop-shadow" />
+                                    </div>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+
+                  {/* Section 2: Learning Objectives */}
+                  <Card className="p-6 space-y-4 border border-slate-200">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                      <div className="flex items-center gap-2">
+                        <Target className="text-emerald-500" size={18} />
+                        <div>
+                          <h4 className="font-extrabold text-sm text-slate-900">Learning Objectives & Outcomes</h4>
+                          <p className="text-[11px] text-slate-400 font-medium">What core skills, tools, or knowledge will students gain from this course?</p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={addOutcome}
+                        className="text-xs"
+                      >
+                        <Plus size={13} className="mr-1" /> Add Objective
+                      </Button>
+                    </div>
+
+                    <div className="space-y-2.5">
+                      {courseInfoForm.learning_outcomes.map((outcome, idx) => (
+                        <div key={idx} className="flex items-center gap-2.5">
+                          <span className="flex items-center justify-center w-6 h-6 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-black flex-shrink-0 border border-emerald-200">
+                            {idx + 1}
+                          </span>
+                          <input
+                            type="text"
+                            value={outcome}
+                            onChange={(e) => updateOutcome(idx, e.target.value)}
+                            placeholder="e.g. Understand relational database design and write complex SQL queries"
+                            className="flex-1 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-semibold outline-none focus:border-slate-900 bg-slate-50/50 focus:bg-white transition-all"
+                          />
+                          {courseInfoForm.learning_outcomes.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeOutcome(idx)}
+                              className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
+                              title="Remove objective"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-[11px] text-slate-400 italic">
+                      💡 Tip: Well-articulated learning objectives are displayed on the course catalog and student enrollment page. At least 1 outcome is required for publication.
+                    </p>
+                  </Card>
+
+                  {/* Section 3: Course Details */}
+                  <Card className="p-6 space-y-4 border border-slate-200">
+                    <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                      <FileText className="text-purple-500" size={18} />
+                      <h4 className="font-extrabold text-sm text-slate-900">General Course Information</h4>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1.5 md:col-span-2">
+                        <label className="text-xs font-bold text-slate-700">Course Title *</label>
+                        <input
+                          type="text"
+                          value={courseInfoForm.title}
+                          onChange={(e) => setCourseInfoForm({ ...courseInfoForm, title: e.target.value })}
+                          placeholder="Course Title"
+                          className="w-full border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:border-slate-900"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-700">Category</label>
+                        <select
+                          value={courseInfoForm.category}
+                          onChange={(e) => setCourseInfoForm({ ...courseInfoForm, category: e.target.value })}
+                          className="w-full border border-slate-200 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus:border-slate-900 bg-white"
+                        >
+                          {CATEGORIES.map((cat) => (
+                            <option key={cat} value={cat}>{cat}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-700">Difficulty Level</label>
+                        <select
+                          value={courseInfoForm.level}
+                          onChange={(e) => setCourseInfoForm({ ...courseInfoForm, level: e.target.value })}
+                          className="w-full border border-slate-200 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus:border-slate-900 bg-white"
+                        >
+                          <option value="Beginner">Beginner</option>
+                          <option value="Intermediate">Intermediate</option>
+                          <option value="Advanced">Advanced</option>
+                          <option value="All Levels">All Levels</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-700">Language</label>
+                        <input
+                          type="text"
+                          value={courseInfoForm.language}
+                          onChange={(e) => setCourseInfoForm({ ...courseInfoForm, language: e.target.value })}
+                          placeholder="e.g. English, Bengali"
+                          className="w-full border border-slate-200 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus:border-slate-900"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-700">Estimated Duration (Hours)</label>
+                        <input
+                          type="number"
+                          value={courseInfoForm.estimated_hours || ''}
+                          onChange={(e) => setCourseInfoForm({ ...courseInfoForm, estimated_hours: Number(e.target.value) })}
+                          placeholder="e.g. 25"
+                          className="w-full border border-slate-200 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus:border-slate-900"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5 md:col-span-2">
+                        <label className="text-xs font-bold text-slate-700">Short Summary</label>
+                        <input
+                          type="text"
+                          value={courseInfoForm.short_description}
+                          onChange={(e) => setCourseInfoForm({ ...courseInfoForm, short_description: e.target.value })}
+                          placeholder="A punchy one-sentence summary for catalog cards..."
+                          className="w-full border border-slate-200 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus:border-slate-900"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5 md:col-span-2">
+                        <label className="text-xs font-bold text-slate-700">Full Description</label>
+                        <textarea
+                          rows={4}
+                          value={courseInfoForm.description}
+                          onChange={(e) => setCourseInfoForm({ ...courseInfoForm, description: e.target.value })}
+                          placeholder="Provide a comprehensive syllabus overview, course roadmap, and details..."
+                          className="w-full border border-slate-200 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus:border-slate-900 resize-none font-sans leading-relaxed"
+                        />
+                      </div>
+                    </div>
+                  </Card>
+
+                  {/* Section 4: Prerequisites */}
+                  <Card className="p-6 space-y-4 border border-slate-200">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                      <div className="flex items-center gap-2">
+                        <Layers className="text-amber-500" size={18} />
+                        <div>
+                          <h4 className="font-extrabold text-sm text-slate-900">Course Prerequisites</h4>
+                          <p className="text-[11px] text-slate-400 font-medium">Prior knowledge, requirements, or tools recommended before taking this course.</p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={addPrerequisite}
+                        className="text-xs"
+                      >
+                        <Plus size={13} className="mr-1" /> Add Prerequisite
+                      </Button>
+                    </div>
+
+                    <div className="space-y-2.5">
+                      {courseInfoForm.prerequisites.map((prereq, idx) => (
+                        <div key={idx} className="flex items-center gap-2.5">
+                          <span className="flex items-center justify-center w-6 h-6 rounded-lg bg-amber-50 text-amber-700 text-[10px] font-black flex-shrink-0 border border-amber-200">
+                            {idx + 1}
+                          </span>
+                          <input
+                            type="text"
+                            value={prereq}
+                            onChange={(e) => updatePrerequisite(idx, e.target.value)}
+                            placeholder="e.g. Basic understanding of programming principles"
+                            className="flex-1 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-semibold outline-none focus:border-slate-900 bg-slate-50/50 focus:bg-white transition-all"
+                          />
+                          {courseInfoForm.prerequisites.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removePrerequisite(idx)}
+                              className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
+                              title="Remove prerequisite"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+
+                  {/* Bottom Save Bar */}
+                  <div className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-2xl shadow-sm">
+                    <div className="text-xs text-slate-500 font-medium">
+                      Make sure to save before navigating or running publication checks.
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setActiveStep(1)}
+                      >
+                        Go to Curriculum
+                      </Button>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        className="!bg-slate-900 px-5"
+                        onClick={handleSaveCourseInfo}
+                        disabled={savingCourseInfo}
+                      >
+                        {savingCourseInfo ? (
+                          <>
+                            <Loader2 size={14} className="animate-spin mr-1.5" /> Saving...
+                          </>
+                        ) : (
+                          <>
+                            <Save size={14} className="mr-1.5" /> Save Course Info
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 2: Assessments Overview */}
+              {activeStep === 2 && (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between bg-white p-5 rounded-2xl border border-slate-200">
+                    <div>
+                      <h3 className="font-black text-slate-900 text-lg flex items-center gap-2">
+                        <HelpCircle className="text-purple-600" size={20} /> Course Assessments (Quizzes & Assignments)
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-0.5">Overview of all quizzes and assignments configured across your modules.</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button variant="outline" size="sm" onClick={() => navigate('/instructor/quizzes')}>
+                        Quizzes Manager
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => navigate('/instructor/assignments')}>
+                        Assignments Manager
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Quizzes list */}
+                    <Card className="p-5 space-y-3 border border-slate-200">
+                      <h4 className="font-extrabold text-sm text-slate-900 flex items-center gap-2">
+                        <HelpCircle className="text-purple-600" size={16} /> Course Quizzes
+                      </h4>
+                      {course.modules?.flatMap((m: any) => m.quizzes || []).length === 0 ? (
+                        <p className="text-xs text-slate-400 italic py-4 text-center">No quizzes created yet. Add quizzes in Curriculum modules.</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {course.modules?.flatMap((m: any) => (m.quizzes || []).map((q: any) => ({ ...q, moduleTitle: m.title }))).map((q: any) => (
+                            <div key={q.id} className="p-3 bg-purple-50/50 border border-purple-100 rounded-xl flex items-center justify-between">
+                              <div>
+                                <p className="text-xs font-bold text-slate-900">{q.title}</p>
+                                <span className="text-[10px] text-purple-700 font-semibold">{q.moduleTitle} • Pass: {q.passing_score}%</span>
+                              </div>
+                              <Badge variant="default" className="text-[9px] uppercase font-bold">{q.status || 'draft'}</Badge>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </Card>
+
+                    {/* Assignments list */}
+                    <Card className="p-5 space-y-3 border border-slate-200">
+                      <h4 className="font-extrabold text-sm text-slate-900 flex items-center gap-2">
+                        <FileText className="text-indigo-600" size={16} /> Course Assignments
+                      </h4>
+                      {course.modules?.flatMap((m: any) => m.assignments || []).length === 0 ? (
+                        <p className="text-xs text-slate-400 italic py-4 text-center">No assignments created yet. Add assignments in Curriculum modules.</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {course.modules?.flatMap((m: any) => (m.assignments || []).map((a: any) => ({ ...a, moduleTitle: m.title }))).map((a: any) => (
+                            <div key={a.id} className="p-3 bg-indigo-50/50 border border-indigo-100 rounded-xl flex items-center justify-between">
+                              <div>
+                                <p className="text-xs font-bold text-slate-900">{a.title}</p>
+                                <span className="text-[10px] text-indigo-700 font-semibold">{a.moduleTitle} • {a.total_marks || 100} Marks</span>
+                              </div>
+                              <Badge variant="default" className="text-[9px] uppercase font-bold">{a.status || 'draft'}</Badge>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </Card>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 3: Preview */}
+              {activeStep === 3 && (
+                <Card className="text-center py-16 space-y-4 border border-slate-200">
+                  <Eye className="mx-auto text-blue-500" size={48} />
+                  <div>
+                    <h4 className="text-base font-black text-slate-900">Student Course Experience Preview</h4>
+                    <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+                      Experience this course exactly as enrolled students see it, including video playback, reading materials, quizzes, and locked module progression.
+                    </p>
+                  </div>
+                  <div>
+                    <Button variant="primary" className="!bg-slate-900" onClick={() => navigate(`/student/courses/${course.id}`)}>
+                      <Eye size={14} className="mr-2" /> Launch Student Preview
+                    </Button>
+                  </div>
+                </Card>
+              )}
+
+              {/* Step 4: Publish Portal */}
+              {activeStep === 4 && (
+                <Card className="p-8 space-y-6 border border-slate-200 text-center max-w-xl mx-auto">
+                  <CheckCircle2 className="mx-auto text-slate-900" size={48} />
+                  <div>
+                    <h4 className="text-lg font-black text-slate-900">Publication Quality Verification</h4>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Run dynamic validation checks to ensure your title, thumbnail, learning objectives, modules, and lessons meet all standards before publishing live.
+                    </p>
+                  </div>
+                  <div>
+                    <Button variant="primary" className="!bg-slate-900 px-6 py-3" onClick={handlePublishCheck}>
+                      <ShieldAlert size={16} className="mr-2 text-amber-400" /> Run Publish Verification
+                    </Button>
+                  </div>
                 </Card>
               )}
 
@@ -1624,7 +2322,7 @@ export default function CourseBuilder() {
                     </div>
                   ) : (
                     <div className="p-1 rounded-full bg-red-100 text-red-800">
-                      <Trash2 size={12} className="w-3 h-3" />
+                      <X size={12} strokeWidth={2.5} className="w-3 h-3" />
                     </div>
                   )}
                 </div>

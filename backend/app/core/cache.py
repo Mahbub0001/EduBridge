@@ -255,6 +255,7 @@ class CacheManager:
                 logger.warning("Redis delete_pattern failed for %s: %s", pattern, e)
 
 cache = CacheManager()
+cache_manager = cache
 
 def invalidate_cache(patterns: list[str]):
     for pattern in patterns:

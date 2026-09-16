@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from datetime import datetime, timezone
 from ..core.dependencies import get_current_user
 from ..core.firebase import get_db
-from ..core.cache import cache_response, invalidate_cache
+from ..core.cache import cache_response, invalidate_cache, cache_manager
 from ..utils.response import success_response
 from .certificates import issue_course_certificate
 
@@ -14,6 +14,16 @@ router = APIRouter()
 class LessonCompletePayload(BaseModel):
     lesson_id: str
     course_id: str
+
+
+def _get_course_total_lessons(course_id: str, db: Client) -> int:
+    cache_key = f"course_total_lessons:{course_id}"
+    cached = cache_manager.get(cache_key)
+    if cached is not None and isinstance(cached, int):
+        return cached
+    count = len(list(db.collection("lessons").where("course_id", "==", course_id).stream()))
+    cache_manager.set(cache_key, count, ttl=300)
+    return count
 
 
 @router.get("/courses/{course_id}/progress")
@@ -32,7 +42,7 @@ def get_course_progress(
     )
     completed_lessons = [p.to_dict().get("lesson_id") for p in progress_docs if p.to_dict().get("lesson_id")]
 
-    total_lessons = len(list(db.collection("lessons").where("course_id", "==", course_id).stream()))
+    total_lessons = _get_course_total_lessons(course_id, db)
     progress_percent = round((len(completed_lessons) / max(total_lessons, 1)) * 100, 1)
 
     # find last completed lesson
@@ -77,7 +87,7 @@ def mark_lesson_complete(
         .stream()
     )
 
-    total = len(list(db.collection("lessons").where("course_id", "==", payload.course_id).stream()))
+    total = _get_course_total_lessons(payload.course_id, db)
 
     if existing:
         completed_count = len(list(

@@ -55,9 +55,9 @@ const STEPS = [
 ];
 
 const CATEGORIES = [
-  'Web Development', 'Data Science', 'Cloud Engineering',
+  'Technology', 'Programming', 'Web Development', 'Data Science', 'Cloud Engineering',
   'Mobile Development', 'Cybersecurity', 'AI & Machine Learning',
-  'DevOps', 'UI/UX Design', 'Business', 'Other',
+  'DevOps', 'UI/UX Design', 'Education', 'Business', 'Other',
 ];
 
 export const DEFAULT_COURSE_LOGOS = [

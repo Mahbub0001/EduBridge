@@ -59,6 +59,7 @@ CATEGORIES = [
     {"id": "cybersecurity",     "name": "Cybersecurity",            "description": "Protect systems, networks, and data from digital attacks."},
     {"id": "data-science",      "name": "Data Science",             "description": "Analyze and interpret complex data with statistical and computational tools."},
     {"id": "mobile-development","name": "Mobile Development",       "description": "Create mobile applications for iOS and Android platforms."},
+    {"id": "technology",        "name": "Technology",               "description": "Explore computational systems, software engineering, databases, and modern technological innovations."},
 ]
 
 def seed_categories():

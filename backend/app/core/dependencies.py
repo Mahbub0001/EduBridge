@@ -2,6 +2,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials
 from .security import security, verify_firebase_token
 from .firebase import get_db
+from .cache import cache_manager
 from google.cloud.firestore_v1.client import Client
 
 def get_current_user_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
@@ -12,12 +13,18 @@ def get_current_user(token: dict = Depends(get_current_user_token), db: Client =
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid user token")
     
+    cache_key = f"user_profile:{user_id}"
+    cached_user = cache_manager.get(cache_key)
+    if cached_user and isinstance(cached_user, dict):
+        return cached_user
+
     user_doc = db.collection("users").document(user_id).get()
     if not user_doc.exists:
         raise HTTPException(status_code=404, detail="User not found in database")
     
     user_data = user_doc.to_dict()
     user_data["id"] = user_id
+    cache_manager.set(cache_key, user_data, ttl=120)
     return user_data
 
 def require_role(allowed_roles: list[str]):

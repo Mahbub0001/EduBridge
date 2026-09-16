@@ -584,6 +584,28 @@ export default function CourseLearning() {
 
   const handleMarkComplete = async () => {
     if (!courseId || !activeLesson) return;
+
+    // 1. Optimistic Instant UI Update (0ms perceived latency)
+    const prevProgress = progress;
+    const currentCompleted = progress?.completed_lessons || [];
+    if (!currentCompleted.includes(activeLesson.id)) {
+      const optimisticCompleted = [...currentCompleted, activeLesson.id];
+      const totalLessons = progress?.total_lessons || 1;
+      const optimisticPct = Math.min(100, Math.round((optimisticCompleted.length / totalLessons) * 100));
+      setProgress((prev: any) => ({
+        ...prev,
+        progress_percent: optimisticPct,
+        completed_lessons: optimisticCompleted,
+      }));
+
+      // Optimistically expand next module if this completes the current module
+      const currentModIdx = modules.findIndex((m) => m.id === activeLesson.moduleId);
+      if (currentModIdx >= 0 && currentModIdx < modules.length - 1) {
+        const nextMod = modules[currentModIdx + 1];
+        setExpandedModules((prev) => ({ ...prev, [nextMod.id]: true }));
+      }
+    }
+
     setMarking(true);
     try {
       const result = await markLessonComplete(activeLesson.id, courseId);
@@ -594,10 +616,10 @@ export default function CourseLearning() {
         completed_lessons: [...(prev?.completed_lessons || []), activeLesson.id],
       }));
 
-      // Immediately refresh unlock status
+      // Refresh unlock status in background
       const updatedUnlock = await refreshUnlockStatus();
 
-      // Auto-expand next module if unlocked
+      // Ensure next module expansion is synchronized
       const currentModIdx = modules.findIndex((m) => m.id === activeLesson.moduleId);
       if (currentModIdx >= 0 && currentModIdx < modules.length - 1) {
         const nextMod = modules[currentModIdx + 1];
@@ -623,6 +645,8 @@ export default function CourseLearning() {
       }
     } catch (err) {
       console.error(err);
+      // Rollback on network failure
+      if (prevProgress) setProgress(prevProgress);
     } finally {
       setMarking(false);
     }

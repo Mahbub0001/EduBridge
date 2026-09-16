@@ -2,10 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from google.cloud.firestore_v1.client import Client
 from typing import List, Optional
 from datetime import datetime, timezone
+from concurrent.futures import ThreadPoolExecutor
 from pydantic import BaseModel
 from ..core.dependencies import get_current_user, require_instructor, require_admin
 from ..core.firebase import get_db
-from ..core.cache import cache_response, invalidate_cache
+from ..core.cache import cache_response, invalidate_cache, cache_manager
 from ..utils.response import success_response, error_response
 from ..schemas.course import CourseCreate, CourseUpdate
 
@@ -77,14 +78,21 @@ def get_course(course_id: str, db: Client = Depends(get_db)):
     data = doc.to_dict()
     data["id"] = doc.id
     
-    # instructor name lookup
+    # instructor name lookup with in-memory caching
     instructor_id = data.get("instructor_id", "")
     if instructor_id:
-        instructor_ref = db.collection("users").document(instructor_id)
-        inst_doc = instructor_ref.get()
-        data["instructor_name"] = (
-            inst_doc.to_dict().get("name", "Instructor") if inst_doc.exists else "Instructor"
-        )
+        inst_cache_key = f"inst_name:{instructor_id}"
+        cached_name = cache_manager.get(inst_cache_key)
+        if cached_name:
+            data["instructor_name"] = cached_name
+        else:
+            instructor_ref = db.collection("users").document(instructor_id)
+            inst_doc = instructor_ref.get()
+            inst_name = (
+                inst_doc.to_dict().get("name", "Instructor") if inst_doc.exists else "Instructor"
+            )
+            cache_manager.set(inst_cache_key, inst_name, ttl=300)
+            data["instructor_name"] = inst_name
     else:
         data["instructor_name"] = "Instructor"
         
@@ -459,6 +467,57 @@ def admin_update_course_status(
     return success_response(message=f"Course status updated to {status}")
 
 
+def _get_course_curriculum_structure(course_id: str, db: Client):
+    cache_key = f"course_curriculum:{course_id}"
+    cached = cache_manager.get(cache_key)
+    if cached and isinstance(cached, dict):
+        return cached["modules"], cached["lessons_by_module"], cached["quizzes_by_module"]
+
+    # Parallelize curriculum fetching
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        f_mods = executor.submit(lambda: list(db.collection("modules").where("course_id", "==", course_id).stream()))
+        f_lessons = executor.submit(lambda: list(db.collection("lessons").where("course_id", "==", course_id).stream()))
+        f_quizzes = executor.submit(lambda: list(db.collection("quizzes").where("course_id", "==", course_id).stream()))
+
+        module_docs = f_mods.result()
+        lesson_docs = f_lessons.result()
+        quiz_docs = f_quizzes.result()
+
+    modules = []
+    for m in module_docs:
+        md = m.to_dict()
+        md["id"] = m.id
+        modules.append(md)
+    modules.sort(key=lambda x: (x.get("order", 0), str(x.get("created_at") or "")))
+
+    lessons_by_module = {}
+    for l in lesson_docs:
+        ld = l.to_dict()
+        ld["id"] = l.id
+        mid = ld.get("module_id")
+        if mid:
+            lessons_by_module.setdefault(mid, []).append(ld)
+
+    quizzes_by_module = {}
+    for q in quiz_docs:
+        qd = q.to_dict()
+        qd["id"] = q.id
+        status = qd.get("status")
+        if status and status != "published":
+            continue
+        mid = qd.get("module_id")
+        if mid:
+            quizzes_by_module.setdefault(mid, []).append(qd)
+
+    cache_manager.set(cache_key, {
+        "modules": modules,
+        "lessons_by_module": lessons_by_module,
+        "quizzes_by_module": quizzes_by_module
+    }, ttl=180)
+
+    return modules, lessons_by_module, quizzes_by_module
+
+
 @router.get("/{course_id}/modules/unlock-status")
 @cache_response(ttl=15, prefix="unlock_status", is_user_scoped=True)
 def get_module_unlock_status(
@@ -468,63 +527,25 @@ def get_module_unlock_status(
 ):
     uid = current_user["id"]
     
-    # 1. Fetch all modules for this course sorted by order
-    module_docs = db.collection("modules").where("course_id", "==", course_id).stream()
-    modules = []
-    for m in module_docs:
-        md = m.to_dict()
-        md["id"] = m.id
-        modules.append(md)
-    modules.sort(key=lambda x: (x.get("order", 0), str(x.get("created_at") or "")))
+    # 1. Fetch curriculum structure with in-memory cache
+    modules, lessons_by_module, quizzes_by_module = _get_course_curriculum_structure(course_id, db)
 
-    # 2. Fetch all completed lessons for this user in this course
-    progress_docs = (
-        db.collection("progress")
-        .where("user_id", "==", uid)
-        .where("course_id", "==", course_id)
-        .stream()
-    )
-    completed_lesson_ids = set()
-    for p in progress_docs:
-        pd = p.to_dict()
-        lid = pd.get("lesson_id")
-        if lid and pd.get("completed", True) is not False:
-            completed_lesson_ids.add(lid)
+    # 2. Fetch user progress & passed quiz attempts concurrently
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        f_prog = executor.submit(lambda: {
+            p.to_dict().get("lesson_id")
+            for p in db.collection("progress").where("user_id", "==", uid).where("course_id", "==", course_id).stream()
+            if p.to_dict().get("lesson_id") and p.to_dict().get("completed", True) is not False
+        })
+        f_quiz = executor.submit(lambda: {
+            pa.to_dict().get("quiz_id")
+            for pa in db.collection("quiz_attempts").where("user_id", "==", uid).where("passed", "==", True).stream()
+            if pa.to_dict().get("quiz_id")
+        })
+        completed_lesson_ids = f_prog.result()
+        passed_quiz_ids = f_quiz.result()
 
-    # 3. Fetch all lessons for the course to determine module completeness
-    lesson_docs = db.collection("lessons").where("course_id", "==", course_id).stream()
-    lessons_by_module = {}
-    for l in lesson_docs:
-        ld = l.to_dict()
-        ld["id"] = l.id
-        mid = ld.get("module_id")
-        if mid:
-            lessons_by_module.setdefault(mid, []).append(ld)
-
-    # 4. Fetch all quizzes for this course
-    quiz_docs = db.collection("quizzes").where("course_id", "==", course_id).stream()
-    quizzes_by_module = {}
-    for q in quiz_docs:
-        qd = q.to_dict()
-        qd["id"] = q.id
-        status = qd.get("status")
-        # Only published or unspecified/legacy quizzes count toward module requirements
-        if status and status != "published":
-            continue
-        mid = qd.get("module_id")
-        if mid:
-            quizzes_by_module.setdefault(mid, []).append(qd)
-
-    # 5. Fetch all passed quiz attempts for this user
-    passed_attempts = (
-        db.collection("quiz_attempts")
-        .where("user_id", "==", uid)
-        .where("passed", "==", True)
-        .stream()
-    )
-    passed_quiz_ids = {pa.to_dict().get("quiz_id") for pa in passed_attempts if pa.to_dict().get("quiz_id")}
-
-    # 6. Evaluate modules unlock and completed status in strict sequential order
+    # 3. Evaluate modules unlock and completed status in strict sequential order
     result = []
     previous_completed = True
     now = datetime.now(timezone.utc)

@@ -8,7 +8,7 @@ import shutil
 from pydantic import BaseModel
 from ..core.dependencies import get_current_user, require_admin
 from ..core.firebase import get_db
-from ..core.cache import invalidate_cache
+from ..core.cache import invalidate_cache, cache_manager
 from ..utils.response import success_response
 from ..schemas.user import UserUpdate
 
@@ -43,6 +43,7 @@ def update_me(
     user_ref.set(update_data, merge=True)
     
     # Invalidate cached endpoints so new profile details immediately propagate
+    cache_manager.delete(f"user_profile:{uid}")
     invalidate_cache("community")
     invalidate_cache("discussions")
     invalidate_cache("instructor")
@@ -89,6 +90,7 @@ def upload_avatar(
         }, merge=True)
         
         # Invalidate caches
+        cache_manager.delete(f"user_profile:{uid}")
         invalidate_cache("community")
         invalidate_cache("discussions")
         invalidate_cache("instructor")

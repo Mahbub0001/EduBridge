@@ -11,6 +11,7 @@ from ..core.dependencies import require_instructor
 from ..core.firebase import get_db
 from ..core.cache import cache_response, invalidate_cache
 from ..utils.response import success_response
+from ..schemas.course import CourseUpdate
 
 router = APIRouter()
 
@@ -403,27 +404,31 @@ def publish_validation_check(
     is_valid = True
 
     # 1. Course Title & Description
-    if not course_data.get("title", "").strip():
+    title = (course_data.get("title") or "").strip()
+    if not title:
         checklist.append({"item": "Course title is filled", "passed": False})
         is_valid = False
     else:
         checklist.append({"item": "Course title is filled", "passed": True})
 
-    if not course_data.get("description", "").strip():
+    description = (course_data.get("description") or "").strip()
+    if not description:
         checklist.append({"item": "Course description is filled", "passed": False})
         is_valid = False
     else:
         checklist.append({"item": "Course description is filled", "passed": True})
 
     # 2. Thumbnail
-    if not course_data.get("thumbnail_url", "").strip():
+    thumbnail = (course_data.get("thumbnail_url") or "").strip()
+    if not thumbnail:
         checklist.append({"item": "Course thumbnail image provided", "passed": False})
         is_valid = False
     else:
         checklist.append({"item": "Course thumbnail image provided", "passed": True})
 
     # 3. Learning Outcomes
-    outcomes = [o for o in course_data.get("learning_outcomes", []) if o.strip()]
+    raw_outcomes = course_data.get("learning_outcomes") or []
+    outcomes = [o for o in raw_outcomes if isinstance(o, str) and o.strip()]
     if len(outcomes) == 0:
         checklist.append({"item": "At least one learning outcome defined", "passed": False})
         is_valid = False
@@ -438,22 +443,77 @@ def publish_validation_check(
     else:
         checklist.append({"item": "At least one module defined", "passed": True})
 
-        # 5. Nested lessons/resources check
-        nested_passed = True
+        # 5. Nested lessons/resources/quizzes/assignments check
+        empty_modules = []
+        total_items = 0
         for m in modules:
+            m_dict = m.to_dict() or {}
+            m_title = m_dict.get("title") or "Untitled Module"
             lessons_count = len(list(db.collection("lessons").where("module_id", "==", m.id).stream()))
             resources_count = len(list(db.collection("resources").where("module_id", "==", m.id).stream()))
-            if lessons_count == 0 and resources_count == 0:
-                nested_passed = False
-                break
+            quizzes_count = len(list(db.collection("quizzes").where("module_id", "==", m.id).stream()))
+            assignments_count = len(list(db.collection("assignments").where("module_id", "==", m.id).stream()))
+            m_items = lessons_count + resources_count + quizzes_count + assignments_count
+            total_items += m_items
+            if m_items == 0:
+                empty_modules.append(m_title)
         
-        if not nested_passed:
-            checklist.append({"item": "Every module has at least one lesson or resource", "passed": False})
+        if total_items == 0:
+            checklist.append({"item": "Course has at least one lesson, resource, or quiz", "passed": False})
+            is_valid = False
+        elif empty_modules:
+            empty_names = ", ".join(f"'{name}'" for name in empty_modules[:2])
+            if len(empty_modules) > 2:
+                empty_names += f" and {len(empty_modules) - 2} more"
+            checklist.append({
+                "item": f"Empty module detected: {empty_names} (add lessons or delete module to publish)",
+                "passed": False
+            })
             is_valid = False
         else:
-            checklist.append({"item": "Every module has at least one lesson or resource", "passed": True})
+            checklist.append({"item": "Every module has at least one learning item", "passed": True})
 
     return success_response(data={"is_valid": is_valid, "checklist": checklist})
+
+
+# ── PATCH & POST /instructor/courses/{course_id}/publish ──
+@router.patch("/courses/{course_id}/publish")
+@router.post("/courses/{course_id}/publish")
+def publish_instructor_course(
+    course_id: str,
+    current_user: dict = Depends(require_instructor),
+    db: Client = Depends(get_db)
+):
+    course_ref = db.collection("courses").document(course_id)
+    doc = course_ref.get()
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="Course not found")
+    check_course_permission(course_id, current_user, db)
+    course_ref.update({"status": "published", "updated_at": datetime.now(timezone.utc)})
+    invalidate_cache(["edubridge:courses*", "edubridge:instructor*", "edubridge:analytics*"])
+    return success_response(message="Course published successfully")
+
+
+# ── PATCH /instructor/courses/{course_id} ──
+@router.patch("/courses/{course_id}")
+def instructor_update_course(
+    course_id: str,
+    course_update: CourseUpdate,
+    current_user: dict = Depends(require_instructor),
+    db: Client = Depends(get_db)
+):
+    check_course_permission(course_id, current_user, db)
+    course_ref = db.collection("courses").document(course_id)
+    update_data = course_update.model_dump(exclude_unset=True)
+    update_data["updated_at"] = datetime.now(timezone.utc)
+    course_ref.update(update_data)
+    
+    updated_doc = course_ref.get()
+    data = updated_doc.to_dict()
+    data["id"] = updated_doc.id
+    invalidate_cache(["edubridge:courses*", "edubridge:instructor*", "edubridge:analytics*"])
+    return success_response(data=data, message="Course updated successfully")
+
 
 
 # ── INSTRUCTOR QUIZ SCHEMAS ──
