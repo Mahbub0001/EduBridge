@@ -89,6 +89,7 @@ def get_course_discussions(
         for rd in thread_replies:
             reply_author = users_map.get(rd.get("author_id", ""), {})
             rd["author_name"] = reply_author.get("name", "Unknown")
+            rd["author_photo"] = reply_author.get("photo_url", "")
         
         dd["replies"] = thread_replies
         dd["reply_count"] = len(thread_replies)

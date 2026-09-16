@@ -1,4 +1,4 @@
-﻿/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
@@ -65,6 +65,35 @@ export default function CourseQuizzes() {
 
   const getModStatus = (moduleId: string) => moduleStatus.find((s) => s.module_id === moduleId);
 
+  const isModuleLocked = (moduleId: string) => {
+    if (!moduleId || moduleId === '__general__' || modules.length === 0) return false;
+    const modIdx = modules.findIndex((m) => m.id === moduleId);
+    if (modIdx === -1) {
+      const stat = moduleStatus.find((s) => s.module_id === moduleId);
+      return stat ? stat.locked : false;
+    }
+
+    if (modIdx === 0) {
+      const stat0 = moduleStatus.find((s) => s.module_id === moduleId);
+      return stat0 ? stat0.locked : false;
+    }
+
+    // Strict sequential lock check
+    for (let i = 0; i < modIdx; i++) {
+      const prevStat = moduleStatus.find((s) => s.module_id === modules[i].id);
+      if (prevStat) {
+        if (prevStat.locked || !prevStat.passed) {
+          return true;
+        }
+      } else if (moduleStatus.length > 0) {
+        return true;
+      }
+    }
+
+    const stat = moduleStatus.find((s) => s.module_id === moduleId);
+    return stat ? stat.locked : false;
+  };
+
   const grouped = useMemo(() => {
     const map: Record<string, any[]> = {};
     quizzes.forEach((q) => {
@@ -81,6 +110,10 @@ export default function CourseQuizzes() {
   };
 
   const startQuiz = async (quiz: any) => {
+    if (quiz.module_id && isModuleLocked(quiz.module_id)) {
+      alert('This quiz is locked. Please complete all lessons and quizzes in previous modules first.');
+      return;
+    }
     setActiveQuiz(quiz);
     setAnswers({});
     setCurrentQ(0);
@@ -222,7 +255,7 @@ export default function CourseQuizzes() {
         <div className="space-y-8">
           {Object.entries(grouped).map(([moduleId, moduleQuizzes]) => {
             const modStat = getModStatus(moduleId);
-            const isLocked = modStat?.locked ?? false;
+            const isLocked = isModuleLocked(moduleId);
             return (
               <div key={moduleId} className="space-y-3">
                 <div className="flex items-center gap-2">
@@ -257,7 +290,7 @@ export default function CourseQuizzes() {
                           </div>
                         )}
                         {!isLocked && <Button size="sm" className="w-full" disabled={attemptsLeft <= 0} onClick={() => startQuiz(quiz)}>{hasPassed ? 'Retake' : quizAttempts.length > 0 ? 'Try Again' : 'Start Quiz'}</Button>}
-                        {isLocked && <div className="flex items-center gap-2 text-[11px] text-amber-700 dark:text-amber-400 font-bold"><Lock size={12} /> Complete the previous module quiz to unlock</div>}
+                        {isLocked && <div className="flex items-center gap-2 text-[11px] text-amber-700 dark:text-amber-400 font-bold"><Lock size={12} /> Complete all lessons and quizzes in previous modules to unlock</div>}
                       </Card>
                     );
                   })}

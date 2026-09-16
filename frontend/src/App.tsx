@@ -38,7 +38,6 @@ import InstructorSubmissions from './pages/instructor/Submissions';
 import InstructorAnalytics from './pages/instructor/Analytics';
 import InstructorAnnouncements from './pages/instructor/Announcements';
 import InstructorDiscussions from './pages/instructor/Discussions';
-import InstructorStudents from './pages/instructor/Students';
 import InstructorSettings from './pages/instructor/Settings';
 import InstructorHelpCenter from './pages/instructor/HelpCenter';
 import CreateCourse from './pages/instructor/CreateCourse';
@@ -165,7 +164,7 @@ function App() {
             <Route path="analytics" element={<InstructorAnalytics />} />
             <Route path="announcements" element={<InstructorAnnouncements />} />
             <Route path="discussions" element={<InstructorDiscussions />} />
-            <Route path="students" element={<InstructorStudents />} />
+            <Route path="students" element={<Navigate to="/instructor/analytics?tab=students" replace />} />
             <Route path="settings" element={<InstructorSettings />} />
             <Route path="help" element={<InstructorHelpCenter />} />
           </Route>

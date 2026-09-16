@@ -121,7 +121,7 @@ def mark_lesson_complete(
         cert = issue_course_certificate(db, uid, payload.course_id, current_user.get("name"))
         cert_id = cert.get("id") if cert else None
 
-    invalidate_cache(["edubridge:progress*", "edubridge:enrollments*", "edubridge:analytics*", "edubridge:courses*", "edubridge:instructor*", "edubridge:certificates*"])
+    invalidate_cache(["edubridge:progress*", "edubridge:enrollments*", "edubridge:analytics*", "edubridge:courses*", "edubridge:instructor*", "edubridge:certificates*", "edubridge:unlock_status*", "unlock_status"])
     return success_response(
         data={
             "completed": True,

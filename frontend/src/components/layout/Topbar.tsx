@@ -8,6 +8,7 @@ import { useAuthStore, usePreferencesStore } from '../../store';
 import { useTheme } from '../../hooks/useTheme';
 import { useTranslation } from '../../utils/translations';
 import NotificationDropdown from './NotificationDropdown';
+import UserAvatar from '../ui/UserAvatar';
 import type { Notification } from '../../types';
 
 const D = 'div';
@@ -169,9 +170,13 @@ export default function Topbar({
             }}
             className="flex items-center gap-2"
           >
-            <D className="w-10 h-10 rounded-full bg-navy-900 text-white flex items-center justify-center font-bold text-sm shadow-sm dark:bg-teal-600">
-              {user?.name?.charAt(0).toUpperCase() || 'A'}
-            </D>
+            <UserAvatar
+              src={user?.photo_url}
+              name={user?.name}
+              email={user?.email}
+              size="md"
+              className="shadow-sm"
+            />
             <ChevronDown size={16} className="text-slate-500 hidden sm:block dark:text-slate-400" />
           </button>
 

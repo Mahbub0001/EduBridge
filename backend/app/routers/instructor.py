@@ -2134,6 +2134,8 @@ def get_instructor_students_list(
         return success_response(data=[])
 
     course_map = {c.id: c.to_dict().get("title", "Course") for c in courses}
+    course_instructor_map = {c.id: c.to_dict().get("instructor_id") for c in courses}
+    current_email = (current_user.get("email") or "").strip().lower()
 
     # Fetch all enrollments for these courses
     enroll_docs = []
@@ -2233,8 +2235,21 @@ def get_instructor_students_list(
         if not student_id or not course_id:
             continue
 
+        # Exclude the instructor themselves or the author of the course
+        if student_id == uid or student_id == course_instructor_map.get(course_id):
+            continue
+
         ud = user_map.get(student_id)
         if not ud:
+            continue
+
+        student_role = ud.get("role", "student")
+        student_email = (ud.get("email") or "").strip().lower()
+
+        # Exclude instructors and admins from student lists
+        if student_role in ["instructor", "admin", "super_admin"]:
+            continue
+        if student_email == current_email:
             continue
 
         scores = student_quiz_scores.get((student_id, course_id), [])

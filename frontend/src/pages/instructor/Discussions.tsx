@@ -19,6 +19,7 @@ import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
+import UserAvatar from '../../components/ui/UserAvatar';
 
 function timeAgo(dateVal: any): string {
   if (!dateVal) return '';
@@ -333,11 +334,11 @@ export default function InstructorDiscussions() {
                               : 'bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-700'
                           }`}
                         >
-                          <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                            {reply.author_photo
-                              ? <img src={reply.author_photo} alt="" className="w-full h-full object-cover" />
-                              : <User size={14} className="text-slate-400" />}
-                          </div>
+                          <UserAvatar
+                            src={reply.author_photo}
+                            name={reply.author_name}
+                            size="sm"
+                          />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
                               <span className="text-xs font-extrabold text-slate-900 dark:text-white">{reply.author_name || 'Student'}</span>

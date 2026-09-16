@@ -206,7 +206,7 @@ def get_course_modules(course_id: str, db: Client = Depends(get_db)):
 
         result.append(md)
         
-    result.sort(key=lambda x: x.get("order", 0))
+    result.sort(key=lambda x: (x.get("order", 0), str(x.get("created_at") or "")))
     return success_response(data=result)
 
 
@@ -308,6 +308,7 @@ def create_module(
     })
     _, ref = db.collection("modules").add(data)
     data["id"] = ref.id
+    invalidate_cache(["edubridge:courses*", "edubridge:unlock_status*", "unlock_status"])
     return success_response(data=data, message="Module created")
 
 
@@ -331,6 +332,7 @@ def update_module(
     ref.update(data)
     updated = ref.get().to_dict()
     updated["id"] = module_id
+    invalidate_cache(["edubridge:courses*", "edubridge:unlock_status*", "unlock_status"])
     return success_response(data=updated, message="Module updated")
 
 
@@ -360,6 +362,7 @@ def delete_module(
         db.collection("discussions").document(d.id).delete()
 
     ref.delete()
+    invalidate_cache(["edubridge:courses*", "edubridge:unlock_status*", "unlock_status"])
     return success_response(message="Module deleted")
 
 
@@ -390,6 +393,7 @@ def create_lesson(
     })
     _, ref = db.collection("lessons").add(data)
     data["id"] = ref.id
+    invalidate_cache(["edubridge:courses*", "edubridge:unlock_status*", "unlock_status"])
     return success_response(data=data, message="Lesson created")
 
 
@@ -414,6 +418,7 @@ def update_lesson(
     ref.update(data)
     updated = ref.get().to_dict()
     updated["id"] = lesson_id
+    invalidate_cache(["edubridge:courses*", "edubridge:unlock_status*", "unlock_status"])
     return success_response(data=updated, message="Lesson updated")
 
 
@@ -433,6 +438,7 @@ def delete_lesson(
     if current_user.get("role") not in ["instructor", "admin", "super_admin"]:
         raise HTTPException(status_code=403, detail="Not authorized")
     ref.delete()
+    invalidate_cache(["edubridge:courses*", "edubridge:unlock_status*", "unlock_status"])
     return success_response(message="Lesson deleted")
 
 
@@ -454,7 +460,7 @@ def admin_update_course_status(
 
 
 @router.get("/{course_id}/modules/unlock-status")
-@cache_response(ttl=30, prefix="unlock_status", is_user_scoped=True)
+@cache_response(ttl=15, prefix="unlock_status", is_user_scoped=True)
 def get_module_unlock_status(
     course_id: str,
     current_user: dict = Depends(get_current_user),
@@ -469,7 +475,7 @@ def get_module_unlock_status(
         md = m.to_dict()
         md["id"] = m.id
         modules.append(md)
-    modules.sort(key=lambda x: x.get("order", 0))
+    modules.sort(key=lambda x: (x.get("order", 0), str(x.get("created_at") or "")))
 
     # 2. Fetch all completed lessons for this user in this course
     progress_docs = (
@@ -489,9 +495,7 @@ def get_module_unlock_status(
         ld["id"] = l.id
         mid = ld.get("module_id")
         if mid:
-            if mid not in lessons_by_module:
-                lessons_by_module[mid] = []
-            lessons_by_module[mid].append(ld)
+            lessons_by_module.setdefault(mid, []).append(ld)
 
     # 4. Fetch all quizzes for this course
     quiz_docs = db.collection("quizzes").where("course_id", "==", course_id).stream()
@@ -501,7 +505,7 @@ def get_module_unlock_status(
         qd["id"] = q.id
         mid = qd.get("module_id")
         if mid:
-            quizzes_by_module[mid] = qd
+            quizzes_by_module.setdefault(mid, []).append(qd)
 
     # 5. Fetch all passed quiz attempts for this user
     passed_attempts = (
@@ -512,34 +516,46 @@ def get_module_unlock_status(
     )
     passed_quiz_ids = {pa.to_dict().get("quiz_id") for pa in passed_attempts if pa.to_dict().get("quiz_id")}
 
-    # 6. Evaluate modules unlock and completed status in order
+    # 6. Evaluate modules unlock and completed status in strict sequential order
     result = []
     previous_completed = True
     now = datetime.now(timezone.utc)
 
     for i, mod in enumerate(modules):
         mid = mod["id"]
-        unlock_rule = mod.get("unlock_rule", "always")
+        unlock_rule = mod.get("unlock_rule", "previous_completed")
         unlock_date_str = mod.get("unlock_date", "")
 
         # Compute locked status
         locked = False
-        if unlock_rule == "specific_date" and unlock_date_str:
-            try:
-                # unlock_date is stored as YYYY-MM-DD
-                unlock_date = datetime.strptime(unlock_date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
-                if now < unlock_date:
-                    locked = True
-            except Exception:
-                # Fallback to string comparison
-                now_date_str = now.strftime("%Y-%m-%d")
-                if now_date_str < unlock_date_str:
-                    locked = True
-        elif unlock_rule == "previous_completed":
-            if i > 0 and not previous_completed:
-                locked = True
 
-        # Compute completed status
+        if i == 0:
+            # First module is open by default unless a specific future date is configured
+            if unlock_rule == "specific_date" and unlock_date_str:
+                try:
+                    unlock_date = datetime.strptime(unlock_date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                    if now < unlock_date:
+                        locked = True
+                except Exception:
+                    now_date_str = now.strftime("%Y-%m-%d")
+                    if now_date_str < unlock_date_str:
+                        locked = True
+        else:
+            # For all subsequent modules (i > 0):
+            # Strict sequential lock: If previous module was not completed, this module is LOCKED!
+            if not previous_completed:
+                locked = True
+            elif unlock_rule == "specific_date" and unlock_date_str:
+                try:
+                    unlock_date = datetime.strptime(unlock_date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                    if now < unlock_date:
+                        locked = True
+                except Exception:
+                    now_date_str = now.strftime("%Y-%m-%d")
+                    if now_date_str < unlock_date_str:
+                        locked = True
+
+        # Compute completed status for this module
         mod_lessons = lessons_by_module.get(mid, [])
         required_lessons = [l for l in mod_lessons if l.get("required_completion", True)]
         
@@ -549,17 +565,17 @@ def get_module_unlock_status(
         elif mod_lessons:
             lessons_completed = all(l["id"] in completed_lesson_ids for l in mod_lessons)
         
-        quiz_completed = True
-        mod_quiz = quizzes_by_module.get(mid)
-        if mod_quiz:
-            quiz_completed = mod_quiz["id"] in passed_quiz_ids
+        mod_quizzes = quizzes_by_module.get(mid, [])
+        quizzes_completed = True
+        if mod_quizzes:
+            quizzes_completed = all(q["id"] in passed_quiz_ids for q in mod_quizzes)
 
-        module_completed = lessons_completed and quiz_completed
+        module_completed = lessons_completed and quizzes_completed
 
         if locked:
             module_completed = False
             
-        previous_completed = module_completed
+        previous_completed = previous_completed and module_completed
 
         result.append({
             "module_id": mid,

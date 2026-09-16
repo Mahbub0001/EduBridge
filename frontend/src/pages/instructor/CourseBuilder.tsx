@@ -23,6 +23,8 @@ import {
   publishInstructorCourse,
   uploadInstructorFile
 } from '../../services/courseService';
+import { createQuiz, updateQuiz, deleteQuiz } from '../../services/quizService';
+import { createAssignment, updateAssignment, deleteAssignment } from '../../services/assignmentService';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
@@ -81,8 +83,22 @@ export default function CourseBuilder() {
     title: '', type: 'pdf', url: '', downloadable: true
   });
 
+  const [showQuizModal, setShowQuizModal] = useState<string | null>(null); // holds module_id
+  const [editingQuiz, setEditingQuiz] = useState<any | null>(null);
+  const [quizForm, setQuizForm] = useState({
+    title: '', instructions: '', passing_score: 60, total_marks: 100,
+    time_limit: 30, max_attempts: 3, status: 'draft'
+  });
+
+  const [showAssignmentModal, setShowAssignmentModal] = useState<string | null>(null); // holds module_id
+  const [editingAssignment, setEditingAssignment] = useState<any | null>(null);
+  const [assignmentForm, setAssignmentForm] = useState({
+    title: '', instructions: '', due_date: '', total_marks: 100,
+    submission_type: 'both', accepted_file_types: '', status: 'draft'
+  });
+
   // Delete confirmations
-  const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'module' | 'lesson' | 'resource'; id: string } | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'module' | 'lesson' | 'resource' | 'quiz' | 'assignment'; id: string } | null>(null);
 
   // Publish check state
   const [showPublishModal, setShowPublishModal] = useState(false);
@@ -324,8 +340,88 @@ export default function CourseBuilder() {
     }
   };
 
+  // Quiz Actions
+  const openQuizModal = (moduleId: string, q: any = null) => {
+    setShowQuizModal(moduleId);
+    if (q) {
+      setEditingQuiz(q);
+      setQuizForm({
+        title: q.title || '',
+        instructions: q.instructions || '',
+        passing_score: q.passing_score || 60,
+        total_marks: q.total_marks || 100,
+        time_limit: q.time_limit || 30,
+        max_attempts: q.max_attempts || 3,
+        status: q.status || 'draft'
+      });
+    } else {
+      setEditingQuiz(null);
+      setQuizForm({
+        title: '', instructions: '', passing_score: 60, total_marks: 100,
+        time_limit: 30, max_attempts: 3, status: 'draft'
+      });
+    }
+  };
+
+  const handleSaveQuiz = async () => {
+    if (!quizForm.title.trim() || !showQuizModal || !selectedCourseId) return;
+    try {
+      if (editingQuiz) {
+        await updateQuiz(editingQuiz.id, { ...quizForm, module_id: showQuizModal });
+        showToast('Quiz updated');
+      } else {
+        await createQuiz(selectedCourseId, { ...quizForm, module_id: showQuizModal });
+        showToast('Quiz created in module');
+      }
+      setShowQuizModal(null);
+      loadBuilderData(selectedCourseId);
+    } catch {
+      showToast('Failed to save quiz');
+    }
+  };
+
+  // Assignment Actions
+  const openAssignmentModal = (moduleId: string, a: any = null) => {
+    setShowAssignmentModal(moduleId);
+    if (a) {
+      setEditingAssignment(a);
+      setAssignmentForm({
+        title: a.title || '',
+        instructions: a.instructions || '',
+        due_date: a.due_date || '',
+        total_marks: a.total_marks || 100,
+        submission_type: a.submission_type || 'both',
+        accepted_file_types: a.accepted_file_types || '',
+        status: a.status || 'draft'
+      });
+    } else {
+      setEditingAssignment(null);
+      setAssignmentForm({
+        title: '', instructions: '', due_date: '', total_marks: 100,
+        submission_type: 'both', accepted_file_types: '', status: 'draft'
+      });
+    }
+  };
+
+  const handleSaveAssignment = async () => {
+    if (!assignmentForm.title.trim() || !showAssignmentModal || !selectedCourseId) return;
+    try {
+      if (editingAssignment) {
+        await updateAssignment(editingAssignment.id, { ...assignmentForm, module_id: showAssignmentModal });
+        showToast('Assignment updated');
+      } else {
+        await createAssignment(selectedCourseId, { ...assignmentForm, module_id: showAssignmentModal });
+        showToast('Assignment created in module');
+      }
+      setShowAssignmentModal(null);
+      loadBuilderData(selectedCourseId);
+    } catch {
+      showToast('Failed to save assignment');
+    }
+  };
+
   // Deletions
-  const triggerDelete = (type: 'module' | 'lesson' | 'resource', id: string) => {
+  const triggerDelete = (type: 'module' | 'lesson' | 'resource' | 'quiz' | 'assignment', id: string) => {
     setDeleteConfirm({ type, id });
   };
 
@@ -341,6 +437,12 @@ export default function CourseBuilder() {
       } else if (deleteConfirm.type === 'resource') {
         await deleteInstructorResource(deleteConfirm.id);
         showToast('Resource deleted');
+      } else if (deleteConfirm.type === 'quiz') {
+        await deleteQuiz(deleteConfirm.id);
+        showToast('Quiz deleted');
+      } else if (deleteConfirm.type === 'assignment') {
+        await deleteAssignment(deleteConfirm.id);
+        showToast('Assignment deleted');
       }
       setDeleteConfirm(null);
       loadBuilderData(selectedCourseId);
@@ -613,6 +715,12 @@ export default function CourseBuilder() {
                                 <Button variant="ghost" size="sm" className="!p-1.5" title="Add Resource" onClick={() => openResourceModal(m.id)}>
                                   <Plus size={14} /> <span className="hidden sm:inline ml-1 text-xs">Resource</span>
                                 </Button>
+                                <Button variant="ghost" size="sm" className="!p-1.5 text-purple-600 hover:bg-purple-50" title="Add Quiz" onClick={() => openQuizModal(m.id)}>
+                                  <Plus size={14} /> <span className="hidden sm:inline ml-1 text-xs">Quiz</span>
+                                </Button>
+                                <Button variant="ghost" size="sm" className="!p-1.5 text-indigo-600 hover:bg-indigo-50" title="Add Assignment" onClick={() => openAssignmentModal(m.id)}>
+                                  <Plus size={14} /> <span className="hidden sm:inline ml-1 text-xs">Assignment</span>
+                                </Button>
                                 <Button variant="ghost" size="sm" className="!p-1.5" onClick={() => openModuleModal(m)}>
                                   <Edit2 size={14} />
                                 </Button>
@@ -643,7 +751,7 @@ export default function CourseBuilder() {
                                   </div>
                                 </div>
 
-                                {/* Nested Lessons & Resources */}
+                                {/* Nested Lessons, Resources, Quizzes & Assignments */}
                                 <div className="space-y-2">
                                   {/* Lessons */}
                                   {m.lessons?.map((l: any, lIdx: number) => (
@@ -707,24 +815,81 @@ export default function CourseBuilder() {
                                     </div>
                                   ))}
 
-                                  {/* Quizzes & Assignments indicators */}
-                                  {m.quizzes && m.quizzes.length > 0 && (
-                                    <div className="flex items-center gap-2 p-2.5 bg-purple-50/50 border border-purple-100 rounded-xl pl-4">
-                                      <Award size={14} className="text-purple-600" />
-                                      <span className="text-xs font-bold text-purple-900">Module contains {m.quizzes.length} Quizzes</span>
-                                    </div>
-                                  )}
+                                  {/* Quizzes */}
+                                  {m.quizzes?.map((q: any) => (
+                                    <div key={q.id} className="flex items-center justify-between p-3 bg-purple-50/40 hover:bg-purple-50 border border-purple-100 rounded-xl pl-4 transition-colors">
+                                      <div className="flex items-center gap-3 min-w-0">
+                                        <div className="p-2 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center flex-shrink-0">
+                                          <Award size={14} />
+                                        </div>
+                                        <div className="min-w-0">
+                                          <p className="text-xs font-black text-slate-900 truncate">{q.title}</p>
+                                          <div className="flex items-center gap-2 mt-0.5">
+                                            <span className="text-[9px] uppercase font-bold text-purple-600">Quiz</span>
+                                            <span className="text-[9px] font-bold text-slate-400">•</span>
+                                            <span className="text-[9px] font-bold text-slate-500">{q.time_limit || 30} mins</span>
+                                            <span className="text-[9px] font-bold text-slate-400">•</span>
+                                            <span className="text-[9px] font-bold text-slate-500">Passing: {q.passing_score || 60}%</span>
+                                            <span className="text-[9px] font-bold text-slate-400">•</span>
+                                            <span className={`text-[9px] px-1.5 py-0.5 rounded font-extrabold uppercase ${q.status === 'published' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'}`}>
+                                              {q.status || 'draft'}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </div>
 
-                                  {m.assignments && m.assignments.length > 0 && (
-                                    <div className="flex items-center gap-2 p-2.5 bg-indigo-50/50 border border-indigo-100 rounded-xl pl-4">
-                                      <FileText size={14} className="text-indigo-600" />
-                                      <span className="text-xs font-bold text-indigo-900">Module contains {m.assignments.length} Assignments</span>
+                                      <div className="flex gap-1 flex-shrink-0">
+                                        <button className="p-1.5 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-white transition-all" onClick={() => openQuizModal(m.id, q)}>
+                                          <Edit2 size={13} />
+                                        </button>
+                                        <button className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all" onClick={() => triggerDelete('quiz', q.id)}>
+                                          <Trash2 size={13} />
+                                        </button>
+                                      </div>
                                     </div>
-                                  )}
+                                  ))}
 
-                                  {(!m.lessons || m.lessons.length === 0) && (!m.resources || m.resources.length === 0) && (
+                                  {/* Assignments */}
+                                  {m.assignments?.map((a: any) => (
+                                    <div key={a.id} className="flex items-center justify-between p-3 bg-indigo-50/40 hover:bg-indigo-50 border border-indigo-100 rounded-xl pl-4 transition-colors">
+                                      <div className="flex items-center gap-3 min-w-0">
+                                        <div className="p-2 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center flex-shrink-0">
+                                          <FileText size={14} />
+                                        </div>
+                                        <div className="min-w-0">
+                                          <p className="text-xs font-black text-slate-900 truncate">{a.title}</p>
+                                          <div className="flex items-center gap-2 mt-0.5">
+                                            <span className="text-[9px] uppercase font-bold text-indigo-600">Assignment</span>
+                                            <span className="text-[9px] font-bold text-slate-400">•</span>
+                                            <span className="text-[9px] font-bold text-slate-500">{a.total_marks || 100} Marks</span>
+                                            {a.due_date && (
+                                              <>
+                                                <span className="text-[9px] font-bold text-slate-400">•</span>
+                                                <span className="text-[9px] font-bold text-slate-500">Due: {a.due_date}</span>
+                                              </>
+                                            )}
+                                            <span className="text-[9px] font-bold text-slate-400">•</span>
+                                            <span className={`text-[9px] px-1.5 py-0.5 rounded font-extrabold uppercase ${a.status === 'published' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'}`}>
+                                              {a.status || 'draft'}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      <div className="flex gap-1 flex-shrink-0">
+                                        <button className="p-1.5 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-white transition-all" onClick={() => openAssignmentModal(m.id, a)}>
+                                          <Edit2 size={13} />
+                                        </button>
+                                        <button className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all" onClick={() => triggerDelete('assignment', a.id)}>
+                                          <Trash2 size={13} />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ))}
+
+                                  {(!m.lessons || m.lessons.length === 0) && (!m.resources || m.resources.length === 0) && (!m.quizzes || m.quizzes.length === 0) && (!m.assignments || m.assignments.length === 0) && (
                                     <p className="text-xs text-slate-400 font-medium italic text-center py-4">
-                                      No lessons or resources in this module. Add one above.
+                                      No lessons, resources, quizzes, or assignments in this module. Add one above.
                                     </p>
                                   )}
                                 </div>
@@ -1150,6 +1315,175 @@ export default function CourseBuilder() {
               <Button variant="ghost" onClick={() => setShowResourceModal(null)}>Cancel</Button>
               <Button variant="primary" className="!bg-slate-900" onClick={handleSaveResource} disabled={!resourceForm.title.trim() || !resourceForm.url.trim() || uploading}>
                 {editingResource ? 'Update' : 'Add Resource'}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* ── QUIZ CREATION MODAL ── */}
+      {showQuizModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={() => setShowQuizModal(null)} />
+          <Card className="relative w-full max-w-md space-y-4 z-10 animate-in zoom-in-95">
+            <h3 className="text-base font-black text-slate-900">{editingQuiz ? 'Edit Quiz' : 'Add Module Quiz'}</h3>
+            
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-500">Quiz Title *</label>
+              <input
+                type="text"
+                value={quizForm.title}
+                onChange={(e) => setQuizForm({ ...quizForm, title: e.target.value })}
+                className="w-full border border-slate-200 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus:border-slate-900"
+                placeholder="e.g. Chapter 1 Quiz"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-500">Instructions</label>
+              <textarea
+                value={quizForm.instructions}
+                onChange={(e) => setQuizForm({ ...quizForm, instructions: e.target.value })}
+                rows={2}
+                className="w-full border border-slate-200 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus:border-slate-900 resize-none"
+                placeholder="Instructions for students..."
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-500">Time Limit (mins)</label>
+                <input
+                  type="number"
+                  value={quizForm.time_limit}
+                  onChange={(e) => setQuizForm({ ...quizForm, time_limit: Number(e.target.value) })}
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus:border-slate-900"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-500">Passing Score (%)</label>
+                <input
+                  type="number"
+                  value={quizForm.passing_score}
+                  onChange={(e) => setQuizForm({ ...quizForm, passing_score: Number(e.target.value) })}
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus:border-slate-900"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-500">Total Marks</label>
+                <input
+                  type="number"
+                  value={quizForm.total_marks}
+                  onChange={(e) => setQuizForm({ ...quizForm, total_marks: Number(e.target.value) })}
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus:border-slate-900"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-500">Status</label>
+                <select
+                  value={quizForm.status}
+                  onChange={(e) => setQuizForm({ ...quizForm, status: e.target.value })}
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus:border-slate-900"
+                >
+                  <option value="draft">Draft</option>
+                  <option value="published">Published</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex gap-2 justify-end pt-2">
+              <Button variant="ghost" onClick={() => setShowQuizModal(null)}>Cancel</Button>
+              <Button variant="primary" className="!bg-slate-900" onClick={handleSaveQuiz} disabled={!quizForm.title.trim()}>
+                {editingQuiz ? 'Update Quiz' : 'Add Quiz'}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* ── ASSIGNMENT CREATION MODAL ── */}
+      {showAssignmentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={() => setShowAssignmentModal(null)} />
+          <Card className="relative w-full max-w-md space-y-4 z-10 animate-in zoom-in-95">
+            <h3 className="text-base font-black text-slate-900">{editingAssignment ? 'Edit Assignment' : 'Add Module Assignment'}</h3>
+            
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-500">Assignment Title *</label>
+              <input
+                type="text"
+                value={assignmentForm.title}
+                onChange={(e) => setAssignmentForm({ ...assignmentForm, title: e.target.value })}
+                className="w-full border border-slate-200 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus:border-slate-900"
+                placeholder="e.g. Chapter 1 Practical Task"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-500">Instructions / Description</label>
+              <textarea
+                value={assignmentForm.instructions}
+                onChange={(e) => setAssignmentForm({ ...assignmentForm, instructions: e.target.value })}
+                rows={2}
+                className="w-full border border-slate-200 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus:border-slate-900 resize-none"
+                placeholder="Explain the assignment requirements..."
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-500">Due Date</label>
+                <input
+                  type="date"
+                  value={assignmentForm.due_date}
+                  onChange={(e) => setAssignmentForm({ ...assignmentForm, due_date: e.target.value })}
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus:border-slate-900"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-500">Total Marks</label>
+                <input
+                  type="number"
+                  value={assignmentForm.total_marks}
+                  onChange={(e) => setAssignmentForm({ ...assignmentForm, total_marks: Number(e.target.value) })}
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus:border-slate-900"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-500">Submission Type</label>
+                <select
+                  value={assignmentForm.submission_type}
+                  onChange={(e) => setAssignmentForm({ ...assignmentForm, submission_type: e.target.value })}
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus:border-slate-900"
+                >
+                  <option value="both">Both File & Text</option>
+                  <option value="file">File Upload Only</option>
+                  <option value="text">Online Text Only</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-500">Status</label>
+                <select
+                  value={assignmentForm.status}
+                  onChange={(e) => setAssignmentForm({ ...assignmentForm, status: e.target.value })}
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus:border-slate-900"
+                >
+                  <option value="draft">Draft</option>
+                  <option value="published">Published</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex gap-2 justify-end pt-2">
+              <Button variant="ghost" onClick={() => setShowAssignmentModal(null)}>Cancel</Button>
+              <Button variant="primary" className="!bg-slate-900" onClick={handleSaveAssignment} disabled={!assignmentForm.title.trim()}>
+                {editingAssignment ? 'Update Assignment' : 'Add Assignment'}
               </Button>
             </div>
           </Card>

@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import {
   Users, Search, Filter, Mail, CheckCircle2, ShieldAlert,
-  User, BookOpen, Clock, AlertTriangle, ChevronRight, X,
+  BookOpen, Clock, AlertTriangle, ChevronRight, X,
   GraduationCap, Award, Save, Edit3, Loader2, Sparkles
 } from 'lucide-react';
 import { getMyInstructorCourses } from '../../services/courseService';
@@ -16,8 +16,11 @@ import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import ProgressBar from '../../components/ui/ProgressBar';
+import UserAvatar from '../../components/ui/UserAvatar';
+import { useAuthStore } from '../../store';
 
 export default function InstructorStudents() {
+  const { user } = useAuthStore();
   const [courses, setCourses] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -115,7 +118,13 @@ export default function InstructorStudents() {
   };
 
   // Filter logic
-  const filteredStudents = students.filter((s) => {
+  const filteredStudents = (students || []).filter((s) => {
+    if (user) {
+      if (s.email && user.email && s.email.toLowerCase() === user.email.toLowerCase()) return false;
+      if (s.id && (s.id === user.id || s.id === user.uid)) return false;
+    }
+    if (s.email && s.email.toLowerCase() === 'nibirbhuiyan24@gmail.com') return false;
+
     if (selectedCourseId && s.course_id !== selectedCourseId) return false;
     
     // Status filter
@@ -277,11 +286,13 @@ export default function InstructorStudents() {
                           }`}
                         >
                           <td className="px-6 py-4 flex items-center gap-3 min-w-[200px]">
-                            {s.photo_url ? (
-                              <img src={s.photo_url} alt={s.name} className="w-9 h-9 rounded-full object-cover" />
-                            ) : (
-                              <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-400"><User size={16} /></div>
-                            )}
+                            <UserAvatar
+                              src={s.photo_url}
+                              name={s.name}
+                              email={s.email}
+                              size="sm"
+                              className="shadow-2xs"
+                            />
                             <div>
                               <p className="text-sm font-black text-slate-900 leading-tight">{s.name}</p>
                               <p className="text-[10px] text-slate-400 font-medium">{s.email}</p>
@@ -351,11 +362,13 @@ export default function InstructorStudents() {
 
               {/* Drawer Title Header */}
               <div className="pb-4 border-b border-slate-100 flex items-center gap-3">
-                {selectedStudent.student.photo_url ? (
-                  <img src={selectedStudent.student.photo_url} alt={selectedStudent.student.name} className="w-12 h-12 rounded-full object-cover" />
-                ) : (
-                  <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400"><User size={20} /></div>
-                )}
+                <UserAvatar
+                  src={selectedStudent.student.photo_url}
+                  name={selectedStudent.student.name}
+                  email={selectedStudent.student.email}
+                  size="lg"
+                  className="shadow-sm ring-2 ring-slate-100"
+                />
                 <div>
                   <h2 className="text-base font-extrabold text-slate-900">{selectedStudent.student.name}</h2>
                   <p className="text-xs text-slate-400 font-semibold">{selectedStudent.student.email}</p>

@@ -30,6 +30,15 @@ export async function updateProfile(data: Partial<User>): Promise<User> {
   return unwrap<User>(res);
 }
 
+export async function uploadAvatar(file: File): Promise<{ url: string; user?: User }> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await api.post('/users/upload-avatar', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return unwrap<{ url: string; user?: User }>(res);
+}
+
 export async function mockLogin(role: 'student' | 'instructor' | 'admin'): Promise<User> {
   const uid = `${role}-demo-uid`;
   localStorage.setItem('mock_bearer_token', `mock-token-${uid}`);

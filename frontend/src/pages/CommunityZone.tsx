@@ -8,6 +8,7 @@ import PageHeader from '../components/layout/PageHeader';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
+import UserAvatar from '../components/ui/UserAvatar';
 import {
   getCommunityPosts, createCommunityPost, toggleLikePost,
   getPostComments, createPostComment, shareCommunityPost, deleteCommunityPost,
@@ -189,9 +190,13 @@ export default function CommunityZone() {
       {/* Create Post Box */}
       <Card className="space-y-4 shadow-md border-slate-200 dark:border-slate-800">
         <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
-          <div className="w-10 h-10 rounded-full bg-navy-900 text-amber-400 font-extrabold flex items-center justify-center text-sm shadow-xs">
-            {user?.name ? user.name[0].toUpperCase() : 'U'}
-          </div>
+          <UserAvatar
+            src={user?.photo_url}
+            name={user?.name}
+            email={user?.email}
+            size="md"
+            className="shadow-2xs"
+          />
           <div>
             <h4 className="text-sm font-bold text-navy-950 dark:text-white">{user?.name || 'You'}</h4>
             <span className="text-[10px] uppercase font-bold text-teal-600 dark:text-teal-400">
@@ -331,15 +336,12 @@ export default function CommunityZone() {
                 {/* Author & Header Info */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    {post.author_avatar ? (
-                      <img src={post.author_avatar} alt="avatar" className="w-10 h-10 rounded-full object-cover border border-slate-200" />
-                    ) : (
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-extrabold text-sm text-white shadow-xs ${
-                        isInstructor ? 'bg-teal-600' : 'bg-navy-900'
-                      }`}>
-                        {post.author_name ? post.author_name[0].toUpperCase() : 'U'}
-                      </div>
-                    )}
+                    <UserAvatar
+                      src={post.author_avatar}
+                      name={post.author_name}
+                      size="md"
+                      className="shadow-2xs"
+                    />
                     <div>
                       <div className="flex items-center gap-2">
                         <h4 className="text-sm font-extrabold text-navy-950 dark:text-white">
@@ -451,11 +453,12 @@ export default function CommunityZone() {
                           const isCInstructor = c.author_role === 'instructor' || c.author_role === 'teacher';
                           return (
                             <div key={c.id} className="pt-3 first:pt-0 flex items-start gap-2.5">
-                              <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs text-white shrink-0 ${
-                                isCInstructor ? 'bg-teal-600' : 'bg-slate-700'
-                              }`}>
-                                {c.author_name ? c.author_name[0].toUpperCase() : 'U'}
-                              </div>
+                              <UserAvatar
+                                src={c.author_avatar}
+                                name={c.author_name}
+                                size="xs"
+                                className="shrink-0 mt-0.5"
+                              />
                               <div className="flex-1 bg-slate-50 dark:bg-slate-900/80 p-3 rounded-2xl border border-slate-100 dark:border-slate-800/80 space-y-1">
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center gap-2">

@@ -48,7 +48,7 @@ def get_community_posts(
                 user_map[udoc.id] = {
                     "name": ud.get("name") or ud.get("full_name") or "EduBridge User",
                     "role": ud.get("role", "student"),
-                    "avatar": ud.get("avatar_url") or ud.get("picture") or "",
+                    "avatar": ud.get("photo_url") or ud.get("avatar_url") or ud.get("picture") or "",
                 }
 
     for d in docs:
@@ -176,7 +176,7 @@ def get_post_comments(
                 user_map[udoc.id] = {
                     "name": ud.get("name") or ud.get("full_name") or "EduBridge User",
                     "role": ud.get("role", "student"),
-                    "avatar": ud.get("avatar_url") or ud.get("picture") or "",
+                    "avatar": ud.get("photo_url") or ud.get("avatar_url") or ud.get("picture") or "",
                 }
 
     for c in comments_docs:

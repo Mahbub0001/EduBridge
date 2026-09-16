@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { MessageSquare, Send, User } from 'lucide-react';
+import { MessageSquare, Send } from 'lucide-react';
 import { getModuleDiscussion, postModuleComment } from '../../services/discussionService';
 import Card from '../ui/Card';
 import Badge from '../ui/Badge';
+import UserAvatar from '../ui/UserAvatar';
 
 interface ModuleFeedbackProps {
   moduleId: string;
@@ -82,11 +83,11 @@ export default function ModuleFeedback({ moduleId, moduleTitle }: ModuleFeedback
               }`}>
                 <div className="flex justify-between items-center text-[10px]">
                   <div className="flex items-center gap-1.5">
-                    {reply.author_photo ? (
-                      <img src={reply.author_photo} alt={reply.author_name} className="w-5 h-5 rounded-full object-cover" />
-                    ) : (
-                      <div className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-slate-400"><User size={10} /></div>
-                    )}
+                    <UserAvatar
+                      src={reply.author_photo}
+                      name={reply.author_name}
+                      size="xs"
+                    />
                     <span className="font-extrabold text-slate-800">{reply.author_name}</span>
                     {isInstructor && (
                       <Badge variant="default" className="!bg-slate-900 text-white text-[8px] scale-90">Instructor</Badge>

@@ -8,7 +8,6 @@ import {
   PlusCircle,
   Megaphone,
   MessageSquare,
-  Settings,
 } from 'lucide-react';
 import Sidebar from '../components/layout/Sidebar';
 import Topbar from '../components/layout/Topbar';
@@ -27,8 +26,6 @@ const navItems = [
   { name: 'Announcements', path: '/instructor/announcements', icon: Megaphone },
   { name: 'Discussions', path: '/instructor/discussions', icon: MessageSquare },
   { name: 'Analytics', path: '/instructor/analytics', icon: BarChart3 },
-  { name: 'Students', path: '/instructor/students', icon: Users },
-  { name: 'Settings', path: '/instructor/settings', icon: Settings },
 ];
 
 

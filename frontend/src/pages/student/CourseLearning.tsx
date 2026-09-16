@@ -21,6 +21,7 @@ import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import CertificateModal, { type CertificateData } from '../../components/ui/CertificateModal';
 import CourseCompletionModal from '../../components/ui/CourseCompletionModal';
+import UserAvatar from '../../components/ui/UserAvatar';
 
 
 function getYouTubeEmbedUrl(url: string): string | null {
@@ -158,18 +159,62 @@ export default function CourseLearning() {
         );
         setAssignmentSubmissions(subMap);
 
+        const isModLockedInitial = (modId: string, idx: number) => {
+          if (idx === 0) {
+            const stat0 = unlockStat.find((x: any) => x.module_id === modId);
+            return stat0 ? stat0.locked : false;
+          }
+          for (let i = 0; i < idx; i++) {
+            const prevStat = unlockStat.find((x: any) => x.module_id === m[i].id);
+            if (prevStat && (prevStat.locked || !prevStat.passed)) return true;
+          }
+          const stat = unlockStat.find((x: any) => x.module_id === modId);
+          return stat ? stat.locked : false;
+        };
+
+        let targetItemId = '';
         if (assignmentIdParam) {
-          setActiveItemId(`assignment-${assignmentIdParam}`);
-        } else if (p?.last_lesson_id) {
-          setActiveItemId(p.last_lesson_id);
-        } else if (m.length > 0 && m[0].lessons?.length > 0) {
-          setActiveItemId(m[0].lessons[0].id);
-        } else if (validAssignments.length > 0) {
-          setActiveItemId(`assignment-${validAssignments[0].id}`);
+          const targetAssign = validAssignments.find((a: any) => a.id === assignmentIdParam);
+          const parentModIdx = m.findIndex((mod: any) => mod.id === targetAssign?.module_id);
+          if (targetAssign && (parentModIdx === -1 || !isModLockedInitial(targetAssign.module_id, parentModIdx))) {
+            targetItemId = `assignment-${assignmentIdParam}`;
+          }
+        }
+        
+        if (!targetItemId && p?.last_lesson_id) {
+          const parentModIdx = m.findIndex((mod: any) => (mod.lessons || []).some((l: any) => l.id === p.last_lesson_id));
+          if (parentModIdx !== -1 && !isModLockedInitial(m[parentModIdx].id, parentModIdx)) {
+            targetItemId = p.last_lesson_id;
+          }
         }
 
+        if (!targetItemId) {
+          for (let i = 0; i < m.length; i++) {
+            const mod = m[i];
+            if (!isModLockedInitial(mod.id, i)) {
+              if (mod.lessons && mod.lessons.length > 0) {
+                targetItemId = mod.lessons[0].id;
+                break;
+              }
+              const modQuiz = quizzes.find((q: any) => q.module_id === mod.id);
+              if (modQuiz) {
+                targetItemId = `quiz-${modQuiz.id}`;
+                break;
+              }
+            }
+          }
+        }
+
+        if (!targetItemId && validAssignments.length > 0) {
+          targetItemId = `assignment-${validAssignments[0].id}`;
+        }
+
+        setActiveItemId(targetItemId);
+
         const expanded: Record<string, boolean> = {};
-        m.forEach((mod: any) => { expanded[mod.id] = true; });
+        m.forEach((mod: any, idx: number) => {
+          expanded[mod.id] = !isModLockedInitial(mod.id, idx);
+        });
         setExpandedModules(expanded);
       } catch (err) {
         console.error('Failed to load course', err);
@@ -188,7 +233,31 @@ export default function CourseLearning() {
   };
 
   const isModuleLocked = (moduleId?: string) => {
-    if (!moduleId || moduleUnlockStatus.length === 0) return false;
+    if (!moduleId || modules.length === 0) return false;
+    const modIdx = modules.findIndex((m) => m.id === moduleId);
+    if (modIdx === -1) {
+      const status = moduleUnlockStatus.find((x) => x.module_id === moduleId);
+      return status ? status.locked : false;
+    }
+
+    if (modIdx === 0) {
+      const stat0 = moduleUnlockStatus.find((x) => x.module_id === moduleId);
+      return stat0 ? stat0.locked : false;
+    }
+
+    // Strict sequential lock check: if any previous module is locked or not passed, this module is locked!
+    for (let i = 0; i < modIdx; i++) {
+      const prevId = modules[i].id;
+      const prevStat = moduleUnlockStatus.find((x) => x.module_id === prevId);
+      if (prevStat) {
+        if (prevStat.locked || !prevStat.passed) {
+          return true;
+        }
+      } else if (moduleUnlockStatus.length > 0) {
+        return true;
+      }
+    }
+
     const status = moduleUnlockStatus.find((x) => x.module_id === moduleId);
     return status ? status.locked : false;
   };
@@ -562,9 +631,24 @@ export default function CourseLearning() {
           </div>
 
 
-          {/* Render Assignment UI if active item is an assignment */}
-          {activeItem?.kind === 'assignment' && activeAssignment && (
-            <div className="space-y-6">
+          {/* Main Content Area: Show Lock screen if active item module is locked */}
+          {activeItem?.moduleId && isModuleLocked(activeItem.moduleId) ? (
+            <Card className="text-center py-16 space-y-4">
+              <div className="w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-950/50 flex items-center justify-center mx-auto text-amber-600 dark:text-amber-400">
+                <Lock size={32} />
+              </div>
+              <div>
+                <h2 className="text-xl font-black text-navy-900 dark:text-white">This Module is Locked</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto mt-2">
+                  You must complete all lessons and pass the quizzes in previous modules before unlocking this module.
+                </p>
+              </div>
+            </Card>
+          ) : (
+            <>
+              {/* Render Assignment UI if active item is an assignment */}
+              {activeItem?.kind === 'assignment' && activeAssignment && (
+                <div className="space-y-6">
               {/* Assignment Header Card */}
               <Card className="space-y-5">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
@@ -1370,11 +1454,11 @@ export default function CourseLearning() {
                             : 'bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-700'
                         }`}
                       >
-                        <div className="w-7 h-7 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center flex-shrink-0">
-                          {reply.author_photo
-                            ? <img src={reply.author_photo} alt={reply.author_name} className="w-7 h-7 rounded-full object-cover" />
-                            : <User size={12} className="text-slate-400" />}
-                        </div>
+                        <UserAvatar
+                          src={reply.author_photo}
+                          name={reply.author_name}
+                          size="xs"
+                        />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
                             <span className="font-extrabold text-navy-900 dark:text-white">{reply.author_name || 'Student'}</span>
@@ -1451,6 +1535,8 @@ export default function CourseLearning() {
                 </button>
               )}
             </div>
+          )}
+            </>
           )}
         </div>
 

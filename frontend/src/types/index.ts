@@ -8,8 +8,17 @@ export interface User {
   photo_url?: string;
   bio?: string;
   student_id?: string;
+  first_name?: string;
+  last_name?: string;
+  phone?: string;
+  title?: string;
+  department?: string;
+  institution?: string;
   language?: string;
   notifications_enabled?: boolean;
+  email_notifications?: boolean;
+  sms_notifications?: boolean;
+  marketing_notifications?: boolean;
 }
 
 export interface Course {
