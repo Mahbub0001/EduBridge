@@ -1,7 +1,7 @@
 # Graph Report - MOOC_blended  (2026-09-17)
 
 ## Corpus Check
-- 168 files · ~121,993 words
+- 168 files · ~122,060 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `fadf06de`
+- Built from commit: `15548663`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 

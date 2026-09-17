@@ -1,7 +1,7 @@
 # Graph Report - MOOC_blended  (2026-09-17)
 
 ## Corpus Check
-- 168 files · ~121,864 words
+- 168 files · ~121,993 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -317,11 +317,11 @@ Nodes (4): CourseThumbnail(), CourseThumbnailProps, getCourseTheme(), ThemeConfi
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `success_response()` connect `dependencies` to `unwrap`, `assessment.py`, `__init__.py`, `courses.py`, `Topbar.tsx`, `announcements.py`, `AssignmentCard.tsx`, `get_db`, `main.py`, `TC011_Search_and_manage_a_user_account.py`, `Categories.tsx`, `firebase.py`, `verify_firebase_token`?**
-  _High betweenness centrality (0.076) - this node is a cross-community bridge._
+  _High betweenness centrality (0.070) - this node is a cross-community bridge._
 - **Why does `unwrap()` connect `Card.tsx` to `CourseCard.tsx`, `Analytics.tsx`, `cn`, `utils.ts`, `assignmentService.ts`, `App.tsx`, `ResourceCard.tsx`, `adminService.ts`, `course.py`, `adminService.ts`, `CreateCourse.tsx`, `store.ts`, `seed_firestore.py`, `dependencies.py`, `useAuthStore`, `TC013_Complete_a_course_builder_draft_and_publish_it.py`, `Calendar.tsx`, `CreateCourse.tsx`?**
   _High betweenness centrality (0.041) - this node is a cross-community bridge._
-- **Why does `init_firebase()` connect `verify_firebase_token` to `Badge.tsx`, `compilerOptions`?**
-  _High betweenness centrality (0.038) - this node is a cross-community bridge._
+- **Why does `cn()` connect `success_response` to `cn`, `mockData.ts`, `Card.tsx`, `ResourceCard.tsx`, `useTranslation`, `CourseThumbnail.tsx`, `Card.tsx`, `Sidebar.tsx`, `TC013_Complete_a_course_builder_draft_and_publish_it.py`, `CreateCourse.tsx`?**
+  _High betweenness centrality (0.028) - this node is a cross-community bridge._
 - **What connects `Zero-dependency persistent local cache that survives server reboots/reloads.`, `Multi-tier cache combining in-memory RAM (L1) and persistent SQLite (L2), plus R`, `Ultra-lightweight ASGI middleware for setting contextvar without BaseHTTPMiddlew` to the rest of the system?**
   _212 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `unwrap` be split into smaller, more focused modules?**

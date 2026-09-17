@@ -24,23 +24,26 @@ const CATEGORY_COLORS = [
   'bg-purple-50 text-purple-700 dark:bg-purple-950/30 dark:text-purple-400'
 ];
 
-function CircularProgress({ value }: { value: number }) {
+function CircularProgress({ value, label }: { value: number; label?: string }) {
   const r = 70;
   const circ = 2 * Math.PI * r;
   const { t } = useTranslation();
+  const clamped = Math.min(Math.max(value, 0), 100);
   return (
     <div className="relative w-44 h-44 flex-shrink-0 flex items-center justify-center">
       <svg className="w-full h-full -rotate-90" viewBox="0 0 176 176">
         <circle cx="88" cy="88" r={r} strokeWidth="14" fill="transparent" className="stroke-slate-200 dark:stroke-slate-800" />
         <circle
           cx="88" cy="88" r={r} strokeWidth="14" fill="transparent"
-          strokeDasharray={circ} strokeDashoffset={circ * (1 - value / 100)}
+          strokeDasharray={circ} strokeDashoffset={circ * (1 - clamped / 100)}
           strokeLinecap="round" className="stroke-teal-600 dark:stroke-teal-500 transition-all duration-700"
         />
       </svg>
       <div className="absolute flex flex-col items-center text-center">
         <span className="text-3xl font-extrabold text-navy-900 dark:text-white">{value}%</span>
-        <span className="text-[9px] tracking-widest text-slate-500 dark:text-slate-400 font-extrabold uppercase">{t('progress')}</span>
+        <span className="text-[9px] tracking-widest text-slate-500 dark:text-slate-400 font-extrabold uppercase">
+          {label || t('progress')}
+        </span>
       </div>
     </div>
   );
@@ -101,7 +104,13 @@ export default function Dashboard() {
     .sort((a, b) => (b.progress ?? 0) - (a.progress ?? 0));
   const completedCount = courses.filter((c) => c.status === 'completed').length;
   const featured = activeCourses[0] || enrolledCourses[0];
-  const heroProgress = featured?.progress ?? 0;
+
+  const relevantCourses = enrolledCourses.length > 0 ? enrolledCourses : activeCourses;
+  const avgProgress = relevantCourses.length > 0
+    ? Math.round(
+        (relevantCourses.reduce((sum, c) => sum + (c.progress ?? 0), 0) / relevantCourses.length) * 10
+      ) / 10
+    : 0;
 
   const stats = [
     { label: t('enrolledCourses'), value: String(enrolledCourses.length).padStart(2, '0'), icon: BookOpen, iconBg: 'bg-blue-50 text-blue-600', iconColor: 'text-blue-600', trend: `${enrolledCourses.length} Total`, link: '/student/my-courses/all' },
@@ -144,8 +153,14 @@ export default function Dashboard() {
               {t('journeyContinues')}
             </h1>
             <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed font-normal">
-              {featured
-                ? t('completedProgress').replace('{progress}', String(heroProgress)).replace('{title}', featured.title)
+              {relevantCourses.length > 1
+                ? t('insightDesc')
+                    .replace('{progress}', String(avgProgress))
+                    .replace('{count}', String(relevantCourses.length))
+                : featured
+                ? t('completedProgress')
+                    .replace('{progress}', String(featured.progress ?? 0))
+                    .replace('{title}', featured.title)
                 : t('exploreCoursesDesc')}
             </p>
             <div className="flex flex-wrap gap-4 pt-2">
@@ -172,7 +187,10 @@ export default function Dashboard() {
               </Link>
             </div>
           </div>
-          <CircularProgress value={heroProgress} />
+          <CircularProgress
+            value={avgProgress}
+            label={relevantCourses.length > 1 ? (t('avgProgressLabel') || 'AVG PROGRESS') : t('progress')}
+          />
         </Card>
 
         <div className="grid grid-cols-2 gap-4">
