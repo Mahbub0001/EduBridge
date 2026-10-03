@@ -1,7 +1,26 @@
 import axios, { type InternalAxiosRequestConfig, type AxiosRequestConfig, type AxiosResponse } from 'axios';
 import { auth } from './firebase';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+
+// Render free services sleep after inactivity. Wait for their health endpoint
+// before starting an API request's normal timeout; never retry a mutation.
+let backendReadyUntil = 0;
+let backendWakePromise: Promise<void> | null = null;
+
+async function waitForBackend(): Promise<void> {
+  if (!import.meta.env.PROD || !new URL(API_BASE, window.location.origin).hostname.endsWith('.onrender.com')) {
+    return;
+  }
+  if (Date.now() < backendReadyUntil) return;
+
+  if (!backendWakePromise) {
+    backendWakePromise = axios.get(`${API_BASE}/health`, { timeout: 120000 })
+      .then(() => { backendReadyUntil = Date.now() + 10 * 60 * 1000; })
+      .finally(() => { backendWakePromise = null; });
+  }
+  await backendWakePromise;
+}
 
 interface CacheEntry {
   data: any;
@@ -65,6 +84,7 @@ const api = axios.create({
 
 api.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
+    await waitForBackend();
     const mockToken = localStorage.getItem('mock_bearer_token');
     if (mockToken) {
       config.headers.Authorization = `Bearer ${mockToken}`;

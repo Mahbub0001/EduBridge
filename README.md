@@ -5,7 +5,7 @@ Full-stack MOOC platform with React frontend and FastAPI backend, powered by Fir
 ## Prerequisites
 
 - Python 3.10+
-- Node.js 20+
+- Node.js 22.12+ (required by Vite 8)
 - Firebase project with Authentication and Firestore enabled
 
 ## Setup
@@ -73,3 +73,24 @@ The seed script:
 ## API Documentation
 
 Once the backend is running, visit [http://localhost:8000/docs](http://localhost:8000/docs) for Swagger UI.
+
+## Production deployment
+
+Render uses the `main` branch, root directory `backend`, build command
+`pip install -r requirements.txt`, and start command
+`uvicorn app.main:app --host 0.0.0.0 --port $PORT`. Use `/health` as the health
+check path. Set `ENVIRONMENT=production`, `FRONTEND_URL` to the Vercel origin,
+and `FIREBASE_CREDENTIALS_JSON` to the Firebase service account JSON as a secret
+environment variable; never commit that file.
+
+Vercel uses the `main` branch and root directory `frontend`. Use Node.js 24.x,
+`npm ci` to install dependencies, `npm run build` to build, and `dist` as output.
+Configure all six `VITE_FIREBASE_*` variables used in
+`frontend/src/services/firebase.ts` for both Production and Preview. Set
+`VITE_API_BASE_URL=https://edubridge-iymd.onrender.com` for both environments.
+Changing a Vite environment variable requires a new build and deployment.
+
+Push committed changes to `main` to trigger both platforms. Local commits and
+uncommitted edits do not update a deployment. The client checks Render's health
+endpoint before API calls after inactivity, allowing up to two minutes for a
+free instance to wake without repeating writes or logins.
