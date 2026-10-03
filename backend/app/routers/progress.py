@@ -6,7 +6,7 @@ from ..core.dependencies import get_current_user
 from ..core.firebase import get_db
 from ..core.cache import cache_response, invalidate_cache, cache_manager
 from ..utils.response import success_response
-from .certificates import issue_course_certificate
+from .certificates import issue_course_certificate, check_course_assignments_graded
 
 router = APIRouter()
 
@@ -97,13 +97,23 @@ def mark_lesson_complete(
             .stream()
         ))
         pct = round((completed_count / max(total, 1)) * 100, 1)
+        can_issue, reason = check_course_assignments_graded(db, uid, payload.course_id)
+        is_course_completed = (pct >= 100 and can_issue)
         cert_id = None
-        if pct >= 100:
-            cert = issue_course_certificate(db, uid, payload.course_id, current_user.get("name"))
+        if is_course_completed:
+            cert = issue_course_certificate(db, uid, payload.course_id, current_user.get("name"), force=True)
             cert_id = cert.get("id") if cert else None
 
         return success_response(
-            data={"completed": True, "progress_percent": pct, "is_course_completed": pct >= 100, "certificate_id": cert_id},
+            data={
+                "completed": True,
+                "progress_percent": pct,
+                "lessons_completed": pct >= 100,
+                "is_course_completed": is_course_completed,
+                "can_issue_certificate": can_issue,
+                "certificate_lock_reason": reason if not can_issue else None,
+                "certificate_id": cert_id,
+            },
             message="Already completed"
         )
 
@@ -125,7 +135,9 @@ def mark_lesson_complete(
         .stream()
     ))
     pct = round((completed / max(total, 1)) * 100, 1)
-    is_course_completed = pct >= 100
+
+    can_issue, reason = check_course_assignments_graded(db, uid, payload.course_id)
+    is_course_completed = (pct >= 100 and can_issue)
 
     enroll_docs = (
         db.collection("enrollments")
@@ -140,11 +152,13 @@ def mark_lesson_complete(
             update_data["status"] = "completed"
             update_data["completed_at"] = now
             update_data["final_grade"] = round(70 + pct * 0.3, 1)
+        elif pct >= 100:
+            update_data["lessons_completed"] = True
         e.reference.update(update_data)
 
     cert_id = None
     if is_course_completed:
-        cert = issue_course_certificate(db, uid, payload.course_id, current_user.get("name"))
+        cert = issue_course_certificate(db, uid, payload.course_id, current_user.get("name"), force=True)
         cert_id = cert.get("id") if cert else None
 
     invalidate_cache(["edubridge:progress*", "edubridge:enrollments*", "edubridge:analytics*", "edubridge:courses*", "edubridge:instructor*", "edubridge:certificates*", "edubridge:unlock_status*", "unlock_status"])
@@ -152,7 +166,10 @@ def mark_lesson_complete(
         data={
             "completed": True,
             "progress_percent": pct,
+            "lessons_completed": pct >= 100,
             "is_course_completed": is_course_completed,
+            "can_issue_certificate": can_issue,
+            "certificate_lock_reason": reason if not can_issue else None,
             "certificate_id": cert_id,
         },
         message="Lesson marked complete"

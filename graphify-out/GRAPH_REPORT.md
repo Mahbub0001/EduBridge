@@ -1,16 +1,16 @@
 # Graph Report - MOOC_blended  (2026-09-17)
 
 ## Corpus Check
-- 168 files · ~122,060 words
+- 168 files · ~122,994 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1021 nodes · 2896 edges · 86 communities (78 shown, 8 thin omitted)
+- 1023 nodes · 2906 edges · 83 communities (75 shown, 8 thin omitted)
 - Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 7 edges (avg confidence: 0.63)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `15548663`
+- Built from commit: `e3776c21`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -63,13 +63,10 @@
 - [[_COMMUNITY_course.py|course.py]]
 - [[_COMMUNITY___init__.py|__init__.py]]
 - [[_COMMUNITY_assessment.py|assessment.py]]
-- [[_COMMUNITY_Analytics.tsx|Analytics.tsx]]
 - [[_COMMUNITY_ConfirmDialog.tsx|ConfirmDialog.tsx]]
 - [[_COMMUNITY_announcements.py|announcements.py]]
-- [[_COMMUNITY_ResourceCard.tsx|ResourceCard.tsx]]
 - [[_COMMUNITY_generic_exception_handler|generic_exception_handler]]
 - [[_COMMUNITY_course.py|course.py]]
-- [[_COMMUNITY_CourseThumbnail.tsx|CourseThumbnail.tsx]]
 - [[_COMMUNITY_Certificate|Certificate]]
 - [[_COMMUNITY_Notification|Notification]]
 - [[_COMMUNITY_Client|Client]]
@@ -102,19 +99,19 @@
 ## Import Cycles
 - None detected.
 
-## Communities (86 total, 8 thin omitted)
+## Communities (83 total, 8 thin omitted)
 
 ### Community 0 - "unwrap"
 Cohesion: 0.13
-Nodes (28): AdminEnrollmentUpdate, AdminManualEnrollment, AdminPasswordReset, AdminUserCreate, create_admin_enrollment(), create_admin_user(), delete_admin_course(), delete_admin_enrollment() (+20 more)
+Nodes (27): AdminEnrollmentUpdate, AdminManualEnrollment, AdminPasswordReset, AdminUserCreate, create_admin_enrollment(), create_admin_user(), delete_admin_course(), delete_admin_enrollment() (+19 more)
 
 ### Community 1 - "StudentLayout.tsx"
-Cohesion: 0.83
-Nodes (3): escapeICSText(), exportEventsToICS(), formatICSDate()
+Cohesion: 0.31
+Nodes (8): Calendar(), CalendarEventItem, FilterType, ViewMode, deleteCalendarEvent(), escapeICSText(), exportEventsToICS(), formatICSDate()
 
 ### Community 2 - "dependencies"
-Cohesion: 0.12
-Nodes (62): AnnouncementCreateUpdate, AssignmentCreateUpdate, check_course_permission(), create_course_announcement_notifications(), create_course_module(), create_instructor_announcement(), create_instructor_course_assignment(), create_instructor_course_quiz() (+54 more)
+Cohesion: 0.11
+Nodes (63): AnnouncementCreateUpdate, AssignmentCreateUpdate, check_course_permission(), create_course_announcement_notifications(), create_course_module(), create_instructor_announcement(), create_instructor_course_assignment(), create_instructor_course_quiz() (+55 more)
 
 ### Community 3 - "courses.py"
 Cohesion: 0.25
@@ -126,43 +123,43 @@ Nodes (7): CATEGORIES, CourseFormData, CreateCourse(), DEFAULT_COURSE_LOGOS, INI
 
 ### Community 5 - "Card.tsx"
 Cohesion: 0.14
-Nodes (31): CATEGORIES, CourseBuilder(), DEFAULT_COURSE_LOGOS, Step, STEPS, Calendar(), unwrap(), checkCoursePublish() (+23 more)
+Nodes (31): CATEGORIES, CourseBuilder(), DEFAULT_COURSE_LOGOS, Step, STEPS, VerifyCertificate(), unwrap(), checkCoursePublish() (+23 more)
 
 ### Community 6 - "Topbar.tsx"
 Cohesion: 0.27
 Nodes (12): create_discussion(), create_module_comment(), create_reply(), delete_discussion(), DiscussionCreate, get_all_discussions(), get_course_discussions(), get_module_discussion() (+4 more)
 
 ### Community 7 - "assignmentService.ts"
-Cohesion: 0.25
-Nodes (7): CertificateVerify, VerifyCertificate(), api, CacheEntry, clientCache, EXEMPT_MUTATION_PATTERNS, rawGet
+Cohesion: 0.27
+Nodes (13): AssignmentCreate, create_assignment(), delete_assignment(), get_assignment(), get_assignment_submissions(), get_course_assignments(), get_my_submission(), grade_submission() (+5 more)
 
 ### Community 8 - "App.tsx"
-Cohesion: 0.13
-Nodes (25): BreadcrumbItem, CourseCompletionModal(), CourseCompletionModalProps, CourseLearning(), FlatItem, getAssignmentSubmission(), getCourseAssignmentsList(), getCourseQuizzesList() (+17 more)
+Cohesion: 0.14
+Nodes (21): BreadcrumbItem, CourseCompletionModalProps, CourseLearning(), FlatItem, getAssignmentSubmission(), getCourseAssignmentsList(), getCourseQuizzesList(), getVimeoEmbedUrl() (+13 more)
 
 ### Community 9 - "useTranslation"
-Cohesion: 0.31
-Nodes (7): ModuleFeedbackProps, COLOR_PALETTES, getColorIndex(), getInitials(), SIZE_CLASSES, UserAvatar(), UserAvatarProps
+Cohesion: 0.27
+Nodes (12): COLOR_PALETTES, getColorIndex(), getInitials(), SIZE_CLASSES, UserAvatar(), UserAvatarProps, InstructorSettings(), NAV (+4 more)
 
 ### Community 10 - "AssignmentCard.tsx"
-Cohesion: 0.15
-Nodes (28): invalidate_cache(), admin_update_course_status(), archive_course(), create_course(), create_lesson(), create_module(), delete_course(), delete_lesson() (+20 more)
+Cohesion: 0.13
+Nodes (29): invalidate_cache(), admin_update_course_status(), archive_course(), create_course(), create_lesson(), create_module(), delete_course(), delete_lesson() (+21 more)
 
 ### Community 11 - "adminService.ts"
-Cohesion: 0.11
-Nodes (31): AdminAnalytics(), AdminCertificates(), AdminDashboard(), AdminEnrollments(), AdminSettings(), SettingsTab, AdminUsers(), createAdminEnrollment() (+23 more)
+Cohesion: 0.14
+Nodes (25): AdminCertificates(), AdminEnrollments(), AdminSettings(), SettingsTab, AdminUsers(), createAdminEnrollment(), createAdminUser(), createAnnouncement() (+17 more)
 
 ### Community 12 - "success_response"
-Cohesion: 0.08
-Nodes (30): footerLinks, StudentFooter(), StudentFooterProps, Accordion(), AccordionItem, AccordionProps, AssignmentCard(), statusStyles (+22 more)
+Cohesion: 0.07
+Nodes (35): defaultNavItems, Sidebar(), SidebarProps, footerLinks, StudentFooter(), StudentFooterProps, Accordion(), AccordionItem (+27 more)
 
 ### Community 13 - "compilerOptions"
 Cohesion: 0.05
 Nodes (37): dependencies, autoprefixer, axios, clsx, date-fns, firebase, lucide-react, postcss (+29 more)
 
 ### Community 14 - "adminService.ts"
-Cohesion: 0.27
-Nodes (12): InstructorCourses(), Dashboard(), Skeleton(), archiveCourse(), publishCourse(), AtRiskStudent, CoursePerformance, getInstructorDashboardSummary() (+4 more)
+Cohesion: 0.17
+Nodes (23): analyticsMemoryCache, cachedCourses, cachedStudentsList, InstructorAnalytics(), InstructorCourses(), Dashboard(), Skeleton(), InstructorStudents() (+15 more)
 
 ### Community 15 - "compilerOptions"
 Cohesion: 0.11
@@ -173,12 +170,12 @@ Cohesion: 0.11
 Nodes (17): compilerOptions, allowImportingTsExtensions, erasableSyntaxOnly, lib, module, moduleDetection, moduleResolution, noEmit (+9 more)
 
 ### Community 17 - "Card.tsx"
-Cohesion: 0.18
-Nodes (16): PageHeader(), Badge(), variants, Button(), ButtonProps, Card(), CardProps, Assignments() (+8 more)
+Cohesion: 0.14
+Nodes (19): PageHeader(), Badge(), variants, Button(), ButtonProps, Card(), CardProps, EmptyStateProps (+11 more)
 
 ### Community 18 - "Sidebar.tsx"
-Cohesion: 0.16
-Nodes (17): Topbar(), TopbarLink, ThemeProvider(), useTheme(), PublicLayout(), PublicLayoutProps, Certificates(), Discussions() (+9 more)
+Cohesion: 0.35
+Nodes (7): Topbar(), TopbarLink, ThemeProvider(), useTheme(), PublicLayout(), PublicLayoutProps, usePreferencesStore
 
 ### Community 19 - "main.py"
 Cohesion: 0.15
@@ -189,8 +186,8 @@ Cohesion: 0.37
 Nodes (13): _check(), EduBridge MOOC Platform — Firestore Seed Script.  Populates Firestore with rea, Return True if the document already exists (skip on re-run)., Run all seed functions in dependency order., seed_all(), seed_announcements(), seed_assignments(), seed_categories() (+5 more)
 
 ### Community 21 - "store.ts"
-Cohesion: 0.30
-Nodes (13): ModuleFeedback(), InstructorDiscussions(), timeAgo(), deleteDiscussionThread(), getInstructorDiscussionDetail(), getInstructorDiscussions(), getModuleDiscussion(), hideDiscussionThread() (+5 more)
+Cohesion: 0.27
+Nodes (14): ModuleFeedback(), ModuleFeedbackProps, InstructorDiscussions(), timeAgo(), deleteDiscussionThread(), getInstructorDiscussionDetail(), getInstructorDiscussions(), getModuleDiscussion() (+6 more)
 
 ### Community 22 - "seed_firestore.py"
 Cohesion: 0.36
@@ -201,8 +198,8 @@ Cohesion: 0.06
 Nodes (30): AdminAnalytics, AdminCategories, AdminCertificates, AdminCourses, AdminDashboard, AdminEnrollments, AdminSettings, AdminUsers (+22 more)
 
 ### Community 24 - "dependencies.py"
-Cohesion: 0.44
-Nodes (7): ProtectedRoute(), InstructorSettings(), Settings(), getMe(), updateProfile(), uploadAvatar(), useAuthStore
+Cohesion: 0.24
+Nodes (8): ProtectedRoute(), AuthState, AuthUser, Language, PreferencesState, Theme, useAuthStore, User
 
 ### Community 25 - "CreateCourse.tsx"
 Cohesion: 0.18
@@ -213,8 +210,8 @@ Cohesion: 0.08
 Nodes (19): _build_cache_key(), cache_request_middleware(), CacheManager, CustomJSONEncoder, _execute_with_cache_async(), _execute_with_cache_sync(), _format_cached_response(), MemoryCache (+11 more)
 
 ### Community 27 - "Calendar.tsx"
-Cohesion: 0.33
-Nodes (11): InstructorAnnouncements(), StudentAnnouncements(), createInstructorAnnouncement(), deleteInstructorAnnouncement(), getInstructorAnnouncements(), getStudentAnnouncements(), markAllAnnouncementsAsRead(), markAnnouncementAsRead() (+3 more)
+Cohesion: 0.32
+Nodes (12): InstructorAnnouncements(), StudentAnnouncements(), createInstructorAnnouncement(), deleteInstructorAnnouncement(), getInstructorAnnouncements(), getStudentAnnouncements(), markAllAnnouncementsAsRead(), markAnnouncementAsRead() (+4 more)
 
 ### Community 28 - "Categories.tsx"
 Cohesion: 0.33
@@ -225,16 +222,16 @@ Cohesion: 0.18
 Nodes (16): get_all_users(), get_user_me(), Client, Request, UploadFile, RoleUpdate, StatusUpdate, update_me() (+8 more)
 
 ### Community 30 - "CreateCourse.tsx"
-Cohesion: 0.28
-Nodes (14): InstructorAssignments(), RubricCriterion, InstructorSubmissions(), createAssignment(), deleteAssignment(), getAssignment(), getAssignmentSubmissions(), getCourseAssignments() (+6 more)
+Cohesion: 0.24
+Nodes (15): InstructorAssignments(), RubricCriterion, InstructorSubmissions(), createAssignment(), deleteAssignment(), getAssignment(), getAssignmentSubmissions(), getCourseAssignments() (+7 more)
 
 ### Community 31 - "verify_firebase_token"
-Cohesion: 0.07
-Nodes (40): cache_response(), get_current_user(), Client, require_instructor(), health_check(), read_root(), get_admin_analytics(), get_analytics_root() (+32 more)
+Cohesion: 0.08
+Nodes (33): cache_response(), get_current_user(), Client, require_admin(), require_instructor(), health_check(), read_root(), get_admin_analytics() (+25 more)
 
 ### Community 32 - "CourseCard.tsx"
-Cohesion: 0.22
-Nodes (10): Dashboard(), timeAgo(), MyCourses(), tabFromPath(), getAllAssignments(), getMySubmission(), addToWishlist(), getMyCourses() (+2 more)
+Cohesion: 0.12
+Nodes (24): CourseThumbnail(), CourseThumbnailProps, getCourseTheme(), ThemeConfig, Assignments(), Certificates(), CATEGORY_COLORS, CircularProgress() (+16 more)
 
 ### Community 33 - "announcements.py"
 Cohesion: 0.47
@@ -249,8 +246,8 @@ Cohesion: 0.60
 Nodes (4): Config, Progress, ProgressBase, ProgressCreate
 
 ### Community 37 - "mockData.ts"
-Cohesion: 0.11
-Nodes (21): NotificationDropdown(), NotificationDropdownProps, TopbarProps, AssignmentCardProps, CalendarCard(), CalendarCardProps, typeVariants, CourseCard() (+13 more)
+Cohesion: 0.12
+Nodes (19): NotificationDropdown(), NotificationDropdownProps, TopbarProps, AssignmentCard(), AssignmentCardProps, statusStyles, CourseCard(), CourseCardProps (+11 more)
 
 ### Community 38 - "utils.ts"
 Cohesion: 0.25
@@ -258,19 +255,19 @@ Nodes (15): InstructorQuizzes(), Tab, TABS, createQuestion(), createQuiz(), dele
 
 ### Community 43 - "get_db"
 Cohesion: 0.27
-Nodes (12): generate_certificate(), GenerateCertificatePayload, get_my_certificates(), issue_course_certificate(), Client, Helper to issue or retrieve a course completion certificate., verify_certificate(), get_course_progress() (+4 more)
+Nodes (14): check_course_assignments_graded(), generate_certificate(), GenerateCertificatePayload, get_my_certificates(), issue_course_certificate(), Client, Verify that all published assignments for a course are submitted and graded., Helper to issue or retrieve a course completion certificate.     Unless force=Tr (+6 more)
 
 ### Community 55 - "TC011_Search_and_manage_a_user_account.py"
-Cohesion: 0.43
-Nodes (7): require_admin(), CategoryCreate, create_category(), delete_category(), get_categories(), Client, update_category()
+Cohesion: 0.22
+Nodes (8): api, CacheEntry, clientCache, EXEMPT_MUTATION_PATTERNS, rawGet, CourseProgress, MarkLessonCompleteResponse, getCourseResources()
 
 ### Community 56 - "useAuthStore"
 Cohesion: 0.22
 Nodes (11): CertificateData, CertificateModalProps, CourseDetail(), getStudentCourseAnnouncements(), Certificate, generateCertificate(), getMyCertificates(), verifyCertificate() (+3 more)
 
 ### Community 57 - "TC013_Complete_a_course_builder_draft_and_publish_it.py"
-Cohesion: 0.18
-Nodes (14): defaultNavItems, NavItem, Sidebar(), SidebarProps, useLogout(), AdminLayout(), navItems, InstructorLayout() (+6 more)
+Cohesion: 0.23
+Nodes (11): NavItem, useLogout(), AdminLayout(), navItems, InstructorLayout(), navItems, StudentLayout(), getStudentUnreadAnnouncementCount() (+3 more)
 
 ### Community 62 - "course.py"
 Cohesion: 0.40
@@ -284,29 +281,17 @@ Nodes (3): get_me(), login_session(), error_response()
 Cohesion: 0.67
 Nodes (3): Request, UploadFile, upload_material()
 
-### Community 66 - "Analytics.tsx"
-Cohesion: 0.35
-Nodes (11): analyticsMemoryCache, cachedCourses, cachedStudentsList, InstructorAnalytics(), InstructorStudents(), getMyInstructorCourses(), getInstructorComprehensiveAnalytics(), getInstructorStudentProgress() (+3 more)
-
 ### Community 72 - "announcements.py"
 Cohesion: 0.33
 Nodes (10): AnnouncementCreate, create_announcement(), delete_announcement(), get_announcements(), get_student_all_announcements(), get_student_course_announcements(), get_student_unread_count(), mark_all_announcements_read() (+2 more)
-
-### Community 73 - "ResourceCard.tsx"
-Cohesion: 0.21
-Nodes (10): ResourceCard(), ResourceCardProps, typeConfig, Resources(), TYPE_COLORS, TYPE_FILTERS, TYPE_ICONS, getCourseResources() (+2 more)
 
 ### Community 74 - "generic_exception_handler"
 Cohesion: 0.29
 Nodes (7): generic_exception_handler(), http_exception_handler(), Request, validation_exception_handler(), Exception, RequestValidationError, StarletteHTTPException
 
 ### Community 75 - "course.py"
-Cohesion: 0.32
+Cohesion: 0.35
 Nodes (10): AdminCategories(), AdminCourses(), deleteAdminCourse(), Category, createCategory(), deleteCategory(), getCategories(), updateCategory() (+2 more)
-
-### Community 76 - "CourseThumbnail.tsx"
-Cohesion: 0.50
-Nodes (4): CourseThumbnail(), CourseThumbnailProps, getCourseTheme(), ThemeConfig
 
 ## Knowledge Gaps
 - **201 isolated node(s):** `Config`, `Config`, `Config`, `Config`, `Config` (+196 more)
@@ -316,17 +301,17 @@ Nodes (4): CourseThumbnail(), CourseThumbnailProps, getCourseTheme(), ThemeConfi
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `success_response()` connect `dependencies` to `unwrap`, `assessment.py`, `__init__.py`, `courses.py`, `Topbar.tsx`, `announcements.py`, `AssignmentCard.tsx`, `get_db`, `main.py`, `TC011_Search_and_manage_a_user_account.py`, `Categories.tsx`, `firebase.py`, `verify_firebase_token`?**
-  _High betweenness centrality (0.070) - this node is a cross-community bridge._
-- **Why does `unwrap()` connect `Card.tsx` to `CourseCard.tsx`, `Analytics.tsx`, `cn`, `utils.ts`, `assignmentService.ts`, `App.tsx`, `ResourceCard.tsx`, `adminService.ts`, `course.py`, `adminService.ts`, `CreateCourse.tsx`, `store.ts`, `seed_firestore.py`, `dependencies.py`, `useAuthStore`, `TC013_Complete_a_course_builder_draft_and_publish_it.py`, `Calendar.tsx`, `CreateCourse.tsx`?**
-  _High betweenness centrality (0.041) - this node is a cross-community bridge._
-- **Why does `cn()` connect `success_response` to `cn`, `mockData.ts`, `Card.tsx`, `ResourceCard.tsx`, `useTranslation`, `CourseThumbnail.tsx`, `Card.tsx`, `Sidebar.tsx`, `TC013_Complete_a_course_builder_draft_and_publish_it.py`, `CreateCourse.tsx`?**
-  _High betweenness centrality (0.028) - this node is a cross-community bridge._
+- **Why does `success_response()` connect `dependencies` to `unwrap`, `assessment.py`, `__init__.py`, `courses.py`, `Topbar.tsx`, `assignmentService.ts`, `announcements.py`, `AssignmentCard.tsx`, `get_db`, `main.py`, `Categories.tsx`, `firebase.py`, `verify_firebase_token`?**
+  _High betweenness centrality (0.076) - this node is a cross-community bridge._
+- **Why does `unwrap()` connect `Card.tsx` to `CourseCard.tsx`, `cn`, `utils.ts`, `App.tsx`, `useTranslation`, `adminService.ts`, `course.py`, `adminService.ts`, `Card.tsx`, `CreateCourse.tsx`, `store.ts`, `seed_firestore.py`, `TC011_Search_and_manage_a_user_account.py`, `useAuthStore`, `TC013_Complete_a_course_builder_draft_and_publish_it.py`, `Calendar.tsx`, `CreateCourse.tsx`?**
+  _High betweenness centrality (0.050) - this node is a cross-community bridge._
+- **Why does `init_firebase()` connect `verify_firebase_token` to `Badge.tsx`, `compilerOptions`?**
+  _High betweenness centrality (0.038) - this node is a cross-community bridge._
 - **What connects `Zero-dependency persistent local cache that survives server reboots/reloads.`, `Multi-tier cache combining in-memory RAM (L1) and persistent SQLite (L2), plus R`, `Ultra-lightweight ASGI middleware for setting contextvar without BaseHTTPMiddlew` to the rest of the system?**
-  _212 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _213 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `unwrap` be split into smaller, more focused modules?**
-  _Cohesion score 0.12807881773399016 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.1349206349206349 - nodes in this community are weakly interconnected._
 - **Should `dependencies` be split into smaller, more focused modules?**
-  _Cohesion score 0.11623143881208398 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.11359126984126984 - nodes in this community are weakly interconnected._
 - **Should `Card.tsx` be split into smaller, more focused modules?**
-  _Cohesion score 0.13949579831932774 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.1361344537815126 - nodes in this community are weakly interconnected._

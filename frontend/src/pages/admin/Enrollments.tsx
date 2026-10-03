@@ -15,7 +15,6 @@ import {
 import {
   getAdminEnrollments,
   createAdminEnrollment,
-  updateAdminEnrollment,
   deleteAdminEnrollment,
   getAllUsers,
 } from '../../services/adminService';
@@ -99,19 +98,6 @@ export default function AdminEnrollments() {
     }
   };
 
-  const handleToggleStatus = async (item: any) => {
-    const nextStatus = item.status === 'completed' ? 'active' : 'completed';
-    try {
-      await updateAdminEnrollment(item.id, {
-        status: nextStatus,
-        progress_percent: nextStatus === 'completed' ? 100 : item.progress_percent || 0,
-      });
-      setMsg({ text: `Enrollment status marked as ${nextStatus}`, type: 'success' });
-      loadData();
-    } catch (err: any) {
-      setMsg({ text: 'Failed to update enrollment status', type: 'error' });
-    }
-  };
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -359,17 +345,7 @@ export default function AdminEnrollments() {
 
                     {/* Actions */}
                     <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleToggleStatus(item)}
-                          className={`text-xs ${
-                            isCompleted ? 'text-amber-600 hover:text-amber-700' : 'text-emerald-600 hover:text-emerald-700'
-                          }`}
-                        >
-                          {isCompleted ? 'Revert to Active' : 'Mark Completed'}
-                        </Button>
+                      <div className="flex items-center justify-end">
                         <Button
                           variant="ghost"
                           size="sm"

@@ -12,6 +12,8 @@ from ..core.firebase import get_db
 from ..core.cache import cache_response, invalidate_cache
 from ..utils.response import success_response
 from ..schemas.course import CourseUpdate
+from .certificates import issue_course_certificate
+from .progress import _get_course_total_lessons
 
 router = APIRouter()
 
@@ -1049,7 +1051,83 @@ def grade_instructor_submission(
 
     updated = sub_ref.get().to_dict()
     updated["id"] = submission_id
-    invalidate_cache(["edubridge:instructor_submissions*", "edubridge:submissions*", "edubridge:analytics*"])
+
+    # Check if student is now fully completed (all lessons + all assignments graded)
+    student_id = sub_data.get("user_id")
+    course_id = assign_doc_data.get("course_id")
+    if student_id and course_id and (payload.status == "graded" or payload.score is not None):
+        try:
+            total_lessons = _get_course_total_lessons(course_id, db)
+            completed_lessons = len(list(
+                db.collection("progress")
+                .where("user_id", "==", student_id)
+                .where("course_id", "==", course_id)
+                .stream()
+            ))
+            lessons_done = (completed_lessons >= max(total_lessons, 1))
+
+            published_asgs = list(
+                db.collection("assignments")
+                .where("course_id", "==", course_id)
+                .where("status", "==", "published")
+                .stream()
+            )
+            asg_ids = [a.id for a in published_asgs]
+            user_subs = list(
+                db.collection("assignment_submissions")
+                .where("user_id", "==", student_id)
+                .where("course_id", "==", course_id)
+                .stream()
+            )
+            sub_map = {s.to_dict().get("assignment_id"): s.to_dict() for s in user_subs}
+            sub_map[sub_data.get("assignment_id")] = updated
+
+            all_asgs_graded = len(asg_ids) > 0 and all(
+                sub_map.get(aid) and (sub_map[aid].get("status") == "graded" or sub_map[aid].get("score") is not None)
+                for aid in asg_ids
+            )
+
+            if lessons_done and all_asgs_graded:
+                enr_docs = list(
+                    db.collection("enrollments")
+                    .where("user_id", "==", student_id)
+                    .where("course_id", "==", course_id)
+                    .limit(1)
+                    .stream()
+                )
+                avg_score = sum(
+                    (float(sub_map[aid].get("score") or 0) / max(float(a.to_dict().get("total_marks") or 100), 1)) * 100
+                    for a in published_asgs if (aid := a.id) in sub_map
+                ) / max(len(published_asgs), 1)
+                final_grade = round(avg_score, 1)
+
+                for edoc in enr_docs:
+                    edoc.reference.update({
+                        "status": "completed",
+                        "completed_at": now,
+                        "final_grade": final_grade,
+                        "progress_percent": 100,
+                    })
+
+                student_user_doc = db.collection("users").document(student_id).get()
+                st_name = student_user_doc.to_dict().get("name") if student_user_doc.exists else "Student"
+                issue_course_certificate(db, student_id, course_id, student_name_override=st_name, force=True)
+
+                course_doc = db.collection("courses").document(course_id).get()
+                c_title = course_doc.to_dict().get("title", "Course") if course_doc.exists else "Course"
+                db.collection("notifications").add({
+                    "user_id": student_id,
+                    "title": "🎉 Certificate Unlocked!",
+                    "message": f"Congratulations! Your assignment for '{c_title}' has been graded. Your official Certificate of Completion is now available.",
+                    "type": "certificate",
+                    "read": False,
+                    "link": "/student/certificates",
+                    "created_at": now.isoformat(),
+                })
+        except Exception as e:
+            print("Error in auto certificate issuing after grading:", e)
+
+    invalidate_cache(["edubridge:instructor_submissions*", "edubridge:submissions*", "edubridge:analytics*", "edubridge:certificates*", "edubridge:enrollments*", "edubridge:progress*"])
     return success_response(data=updated, message="Submission successfully graded!")
 
 # 7. PATCH /instructor/assignments/{assignment_id}/publish
@@ -1069,13 +1147,14 @@ def publish_instructor_assignment_endpoint(
 
     status = body.get("status", "draft")
     if status == "published":
-        # Validations: title, instructions, due_date, marks
+        # Validations: title, instructions, total_marks
         if not assign_data.get("title", "").strip():
             raise HTTPException(status_code=400, detail="Assignment cannot be published without a title")
         if not assign_data.get("instructions", "").strip():
             raise HTTPException(status_code=400, detail="Assignment cannot be published without instructions")
-        if not assign_data.get("due_date"):
-            raise HTTPException(status_code=400, detail="Assignment cannot be published without a due date")
+        if not assign_data.get("due_days"):
+            assign_data["due_days"] = 10
+            ref.update({"due_days": 10, "deadline_type": "days"})
         if not assign_data.get("total_marks") or assign_data.get("total_marks") <= 0:
             raise HTTPException(status_code=400, detail="Assignment must have positive total marks")
 

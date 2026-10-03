@@ -14,8 +14,40 @@ class GenerateCertificatePayload(BaseModel):
     course_id: str
 
 
-def issue_course_certificate(db: Client, uid: str, course_id: str, student_name_override: Optional[str] = None):
-    """Helper to issue or retrieve a course completion certificate."""
+def check_course_assignments_graded(db: Client, uid: str, course_id: str) -> tuple[bool, str]:
+    """Verify that all published assignments for a course are submitted and graded."""
+    published_asgs = list(
+        db.collection("assignments")
+        .where("course_id", "==", course_id)
+        .where("status", "==", "published")
+        .stream()
+    )
+    if not published_asgs:
+        return True, ""
+    
+    asg_ids = [a.id for a in published_asgs]
+    user_subs = list(
+        db.collection("assignment_submissions")
+        .where("user_id", "==", uid)
+        .where("course_id", "==", course_id)
+        .stream()
+    )
+    sub_map = {s.to_dict().get("assignment_id"): s.to_dict() for s in user_subs}
+    
+    for aid in asg_ids:
+        sub = sub_map.get(aid)
+        if not sub:
+            return False, "Course assignments have not been submitted yet."
+        if sub.get("status") != "graded" and sub.get("score") is None:
+            return False, "Submitted assignment is awaiting instructor grading."
+            
+    return True, ""
+
+
+def issue_course_certificate(db: Client, uid: str, course_id: str, student_name_override: Optional[str] = None, force: bool = False):
+    """Helper to issue or retrieve a course completion certificate.
+    Unless force=True, strictly requires all course assignments to be graded.
+    """
     existing = (
         db.collection("certificates")
         .where("user_id", "==", uid)
@@ -28,6 +60,11 @@ def issue_course_certificate(db: Client, uid: str, course_id: str, student_name_
         ed["id"] = ex.id
         ed["valid"] = True
         return ed
+
+    if not force:
+        can_issue, reason = check_course_assignments_graded(db, uid, course_id)
+        if not can_issue:
+            return None
 
     course_doc = db.collection("courses").document(course_id).get()
     course_data = course_doc.to_dict() if course_doc.exists else {}
@@ -92,23 +129,28 @@ def generate_certificate(
     uid = current_user["id"]
 
     # Check enrollment is completed
-    enrollments = (
+    enrollments = list(
         db.collection("enrollments")
         .where("user_id", "==", uid)
         .where("course_id", "==", payload.course_id)
         .limit(1)
-        .get()
+        .stream()
     )
-    is_completed = False
-    for e in enrollments:
-        if e.to_dict().get("status") == "completed" or (e.to_dict().get("progress_percent") or 0) >= 100:
-            is_completed = True
+    if not enrollments:
+        raise HTTPException(status_code=400, detail="You are not enrolled in this course.")
 
-    if not is_completed:
-        raise HTTPException(status_code=400, detail="Course not yet completed")
+    enr = enrollments[0].to_dict()
+    if (enr.get("progress_percent") or 0) < 100 and enr.get("status") != "completed":
+        raise HTTPException(status_code=400, detail="Course lessons not yet completed.")
+
+    can_issue, reason = check_course_assignments_graded(db, uid, payload.course_id)
+    if not can_issue:
+        raise HTTPException(status_code=400, detail=f"Certificate locked: {reason}")
 
     student_name = current_user.get("name") or current_user.get("full_name")
-    cert_data = issue_course_certificate(db, uid, payload.course_id, student_name_override=student_name)
+    cert_data = issue_course_certificate(db, uid, payload.course_id, student_name_override=student_name, force=True)
+    if not cert_data:
+        raise HTTPException(status_code=400, detail="Could not generate certificate.")
     return success_response(data=cert_data, message="Certificate generated")
 
 

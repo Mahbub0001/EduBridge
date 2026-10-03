@@ -150,14 +150,13 @@ export default function InstructorAssignments() {
     if (assign) {
       setActiveAssignment(assign);
       setRubrics(assign.rubrics || []);
-      const isDays = (assign.due_days !== undefined && assign.due_days !== null) || !assign.due_date;
       setAssignmentForm({
         title: assign.title || '',
         instructions: assign.instructions || '',
         module_id: assign.module_id || '',
-        due_date: assign.due_date ? assign.due_date.slice(0, 16) : '',
+        due_date: '',
         due_days: assign.due_days !== undefined && assign.due_days !== null ? assign.due_days : 10,
-        deadline_type: isDays ? 'days' : 'date',
+        deadline_type: 'days',
         total_marks: assign.total_marks || 100,
         submission_type: assign.submission_type || 'both',
         allow_late: assign.allow_late || false,
@@ -192,8 +191,9 @@ export default function InstructorAssignments() {
     try {
       const payload = {
         ...assignmentForm,
-        due_days: assignmentForm.deadline_type === 'days' ? Number(assignmentForm.due_days || 10) : null,
-        due_date: assignmentForm.deadline_type === 'date' ? assignmentForm.due_date : null,
+        due_days: Math.max(1, Number(assignmentForm.due_days || 10)),
+        deadline_type: 'days',
+        due_date: null,
         rubrics
       };
       if (activeAssignment && activeAssignment.id !== 'new') {
@@ -450,13 +450,7 @@ export default function InstructorAssignments() {
 
                           <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500">
                             <Clock size={12} className="text-teal-600" />
-                            {a.due_days !== undefined && a.due_days !== null ? (
-                              <span className="text-teal-700 dark:text-teal-400">{a.due_days} days after enrollment</span>
-                            ) : a.due_date ? (
-                              <span>Due: {new Date(a.due_date).toLocaleDateString()}</span>
-                            ) : (
-                              <span>No deadline</span>
-                            )}
+                            <span className="text-teal-700 dark:text-teal-400 font-bold">{a.due_days || 10} days after enrollment</span>
                             {a.allow_late && (
                               <span className="text-[10px] text-amber-600 font-semibold">(Late -{a.late_penalty || 0}%)</span>
                             )}
@@ -790,65 +784,33 @@ export default function InstructorAssignments() {
               />
             </div>
 
-            {/* Deadline Configuration */}
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                  <Clock size={14} className="text-teal-600" /> Assignment Deadline Type *
+            {/* Deadline Configuration: Relative Days after enrollment (MOOC) */}
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <Clock size={14} className="text-teal-600" /> Submission Deadline Schedule *
                 </label>
-                <div className="flex items-center gap-1 bg-white border border-slate-200 p-1 rounded-xl">
-                  <button
-                    type="button"
-                    onClick={() => setAssignmentForm({ ...assignmentForm, deadline_type: 'days' })}
-                    className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
-                      assignmentForm.deadline_type === 'days'
-                        ? 'bg-slate-900 text-white shadow-sm'
-                        : 'text-slate-500 hover:text-slate-800'
-                    }`}
-                  >
-                    Days after Enrollment (MOOC)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAssignmentForm({ ...assignmentForm, deadline_type: 'date' })}
-                    className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
-                      assignmentForm.deadline_type === 'date'
-                        ? 'bg-slate-900 text-white shadow-sm'
-                        : 'text-slate-500 hover:text-slate-800'
-                    }`}
-                  >
-                    Fixed Calendar Date
-                  </button>
-                </div>
+                <span className="text-[10px] font-bold text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/40 px-2.5 py-0.5 rounded-md border border-teal-200 dark:border-teal-800/50">
+                  Relative MOOC System
+                </span>
               </div>
-
-              {assignmentForm.deadline_type === 'days' ? (
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-3">
-                    <div className="w-36">
-                      <input
-                        type="number"
-                        min="1"
-                        max="365"
-                        value={assignmentForm.due_days || ''}
-                        onChange={(e) => setAssignmentForm({ ...assignmentForm, due_days: Number(e.target.value) })}
-                        placeholder="e.g. 10"
-                        className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-black outline-none focus:border-slate-900 text-slate-800 bg-white"
-                      />
-                    </div>
-                    <span className="text-xs font-bold text-slate-600">days from student enrollment date</span>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-1.5">
-                  <input
-                    type="datetime-local"
-                    value={assignmentForm.due_date}
-                    onChange={(e) => setAssignmentForm({ ...assignmentForm, due_date: e.target.value })}
-                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-semibold outline-none focus:border-slate-900 text-slate-700 bg-white"
-                  />
-                </div>
-              )}
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="number"
+                  min="1"
+                  max="365"
+                  value={assignmentForm.due_days || 10}
+                  onChange={(e) => setAssignmentForm({ ...assignmentForm, due_days: Math.max(1, Number(e.target.value) || 1), deadline_type: 'days' })}
+                  placeholder="10"
+                  className="w-24 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-black outline-none focus:border-slate-900 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                />
+                <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                  days after each student's enrollment
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal">
+                Whenever any student enrolls, their deadline is automatically scheduled in their calendar (Enrollment Date + X days). Fixed calendar dates are disabled so students enrolling at different times never get expired deadlines.
+              </p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

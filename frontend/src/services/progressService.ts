@@ -14,6 +14,8 @@ export interface MarkLessonCompleteResponse {
   progress_percent: number;
   is_course_completed?: boolean;
   certificate_id?: string;
+  can_issue_certificate?: boolean;
+  lessons_completed?: boolean;
 }
 
 export async function getCourseProgress(courseId: string): Promise<CourseProgress> {

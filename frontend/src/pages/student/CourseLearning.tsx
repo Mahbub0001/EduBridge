@@ -123,21 +123,29 @@ export default function CourseLearning() {
   const [isCompletionModalOpen, setIsCompletionModalOpen] = useState(false);
   const [isCertificateModalOpen, setIsCertificateModalOpen] = useState(false);
   const [certificateData, setCertificateData] = useState<CertificateData | null>(null);
+  const [isCertificateReady, setIsCertificateReady] = useState(false);
+  const [completionAssignmentStatus, setCompletionAssignmentStatus] = useState<'unsubmitted' | 'pending_grading' | 'graded'>('graded');
 
 
   useEffect(() => {
     if (!courseId) return;
     (async () => {
       try {
-        const [c, m, p, quizzes, unlockStat, assigns] = await Promise.all([
+        const [c, m, p, quizzes, unlockStat, assigns, certs] = await Promise.all([
           getCourse(courseId),
           getCourseModules(courseId).catch(() => []),
           getCourseProgress(courseId).catch(() => null),
           getCourseQuizzesList(courseId).catch(() => []),
           getModuleUnlockStatus(courseId).catch(() => []),
           getCourseAssignmentsList(courseId).catch(() => []),
+          getMyCertificates().catch(() => []),
         ]);
         setCourse(c);
+        const matchCert = (certs || []).find((ct: any) => ct.course_id === courseId);
+        if (matchCert) {
+          setCertificateData(matchCert);
+          setIsCertificateReady(true);
+        }
         setModules(m);
         setProgress(p);
         // Include published quizzes and quizzes with no status set (seeded/legacy quizzes)
@@ -485,12 +493,26 @@ export default function CourseLearning() {
         submitted_at: new Date().toISOString(),
         status: 'pending',
       }));
-      setAssignmentSubmissions((prev) => ({
-        ...prev,
+      const updatedMap = {
+        ...assignmentSubmissions,
         [assignmentId]: updatedSub,
-      }));
+      };
+      setAssignmentSubmissions(updatedMap);
       setAssignmentSuccessMsg('Assignment submitted successfully!');
       setIsEditingAssignment(false);
+
+      // Check if all lessons are complete AND all published assignments are now submitted
+      const asgs = (courseAssignments || []).filter((a: any) => a.status === 'published' || !a.status);
+      const totalLessons = progress?.total_lessons || 1;
+      const completedLessonsCount = (progress?.completed_lessons || []).length;
+      const allLessonsDone = (progress?.progress_percent || 0) >= 100 || completedLessonsCount >= totalLessons;
+      const allAssignmentsSubmitted = asgs.length > 0 && asgs.every((a: any) => !!updatedMap[a.id]);
+
+      if (allLessonsDone && allAssignmentsSubmitted) {
+        setIsCertificateReady(false);
+        setCompletionAssignmentStatus('pending_grading');
+        setIsCompletionModalOpen(true);
+      }
     } catch (err: any) {
       setAssignmentErrorMsg(err?.response?.data?.detail || 'Failed to submit assignment. Please try again.');
     } finally {
@@ -500,6 +522,12 @@ export default function CourseLearning() {
 
   const activeAssignment = activeItem?.kind === 'assignment' ? activeItem.assignment : null;
   const activeSubmission = activeAssignment ? assignmentSubmissions[activeAssignment.id] : null;
+
+  const hasUnsubmittedAssignments = useMemo(() => {
+    const asgs = (courseAssignments || []).filter((a: any) => a.status === 'published' || !a.status);
+    if (asgs.length === 0) return false;
+    return asgs.some((a: any) => !assignmentSubmissions[a.id]);
+  }, [courseAssignments, assignmentSubmissions]);
 
   const effectiveAssignmentDueDate = useMemo(() => {
     if (!activeAssignment) return null;
@@ -572,13 +600,7 @@ export default function CourseLearning() {
       setIsCertificateModalOpen(true);
     } catch (err) {
       console.error('Failed to load certificate', err);
-      setCertificateData({
-        id: `cert-${courseId}`,
-        student_name: 'Student',
-        course_title: course?.title || 'Course',
-        issued_at: new Date().toISOString(),
-      });
-      setIsCertificateModalOpen(true);
+      setIsCompletionModalOpen(true);
     }
   };
 
@@ -630,18 +652,37 @@ export default function CourseLearning() {
       }
 
       if (result.is_course_completed || newPct >= 100) {
-        try {
-          const cert = await generateCertificate(courseId);
-          setCertificateData(cert);
-        } catch {
-          setCertificateData({
-            id: result.certificate_id || `cert-${courseId}`,
-            student_name: 'Student',
-            course_title: course?.title || 'Course',
-            issued_at: new Date().toISOString(),
-          });
+        if (result.is_course_completed || result.can_issue_certificate) {
+          try {
+            const cert = await generateCertificate(courseId);
+            setCertificateData(cert);
+            setIsCertificateReady(true);
+            setCompletionAssignmentStatus('graded');
+          } catch {
+            setIsCertificateReady(false);
+          }
+          setIsCompletionModalOpen(true);
+        } else {
+          setIsCertificateReady(false);
+          const asgs = (courseAssignments || []).filter((a: any) => a.status === 'published' || !a.status);
+          if (asgs.length > 0) {
+            const anyUnsubmitted = asgs.some((a) => !assignmentSubmissions[a.id]);
+            if (anyUnsubmitted) {
+              // IMPORTANT: Student has NOT submitted assignment yet!
+              // DO NOT open completion modal until assignment is submitted!
+              setIsCompletionModalOpen(false);
+            } else {
+              // All assignments were already submitted, awaiting instructor grade
+              setCompletionAssignmentStatus('pending_grading');
+              setIsCompletionModalOpen(true);
+            }
+          } else {
+            // Course has no assignments at all
+            setIsCertificateReady(true);
+            setCompletionAssignmentStatus('graded');
+            setIsCompletionModalOpen(true);
+          }
         }
-        setIsCompletionModalOpen(true);
       }
     } catch (err) {
       console.error(err);
@@ -717,14 +758,44 @@ export default function CourseLearning() {
             </div>
 
             {progressPct >= 100 && (
-              <Button
-                variant="primary"
-                size="sm"
-                className="!bg-teal-600 hover:!bg-teal-700 dark:!bg-teal-500 text-white gap-1.5 font-bold shadow-md self-start sm:self-center"
-                onClick={handleOpenCertificate}
-              >
-                <Award size={16} /> View Certificate
-              </Button>
+              isCertificateReady && certificateData ? (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  className="!bg-teal-600 hover:!bg-teal-700 dark:!bg-teal-500 text-white gap-1.5 font-bold shadow-md self-start sm:self-center"
+                  onClick={handleOpenCertificate}
+                >
+                  <Award size={16} /> View Certificate
+                </Button>
+              ) : hasUnsubmittedAssignments ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const firstUnsub = courseAssignments.find((a: any) => !assignmentSubmissions[a.id]);
+                    if (firstUnsub) {
+                      setActiveItemId(`assignment-${firstUnsub.id}`);
+                      if (firstUnsub.module_id) {
+                        setExpandedModules((prev) => ({ ...prev, [firstUnsub.module_id]: true }));
+                      }
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800/60 text-blue-800 dark:text-blue-300 text-xs font-bold hover:bg-blue-100 transition-all self-start sm:self-center shadow-xs cursor-pointer"
+                  title="Submit your assignment to complete the course"
+                >
+                  <ClipboardList size={14} className="text-blue-600" />
+                  <span>Submit Assignment to Complete</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsCompletionModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/60 text-amber-800 dark:text-amber-300 text-xs font-bold hover:bg-amber-100 transition-all self-start sm:self-center shadow-xs cursor-pointer"
+                  title="Click to view course completion status"
+                >
+                  <Clock size={14} className="text-amber-600 animate-pulse" />
+                  <span>Certificate Pending Grading</span>
+                </button>
+              )
             )}
           </div>
 
@@ -1508,6 +1579,37 @@ export default function CourseLearning() {
                   </div>
                 )}
 
+                {progressPct >= 100 && hasUnsubmittedAssignments && (
+                  <div className="p-4 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 my-3">
+                    <div className="flex items-center gap-2.5">
+                      <CheckCircle2 size={20} className="text-blue-600 dark:text-blue-400 shrink-0" />
+                      <div>
+                        <p className="text-xs font-black text-blue-950 dark:text-blue-200">
+                          All Lessons Completed!
+                        </p>
+                        <p className="text-[11px] text-blue-700 dark:text-blue-300 font-medium">
+                          Please submit the course assignment to complete your course and unlock your certificate.
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      className="!bg-blue-600 hover:!bg-blue-700 text-white font-bold text-xs shrink-0 rounded-xl gap-1.5"
+                      onClick={() => {
+                        const firstUnsub = courseAssignments.find((a: any) => !assignmentSubmissions[a.id]);
+                        if (firstUnsub) {
+                          setActiveItemId(`assignment-${firstUnsub.id}`);
+                          if (firstUnsub.module_id) {
+                            setExpandedModules((prev) => ({ ...prev, [firstUnsub.module_id]: true }));
+                          }
+                        }
+                      }}
+                    >
+                      <ClipboardList size={14} /> Go to Assignment <ChevronRight size={14} />
+                    </Button>
+                  </div>
+                )}
+
                 <div className="flex justify-between items-center pt-4 border-t border-slate-100 dark:border-slate-800">
                   {prevItem ? (
                     <button
@@ -1547,6 +1649,8 @@ export default function CourseLearning() {
                           <><Lock size={15} /> Locked</>
                         ) : nextItem.kind === 'quiz' ? (
                           <><HelpCircle size={16} /> Take Quiz</>
+                        ) : nextItem.kind === 'assignment' ? (
+                          <><ClipboardList size={16} /> Assignment: {nextItem.assignment?.title || 'Submit Assignment'} <ChevronRight size={16} /></>
                         ) : (
                           <>Next <ChevronRight size={18} /></>
                         )}
@@ -1904,6 +2008,18 @@ export default function CourseLearning() {
         courseTitle={course?.title || 'Course'}
         onClose={() => setIsCompletionModalOpen(false)}
         onViewCertificate={handleOpenCertificate}
+        isCertificateReady={isCertificateReady}
+        hasAssignments={(courseAssignments || []).length > 0}
+        assignmentStatus={completionAssignmentStatus}
+        onGoToAssignment={() => {
+          const firstAsg = (courseAssignments || [])[0];
+          if (firstAsg) {
+            setActiveItemId(`assignment-${firstAsg.id}`);
+            if (firstAsg.module_id) {
+              setExpandedModules((prev) => ({ ...prev, [firstAsg.module_id]: true }));
+            }
+          }
+        }}
       />
 
       {/* Official Certificate Modal */}

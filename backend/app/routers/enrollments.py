@@ -341,21 +341,17 @@ def my_calendar(
         for a in assignments:
             ad = a.to_dict()
             due_days = ad.get("due_days")
-            is_relative = False
-            effective_date = None
+            if due_days is None:
+                due_days = 10
+            try:
+                due_days = int(due_days)
+            except Exception:
+                due_days = 10
 
-            if due_days is not None and enrolled_at:
-                try:
-                    effective_date = enrolled_at + timedelta(days=int(due_days))
-                    is_relative = True
-                except Exception:
-                    pass
-
-            if not effective_date:
-                raw_due = ad.get("due_date") or ad.get("created_at")
-                effective_date = parse_dt(raw_due)
-
-            date_str = effective_date.strftime("%Y-%m-%d") if effective_date else ""
+            base_dt = enrolled_at or parse_dt(enr_info.get("created_at")) or datetime.now(timezone.utc)
+            effective_date = base_dt + timedelta(days=due_days)
+            is_relative = True
+            date_str = effective_date.strftime("%Y-%m-%d")
 
             sub_exists = a.id in user_submitted_assignment_ids
             events.append({

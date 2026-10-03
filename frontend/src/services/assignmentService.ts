@@ -21,12 +21,14 @@ export async function getAllAssignments(): Promise<Assignment[]> {
     const res = await api.get(`/courses/${c.id}/assignments`);
     const items = unwrap<Assignment[]>(res);
     for (const a of items) {
-      if (a.due_days !== undefined && a.due_days !== null && c.enrolled_at) {
+      const days = (a.due_days !== undefined && a.due_days !== null) ? Number(a.due_days) : 10;
+      if (c.enrolled_at) {
         try {
           const enrDate = new Date(c.enrolled_at);
-          const effective = new Date(enrDate.getTime() + Number(a.due_days) * 86400000);
+          const effective = new Date(enrDate.getTime() + days * 86400000);
           a.effective_due_date = effective.toISOString();
           a.due_date = effective.toISOString();
+          a.due_days = days;
         } catch {}
       }
       const sub = await getMySubmission(a.id).catch(() => null);
